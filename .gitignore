@@ -1,0 +1,54 @@
+# --- Node / Electron ---
+node_modules/
+dist/
+out/
+build/
+release/
+*.asar
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+# keep lockfile only if your team uses it; otherwise ignore
+
+# Caches / tools
+.cache/
+.parcel-cache/
+.turbo/
+.vite/
+.next/
+coverage/
+.eslintcache
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Electron artifacts
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+*.snap
+
+# --- Python (step-bridge) ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
