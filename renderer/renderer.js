@@ -1,3 +1,4 @@
+import { WS_URL } from './config.js';
 /* global YT */
 const hudPack = document.getElementById('hud-pack');
 const hudMode = document.getElementById('hud-mode');
@@ -8,15 +9,14 @@ const loadBtn = document.getElementById('loadBtn');
 const surpriseBtn = document.getElementById('surpriseBtn');
 
 const { Filters, effectMap } = window.RTW_EFFECTS;
-import { WS_URL } from './config.js';
 const hud = document.getElementById('hud');
-let wsStatus = document.getElementById('hud-ws');
-if (!wsStatus) {
-  wsStatus = document.createElement('div');
-  wsStatus.id = 'hud-ws';
-  wsStatus.className = 'row';
-  wsStatus.innerHTML = '<strong>Wearable:</strong> <span id="hud-ws-text">Disconnected</span>';
-  hud.appendChild(wsStatus);
+let wsRow = document.getElementById('hud-ws');
+if (!wsRow) {
+  wsRow = document.createElement('div');
+  wsRow.id = 'hud-ws';
+  wsRow.className = 'row';
+  wsRow.innerHTML = '<strong>Wearable:</strong> <span id="hud-ws-text">Disconnected</span>';
+  hud.appendChild(wsRow);
 }
 const hudWsText = document.getElementById('hud-ws-text');
 
@@ -114,7 +114,10 @@ function connectWS() {
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        if (typeof msg.steps === 'number') { /* hook effect-per-step here */ }
+        if (typeof msg.steps === 'number') {
+          // TODO: hook effect-per-step here
+          // console.log('step', msg.steps);
+        }
       } catch {}
     };
   } catch(e) { hudWsText.textContent = 'WS init failed'; setTimeout(connectWS, 2000); }
