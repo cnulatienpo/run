@@ -1,0 +1,10 @@
+{
+  "defaultMood": "dreamlike",
+  "intervalMs": { "min": 9000, "max": 14000 },
+  "moods": {
+    "dreamlike": ["softPulse", "scanline"]
+  },
+  "zones": {
+    "dreamlike": ["center", "topLeft", "bottom"]
+  }
+}
