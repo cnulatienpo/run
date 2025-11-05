@@ -8,6 +8,17 @@ const loadBtn = document.getElementById('loadBtn');
 const surpriseBtn = document.getElementById('surpriseBtn');
 
 const { Filters, effectMap } = window.RTW_EFFECTS;
+import { WS_URL } from './config.js';
+const hud = document.getElementById('hud');
+let wsStatus = document.getElementById('hud-ws');
+if (!wsStatus) {
+  wsStatus = document.createElement('div');
+  wsStatus.id = 'hud-ws';
+  wsStatus.className = 'row';
+  wsStatus.innerHTML = '<strong>Wearable:</strong> <span id="hud-ws-text">Disconnected</span>';
+  hud.appendChild(wsStatus);
+}
+const hudWsText = document.getElementById('hud-ws-text');
 
 let player, effectTimer = null, seconds = 0, ticker = null;
 let sessionMood = effectMap.defaultMood || 'dreamlike';
@@ -91,6 +102,24 @@ function loadSurprise() {
   const id = pick(picks);
   if (!player) createPlayer(id); else player.loadVideoById(id);
 }
+
+// --- WebSocket connect with auto-retry ---
+function connectWS() {
+  try {
+    const ws = new WebSocket(WS_URL);
+    hudWsText.textContent = 'Connecting...';
+    ws.onopen = () => { hudWsText.textContent = WS_URL; };
+    ws.onclose = () => { hudWsText.textContent = 'Disconnected'; setTimeout(connectWS, 2000); };
+    ws.onerror = () => { hudWsText.textContent = 'WS error'; };
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (typeof msg.steps === 'number') { /* hook effect-per-step here */ }
+      } catch {}
+    };
+  } catch(e) { hudWsText.textContent = 'WS init failed'; setTimeout(connectWS, 2000); }
+}
+connectWS();
 
 window.addEventListener('DOMContentLoaded', () => {
   loadBtn.addEventListener('click', loadVideoFromInput);

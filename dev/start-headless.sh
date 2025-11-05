@@ -29,4 +29,5 @@ echo "Starting Electron headless (Xvfb + DBus session)..."
 # Run electron directly with flags to avoid GPU and sandbox issues in headless/container environments.
 # We call the local electron binary via npx so flags like --disable-gpu and --no-sandbox are passed through.
 echo "Launching Electron under Xvfb (no dbus-run-session wrapper)..."
-exec xvfb-run --server-args='-screen 0 1280x720x24' -- npx electron --no-sandbox --disable-gpu .
+# Use -a so xvfb-run auto-selects a free display if :99 is already in use.
+exec xvfb-run -a --server-args='-screen 0 1280x720x24' -- npx electron --no-sandbox --disable-gpu .
