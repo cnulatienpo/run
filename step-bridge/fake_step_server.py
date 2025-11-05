@@ -1,25 +1,36 @@
-import asyncio, json, websockets
+import asyncio, json, os, signal, sys
+import websockets
 
-async def main():
-    async def handler(ws, path=None):
-        steps = 0
+PORT = int(os.environ.get("PORT", "6789"))
+HOST = os.environ.get("HOST", "0.0.0.0")
+
+async def handler(ws):
+    steps = 0
+    try:
         while True:
             await asyncio.sleep(2.0)
             steps += 1
+            await ws.send(json.dumps({"steps": steps}))
+    except Exception as e:
+        print(f"[ws] client ended: {e}", flush=True)
+
+async def main():
+    async with websockets.serve(handler, HOST, PORT):
+        print(f"✅ Fake step server listening on ws://{HOST}:{PORT}", flush=True)
+        stop = asyncio.Future()
+        def _sig(*_):
+            if not stop.done():
+                stop.set_result(True)
+        for s in (signal.SIGINT, signal.SIGTERM):
             try:
-                await ws.send(json.dumps({"steps": steps}))
-            except Exception:
-                # connection may be closed; bail out of loop
-                print('connection handler failed')
-                break
-    # Bind to 0.0.0.0 so forwarded/public addresses (Codespaces, Docker host) can reach the server
-    server = websockets.serve(handler, "0.0.0.0", 6789)
-    print("✅ Fake step server on ws://0.0.0.0:6789 (sending {\"steps\": N})")
-    await server
-    await asyncio.Future()
+                asyncio.get_running_loop().add_signal_handler(s, _sig)
+            except NotImplementedError:
+                pass
+        await stop
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n🔚 Stopped.")
+    except OSError as e:
+        print(f"❌ Bind error on {HOST}:{PORT}: {e}", file=sys.stderr)
+        sys.exit(1)
