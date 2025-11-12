@@ -1,312 +1,215 @@
-const hud = {
-  connectionStatus: document.getElementById('connection-status'),
-  sessionTimer: document.getElementById('session-timer'),
-  moodSelect: document.getElementById('mood-select'),
-  tagButtons: document.querySelectorAll('.tag-button'),
-  packSelect: document.getElementById('pack-select'),
-  stepCount: document.getElementById('step-count'),
-  bpm: document.getElementById('bpm-display'),
-  energy: document.getElementById('energy-display'),
-  audioStatus: document.getElementById('audio-status'),
-  inputSource: document.getElementById('input-source'),
-  startButton: document.getElementById('start-session'),
-  resetButton: document.getElementById('reset-session'),
+import { WS_URL } from './config.js';
+import { softPulse, scanline, withZoneClip } from '../effects/filters.js';
+import mapping from '../effects/effect-mapping.json' assert { type: 'json' };
+
+const canvas = document.getElementById('fx-canvas');
+const stepEl = document.getElementById('hud-step');
+const timerEl = document.getElementById('hud-timer');
+const moodSelect = document.getElementById('hud-mood');
+const tagContainer = document.getElementById('tag-buttons');
+const tagStatus = document.getElementById('hud-tag');
+const statusEl = document.getElementById('hud-status');
+
+const socket = new WebSocket(WS_URL);
+const activeTags = new Set();
+let stepCount = 0;
+let sessionStart = Date.now();
+let currentMood = mapping.defaultMood || 'dreamlike';
+
+const fallbackTags = ['ambient', 'rare', 'glide', 'sway', 'night', 'pulse'];
+const availableTags = Array.isArray(mapping.tags) && mapping.tags.length ? mapping.tags : fallbackTags;
+
+const STATUS_CLASSNAMES = {
+  connecting: 'hud-status--connecting',
+  connected: 'hud-status--connected',
+  disconnected: 'hud-status--disconnected'
 };
 
-const CONNECTION_STATES = {
-  CONNECTING: 'connecting',
-  CONNECTED: 'connected',
-  DISCONNECTED: 'disconnected',
-};
-
-const state = {
-  connection: CONNECTION_STATES.CONNECTING,
-  sessionStart: Date.now(),
-  sessionRunning: true,
-  stepCount: 0,
-  bpm: 0,
-  energy: 0,
-  audioStatus: 'Muted',
-  tags: new Set(),
-  lastSocketPayloadAt: 0,
-};
-
-const CONNECT_TIMEOUT_MS = 5000;
-const SIMULATION_STEP_INTERVAL_MS = 1750;
-const SIMULATION_BPM_INTERVAL_MS = 2200;
-const SIMULATION_ENERGY_INTERVAL_MS = 3200;
-const SOCKET_STALE_THRESHOLD_MS = 6000;
-
-function isNonEmptyString(value) {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function resolveWsUrl() {
-  if (typeof window !== 'undefined' && isNonEmptyString(window.RTW_WS_URL)) {
-    return window.RTW_WS_URL.trim();
+function setStatus(state = 'connecting') {
+  statusEl.classList.remove(...Object.values(STATUS_CLASSNAMES));
+  const className = STATUS_CLASSNAMES[state] || STATUS_CLASSNAMES.connecting;
+  if (className) {
+    statusEl.classList.add(className);
   }
 
-  if (typeof globalThis !== 'undefined' && isNonEmptyString(globalThis.RTW_WS_URL)) {
-    return globalThis.RTW_WS_URL.trim();
-  }
-
-  return 'ws://localhost:6789';
-}
-
-function formatDuration(ms) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, '0');
-  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${seconds}`;
-}
-
-function applyConnectionClass(status) {
-  const element = hud.connectionStatus;
-  element.classList.remove('status-connecting', 'status-connected', 'status-disconnected');
-
-  switch (status) {
-    case CONNECTION_STATES.CONNECTED:
-      element.classList.add('status-connected');
-      element.textContent = 'Live';
-      break;
-    case CONNECTION_STATES.DISCONNECTED:
-      element.classList.add('status-disconnected');
-      element.textContent = 'Disconnected';
-      break;
-    case CONNECTION_STATES.CONNECTING:
-    default:
-      element.classList.add('status-connecting');
-      element.textContent = 'Connecting…';
-      break;
+  if (state === 'connected') {
+    statusEl.textContent = 'Connected';
+  } else if (state === 'disconnected') {
+    statusEl.textContent = 'Disconnected';
+  } else {
+    statusEl.textContent = 'Connecting…';
   }
 }
 
-function updateConnectionStatus(status) {
-  if (state.connection === status) return;
-  state.connection = status;
-  applyConnectionClass(status);
+function updateStepDisplay() {
+  stepEl.textContent = stepCount.toLocaleString();
 }
 
-function updateSessionTimer() {
-  if (!state.sessionRunning) return;
-  const elapsed = Date.now() - state.sessionStart;
-  hud.sessionTimer.textContent = formatDuration(elapsed);
+function updateTagStatus() {
+  if (activeTags.size === 0) {
+    tagStatus.textContent = 'None';
+    return;
+  }
+
+  tagStatus.textContent = Array.from(activeTags).join(', ');
 }
 
-function updateMetricsFromState() {
-  hud.stepCount.textContent = state.stepCount.toLocaleString();
-  hud.bpm.textContent = Math.round(state.bpm).toString();
-  hud.energy.textContent = `${Math.round(state.energy)}%`;
-  hud.audioStatus.textContent = state.audioStatus;
+function syncTagButtons() {
+  tagContainer.querySelectorAll('button[data-tag]').forEach((button) => {
+    const tag = button.dataset.tag;
+    button.classList.toggle('is-active', activeTags.has(tag));
+  });
+  updateTagStatus();
 }
 
-function scheduleSimulation() {
-  setInterval(() => {
-    const now = Date.now();
-    const isSocketFresh = now - state.lastSocketPayloadAt < SOCKET_STALE_THRESHOLD_MS;
-    if (state.connection === CONNECTION_STATES.CONNECTED && isSocketFresh) {
+function toggleTag(tag) {
+  if (activeTags.has(tag)) {
+    activeTags.delete(tag);
+  } else {
+    activeTags.add(tag);
+  }
+  syncTagButtons();
+}
+
+function buildMoodSelector() {
+  const moods = Object.keys(mapping.moods || {});
+  const uniqueMoods = moods.length ? new Set(moods) : new Set([currentMood]);
+  uniqueMoods.add(currentMood);
+
+  uniqueMoods.forEach((mood) => {
+    const option = document.createElement('option');
+    option.value = mood;
+    option.textContent = mood;
+    moodSelect.appendChild(option);
+  });
+
+  if (uniqueMoods.has(currentMood)) {
+    moodSelect.value = currentMood;
+  } else if (moodSelect.options.length) {
+    currentMood = moodSelect.options[0].value;
+    moodSelect.value = currentMood;
+  }
+
+  moodSelect.addEventListener('change', () => {
+    currentMood = moodSelect.value;
+  });
+}
+
+function buildTagButtons() {
+  tagContainer.innerHTML = '';
+  availableTags.forEach((tag) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tag-button';
+    button.dataset.tag = tag;
+    button.textContent = tag;
+    button.addEventListener('click', () => toggleTag(tag));
+    tagContainer.appendChild(button);
+  });
+  syncTagButtons();
+}
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function runEffectLoop() {
+  if (!canvas) {
+    return;
+  }
+  const interval = mapping.intervalMs || { min: 10000, max: 14000 };
+  const delay = Math.random() * (interval.max - interval.min) + interval.min;
+
+  setTimeout(() => {
+    const effectList = mapping.moods?.[currentMood] || mapping.moods?.[mapping.defaultMood] || [];
+    const zoneList = mapping.zones?.[currentMood] || mapping.zones?.[mapping.defaultMood] || ['center'];
+
+    if (!effectList.length) {
+      runEffectLoop();
       return;
     }
 
-    state.stepCount += Math.floor(Math.random() * 12) + 4;
-    updateMetricsFromState();
-  }, SIMULATION_STEP_INTERVAL_MS);
+    const effectName = pick(effectList);
+    const zone = pick(zoneList);
 
-  setInterval(() => {
-    const now = Date.now();
-    const isSocketFresh = now - state.lastSocketPayloadAt < SOCKET_STALE_THRESHOLD_MS;
-    if (state.connection === CONNECTION_STATES.CONNECTED && isSocketFresh) {
-      return;
+    const cleanup = withZoneClip(canvas, zone);
+    const effectMap = { softPulse, scanline };
+    const effectFn = effectMap[effectName];
+    if (typeof effectFn === 'function') {
+      effectFn(canvas);
     }
-
-    state.bpm = Math.round(110 + Math.random() * 35);
-    updateMetricsFromState();
-  }, SIMULATION_BPM_INTERVAL_MS);
-
-  setInterval(() => {
-    const now = Date.now();
-    const isSocketFresh = now - state.lastSocketPayloadAt < SOCKET_STALE_THRESHOLD_MS;
-    if (state.connection === CONNECTION_STATES.CONNECTED && isSocketFresh) {
-      return;
+    if (typeof cleanup === 'function') {
+      setTimeout(cleanup, 2000);
     }
-
-    const direction = Math.random() > 0.5 ? 1 : -1;
-    const nextEnergy = Math.min(100, Math.max(0, state.energy + direction * (Math.random() * 8)));
-    state.energy = nextEnergy;
-    updateMetricsFromState();
-  }, SIMULATION_ENERGY_INTERVAL_MS);
+    runEffectLoop();
+  }, delay);
 }
 
-function handleSocketMessage(event) {
+socket.addEventListener('open', () => {
+  setStatus('connected');
+  console.log('[WS] Connected');
+});
+
+socket.addEventListener('close', () => {
+  setStatus('disconnected');
+  console.warn('[WS] Disconnected');
+});
+
+socket.addEventListener('error', (error) => {
+  console.error('[WS] Error', error);
+});
+
+socket.addEventListener('message', (event) => {
   try {
-    const payload = JSON.parse(event.data);
-    state.lastSocketPayloadAt = Date.now();
+    const data = JSON.parse(event.data);
 
-    if (Number.isFinite(payload.steps)) {
-      state.stepCount = payload.steps;
+    if (typeof data.status === 'string') {
+      const normalized = data.status.toLowerCase();
+      if (normalized in STATUS_CLASSNAMES) {
+        setStatus(normalized);
+      }
     }
 
-    if (Number.isFinite(payload.bpm)) {
-      state.bpm = payload.bpm;
+    if (Number.isFinite(data.steps)) {
+      stepCount = data.steps;
+      updateStepDisplay();
     }
 
-    if (Number.isFinite(payload.energy)) {
-      state.energy = payload.energy;
+    if (typeof data.mood === 'string' && (mapping.moods?.[data.mood] || data.mood === currentMood)) {
+      currentMood = data.mood;
+      if (moodSelect.value !== currentMood) {
+        moodSelect.value = currentMood;
+      }
     }
 
-    if (isNonEmptyString(payload.audioStatus)) {
-      state.audioStatus = payload.audioStatus;
-    }
-
-    if (isNonEmptyString(payload.inputSource)) {
-      hud.inputSource.textContent = payload.inputSource;
-    }
-
-    if (isNonEmptyString(payload.mood)) {
-      hud.moodSelect.value = payload.mood;
-      // TODO: onMoodChange(payload.mood);
-    }
-
-    if (Array.isArray(payload.tags)) {
-      const normalized = new Set(payload.tags.map(String));
-      state.tags = normalized;
-      hud.tagButtons.forEach((button) => {
-        const tag = button.dataset.tag;
-        const isActive = normalized.has(tag);
-        button.classList.toggle('is-active', isActive);
+    if (Array.isArray(data.tags)) {
+      activeTags.clear();
+      data.tags.forEach((tag) => {
+        if (typeof tag === 'string' && tag.trim()) {
+          activeTags.add(tag);
+        }
       });
-      // TODO: syncTagsWithExperience(Array.from(normalized));
+      syncTagButtons();
     }
-
-    if (isNonEmptyString(payload.pack)) {
-      hud.packSelect.value = payload.pack;
-      // TODO: loadAssetPack(payload.pack);
-    }
-
-    updateMetricsFromState();
   } catch (error) {
     console.error('[WS] Failed to parse message', error);
   }
-}
+});
 
-function bootstrapWebSocket() {
-  const wsUrl = resolveWsUrl();
-  let socket;
+setInterval(() => {
+  const elapsed = Date.now() - sessionStart;
+  const minutes = Math.floor(elapsed / 60000)
+    .toString()
+    .padStart(2, '0');
+  const seconds = Math.floor((elapsed % 60000) / 1000)
+    .toString()
+    .padStart(2, '0');
+  timerEl.textContent = `${minutes}:${seconds}`;
+}, 1000);
 
-  try {
-    socket = new WebSocket(wsUrl);
-  } catch (error) {
-    console.error('[WS] Unable to create WebSocket', error);
-    updateConnectionStatus(CONNECTION_STATES.DISCONNECTED);
-    return null;
-  }
-
-  if (!isNonEmptyString(window?.RTW_WS_URL)) {
-    console.warn('[WS] Using fallback WebSocket URL', wsUrl);
-  }
-
-  const timeout = setTimeout(() => {
-    if (state.connection !== CONNECTION_STATES.CONNECTED) {
-      updateConnectionStatus(CONNECTION_STATES.DISCONNECTED);
-      hud.connectionStatus.textContent = 'Disconnected';
-    }
-  }, CONNECT_TIMEOUT_MS);
-
-  socket.addEventListener('open', () => {
-    clearTimeout(timeout);
-    updateConnectionStatus(CONNECTION_STATES.CONNECTED);
-    console.info('[WS] Connected to', wsUrl);
-  });
-
-  socket.addEventListener('message', handleSocketMessage);
-
-  socket.addEventListener('error', (error) => {
-    console.error('[WS] Error', error);
-  });
-
-  socket.addEventListener('close', () => {
-    updateConnectionStatus(CONNECTION_STATES.DISCONNECTED);
-    console.warn('[WS] Disconnected');
-    // TODO: Implement exponential backoff reconnect.
-  });
-
-  return socket;
-}
-
-function toggleTag(button) {
-  const tag = button.dataset.tag;
-  if (!tag) return;
-
-  if (state.tags.has(tag)) {
-    state.tags.delete(tag);
-  } else {
-    state.tags.add(tag);
-  }
-
-  button.classList.toggle('is-active');
-  // TODO: emitTagSelection(Array.from(state.tags));
-}
-
-function setupInteractions() {
-  hud.moodSelect.addEventListener('change', () => {
-    const mood = hud.moodSelect.value;
-    console.info('[HUD] Mood changed to', mood);
-    // TODO: onMoodChange(mood);
-  });
-
-  hud.tagButtons.forEach((button) => {
-    button.addEventListener('click', () => toggleTag(button));
-  });
-
-  hud.packSelect.addEventListener('change', () => {
-    const pack = hud.packSelect.value;
-    console.info('[HUD] Pack changed to', pack);
-    // TODO: loadAssetPack(pack);
-  });
-
-  hud.startButton.addEventListener('click', () => {
-    state.sessionStart = Date.now();
-    state.sessionRunning = true;
-    state.stepCount = 0;
-    updateMetricsFromState();
-    hud.sessionTimer.textContent = '00:00';
-    hud.startButton.disabled = true;
-    // TODO: triggerSessionStart();
-  });
-
-  hud.resetButton.addEventListener('click', () => {
-    state.sessionRunning = false;
-    state.stepCount = 0;
-    state.bpm = 0;
-    state.energy = 0;
-    state.audioStatus = 'Muted';
-    updateMetricsFromState();
-    hud.sessionTimer.textContent = '00:00';
-    hud.startButton.disabled = false;
-    // TODO: triggerSessionReset();
-  });
-}
-
-function init() {
-  applyConnectionClass(CONNECTION_STATES.CONNECTING);
-  updateMetricsFromState();
-  setupInteractions();
-  scheduleSimulation();
-
-  const sessionInterval = setInterval(() => {
-    updateSessionTimer();
-  }, 1000);
-
-  // TODO: store interval handles if we need to pause/resume later.
-  void sessionInterval;
-
-  const socket = bootstrapWebSocket();
-  if (!socket) {
-    updateConnectionStatus(CONNECTION_STATES.DISCONNECTED);
-    hud.connectionStatus.textContent = 'Disconnected';
-  }
-}
-
-init();
+setStatus('connecting');
+buildMoodSelector();
+buildTagButtons();
+updateStepDisplay();
+updateTagStatus();
+runEffectLoop();
