@@ -19,6 +19,11 @@ let currentMood = 'urban';
 let effectTimer = null;
 let moodSyncInitialised = false;
 
+document.addEventListener('DOMContentLoaded', () => {
+  createMoodSelectorHUD();
+  startSpawnLoop();
+});
+
 const sessionLog = [];
 let previousStepCount = 0;
 
