@@ -13,11 +13,15 @@ function ensureWindow() {
   return window;
 }
 
+const fallbackStart = Date.now();
 const fallbackSession = {
   sessionId: generateFallbackId(),
-  startTime: Date.now(),
+  startTime: fallbackStart,
+  startedAt: fallbackStart,
+  device: 'fake_stepper',
   tagSelections: [],
   events: [],
+  music: {},
 };
 
 function ensureSessionLogStructure(target) {
@@ -30,8 +34,11 @@ function ensureSessionLogStructure(target) {
           ? crypto.randomUUID()
           : generateFallbackId(),
       startTime: now,
+      startedAt: now,
+      device: 'fake_stepper',
       tagSelections: [],
       events: [],
+      music: {},
     };
     return target.sessionLog;
   }
@@ -45,11 +52,20 @@ function ensureSessionLogStructure(target) {
   if (!sessionLog.startTime) {
     sessionLog.startTime = now;
   }
+  if (!sessionLog.startedAt) {
+    sessionLog.startedAt = sessionLog.startTime || now;
+  }
+  if (!sessionLog.device) {
+    sessionLog.device = 'fake_stepper';
+  }
   if (!Array.isArray(sessionLog.tagSelections)) {
     sessionLog.tagSelections = [];
   }
   if (!Array.isArray(sessionLog.events)) {
     sessionLog.events = [];
+  }
+  if (!sessionLog.music || typeof sessionLog.music !== 'object') {
+    sessionLog.music = {};
   }
   return sessionLog;
 }

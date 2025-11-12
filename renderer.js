@@ -56,15 +56,31 @@ const sessionState = initialiseSessionLog();
 const sessionLog = Array.isArray(sessionState.events)
   ? sessionState.events
   : (sessionState.events = []);
-const sessionStart = sessionState.startTime ?? Date.now();
+const sessionStart =
+  sessionState.startedAt ?? sessionState.startTime ?? Date.now();
 sessionState.startTime = sessionStart;
+sessionState.startedAt = sessionStart;
+if (!sessionState.device) {
+  sessionState.device = 'fake_stepper';
+}
+if (!sessionState.music || typeof sessionState.music !== 'object') {
+  sessionState.music = {};
+}
 
 function logSessionEvent(type, data = {}) {
-  sessionLog.push({
+  const now = Date.now();
+  const event = {
     type,
-    timestamp: Date.now() - sessionStart,
+    t: now,
+    timestamp: now - sessionStart,
     ...data,
-  });
+  };
+  sessionLog.push(event);
+  return event;
+}
+
+function logStepUpdate(stepCount) {
+  return logSessionEvent('step-update', { step: stepCount, steps: stepCount });
 }
 
 logSessionEvent('session-start');
@@ -296,7 +312,7 @@ const network = createNetworkClient({
     if (typeof payload.steps === 'number') {
       const stepCount = payload.steps;
       hud.updateSteps(stepCount);
-      logSessionEvent('step-update', { steps: stepCount });
+      logStepUpdate(stepCount);
       const stepDelta = Math.max(0, stepCount - previousStepCount);
       const iterations = stepDelta > 0 ? Math.min(stepDelta, 10) : 0;
       for (let i = 0; i < iterations; i += 1) {
@@ -309,6 +325,7 @@ const network = createNetworkClient({
     }
 
     if (typeof payload.bpm === 'number') {
+      sessionState.music.bpm = payload.bpm;
       logSessionEvent('bpm-update', {
         steps: hud.getLastStepCount(),
         bpm: payload.bpm,
@@ -316,10 +333,15 @@ const network = createNetworkClient({
     }
 
     if (typeof payload.playlist === 'string') {
+      sessionState.music.playlist = payload.playlist;
       logSessionEvent('playlist-update', {
         steps: hud.getLastStepCount(),
         playlist: payload.playlist,
       });
+    }
+
+    if (typeof payload.device === 'string' && payload.device.trim()) {
+      sessionState.device = payload.device.trim();
     }
   },
 });
