@@ -1,231 +1,134 @@
-import { WS_URL } from './config.js';
 import { softPulse, scanline, withZoneClip } from '../effects/filters.js';
-import mapping from '../effects/effect-mapping.json' assert { type: 'json' };
+import config from '../effects/effect-mapping.json' assert { type: 'json' };
 
-const pacingMap = {
-  Dreamcore: [5000, 9000],
-  Urban: [8000, 14000],
-  Ambient: [12000, 24000],
-  Rare: [25000, 40000],
-  Chillwave: [10000, 16000],
-  default: [10000, 20000],
+const moods = Object.keys(config.moods || {});
+const tags = ['Ambient', 'Dreamcore', 'Urban', 'Rare'];
+let currentMood = moods.includes('dreamlike') ? 'dreamlike' : moods[0] || '';
+let currentTag = 'Ambient';
+
+function initHUD() {
+  const hud = document.getElementById('hud');
+  if (!hud) return;
+
+  const moodSelect = document.createElement('select');
+  moodSelect.id = 'mood-select';
+
+  moods.forEach((m) => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    moodSelect.appendChild(opt);
+  });
+
+  if (currentMood) {
+    moodSelect.value = currentMood;
+  }
+
+  moodSelect.addEventListener('change', (event) => {
+    currentMood = event.target.value;
+    logEvent('mood-change', { mood: currentMood });
+  });
+
+  hud.appendChild(moodSelect);
+
+  const tagWrap = document.createElement('div');
+  tagWrap.id = 'tag-wrap';
+
+  tags.forEach((tag) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      currentTag = tag;
+      highlightTag(tag);
+      logEvent('tag-change', { tag });
+    });
+    tagWrap.appendChild(btn);
+  });
+
+  hud.appendChild(tagWrap);
+}
+
+function highlightTag(tag) {
+  const buttons = document.querySelectorAll('#tag-wrap button');
+  buttons.forEach((btn) => {
+    btn.style.background = btn.textContent === tag ? '#2dd4bf' : '#1f2937';
+  });
+}
+
+const tagTimings = {
+  Ambient: [14000, 28000],
+  Dreamcore: [8000, 15000],
+  Urban: [6000, 12000],
+  Rare: [25000, 50000],
 };
+
+function getCurrentInterval() {
+  const [min, max] = tagTimings[currentTag] || [10000, 20000];
+  return Math.floor(Math.random() * (max - min)) + min;
+}
 
 const canvas = document.getElementById('fx-canvas');
-const stepEl = document.getElementById('hud-step');
-const timerEl = document.getElementById('hud-timer');
-const moodSelect = document.getElementById('hud-mood');
-const tagContainer = document.getElementById('hud-tags');
-const tagLabel = document.getElementById('hud-tag-label');
-const statusEl = document.getElementById('hud-status');
 
-const socket = new WebSocket(WS_URL);
-let stepCount = 0;
+function spawnEffect() {
+  if (!canvas) return;
+
+  const fxList = config.moods[currentMood] || config.moods.dreamlike || [];
+  const zoneList = config.zones?.[currentMood] || config.zones?.dreamlike || [];
+
+  if (!fxList.length) return;
+
+  const fx = fxList[Math.floor(Math.random() * fxList.length)];
+  const zone = zoneList[Math.floor(Math.random() * zoneList.length)] || 'center';
+
+  const clipReset = withZoneClip(canvas, zone);
+  if (fx === 'softPulse') {
+    softPulse(canvas);
+  } else if (fx === 'scanline') {
+    scanline(canvas);
+  }
+  setTimeout(() => {
+    if (typeof clipReset === 'function') {
+      clipReset();
+    }
+  }, 1600);
+
+  logEvent('effect', { fx, zone });
+}
+
+let sessionLog = [];
 let sessionStart = Date.now();
-let currentMood = mapping.defaultMood || 'dreamlike';
-const storage = typeof localStorage !== 'undefined' ? localStorage : undefined;
 
-const storedTag = storage?.getItem('selectedTag');
-let currentTag = pacingMap[storedTag] ? storedTag : 'default';
-let tagIntervalHandle;
-
-const STATUS_CLASSNAMES = {
-  connecting: 'hud-status--connecting',
-  connected: 'hud-status--connected',
-  disconnected: 'hud-status--disconnected'
-};
-
-function setStatus(state = 'connecting') {
-  statusEl.classList.remove(...Object.values(STATUS_CLASSNAMES));
-  const className = STATUS_CLASSNAMES[state] || STATUS_CLASSNAMES.connecting;
-  if (className) {
-    statusEl.classList.add(className);
-  }
-
-  if (state === 'connected') {
-    statusEl.textContent = 'Connected';
-  } else if (state === 'disconnected') {
-    statusEl.textContent = 'Disconnected';
-  } else {
-    statusEl.textContent = 'Connecting…';
-  }
-}
-
-function updateStepDisplay() {
-  stepEl.textContent = stepCount.toLocaleString();
-}
-
-function buildMoodSelector() {
-  const moods = Object.keys(mapping.moods || {});
-  const uniqueMoods = moods.length ? new Set(moods) : new Set([currentMood]);
-  uniqueMoods.add(currentMood);
-
-  uniqueMoods.forEach((mood) => {
-    const option = document.createElement('option');
-    option.value = mood;
-    option.textContent = mood;
-    moodSelect.appendChild(option);
-  });
-
-  if (uniqueMoods.has(currentMood)) {
-    moodSelect.value = currentMood;
-  } else if (moodSelect.options.length) {
-    currentMood = moodSelect.options[0].value;
-    moodSelect.value = currentMood;
-  }
-
-  moodSelect.addEventListener('change', () => {
-    currentMood = moodSelect.value;
+function logEvent(type, payload) {
+  sessionLog.push({
+    t: Date.now() - sessionStart,
+    type,
+    ...payload,
   });
 }
 
-function buildTagButtons() {
-  if (!tagContainer) {
-    return;
-  }
-
-  tagContainer.innerHTML = '';
-  Object.keys(pacingMap)
-    .filter((tag) => tag !== 'default')
-    .forEach((tag) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'tag-button';
-      button.dataset.tag = tag;
-      button.textContent = tag;
-      button.addEventListener('click', () => {
-        currentTag = tag;
-        storage?.setItem('selectedTag', tag);
-        updateTagUI(tag);
-        restartTagSpawnLoop();
-      });
-      tagContainer.appendChild(button);
+document.addEventListener('keydown', (event) => {
+  if (event.key.toLowerCase() === 'l') {
+    const blob = new Blob([JSON.stringify(sessionLog, null, 2)], {
+      type: 'application/json',
     });
-  updateTagUI(currentTag);
-}
-
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function updateTagUI(tag) {
-  if (tagContainer) {
-    tagContainer.querySelectorAll('button').forEach((button) => {
-      const isSelected = button.dataset.tag === tag;
-      button.classList.toggle('selected', isSelected);
-      button.classList.toggle('is-active', isSelected);
-    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `run_session_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
-  if (tagLabel) {
-    const displayName = tag === 'default' ? 'Default' : tag;
-    tagLabel.textContent = `Tag: ${displayName}`;
-  }
-}
+});
 
-function triggerHallucination() {
-  if (!canvas) {
-    return;
-  }
-
-  const effectList = mapping.moods?.[currentMood] || mapping.moods?.[mapping.defaultMood] || [];
-  const zoneList = mapping.zones?.[currentMood] || mapping.zones?.[mapping.defaultMood] || ['center'];
-
-  if (!effectList.length) {
-    return;
-  }
-
-  const effectName = pick(effectList);
-  const zone = pick(zoneList);
-
-  const cleanup = withZoneClip(canvas, zone);
-  const effectMap = { softPulse, scanline };
-  const effectFn = effectMap[effectName];
-  if (typeof effectFn === 'function') {
-    effectFn(canvas);
-  }
-  if (typeof cleanup === 'function') {
-    setTimeout(cleanup, 2000);
-  }
-}
-
-function restartTagSpawnLoop() {
-  if (tagIntervalHandle) {
-    clearTimeout(tagIntervalHandle);
-  }
-
-  const [min, max] = pacingMap[currentTag] || pacingMap.default;
-  const delay = Math.random() * (max - min) + min;
-
-  tagIntervalHandle = setTimeout(() => {
-    triggerHallucination();
-    restartTagSpawnLoop();
+function loop() {
+  const delay = getCurrentInterval();
+  setTimeout(() => {
+    spawnEffect();
+    loop();
   }, delay);
 }
 
-socket.addEventListener('open', () => {
-  setStatus('connected');
-  console.log('[WS] Connected');
-});
-
-socket.addEventListener('close', () => {
-  setStatus('disconnected');
-  console.warn('[WS] Disconnected');
-});
-
-socket.addEventListener('error', (error) => {
-  console.error('[WS] Error', error);
-});
-
-socket.addEventListener('message', (event) => {
-  try {
-    const data = JSON.parse(event.data);
-
-    if (typeof data.status === 'string') {
-      const normalized = data.status.toLowerCase();
-      if (normalized in STATUS_CLASSNAMES) {
-        setStatus(normalized);
-      }
-    }
-
-    if (Number.isFinite(data.steps)) {
-      stepCount = data.steps;
-      updateStepDisplay();
-    }
-
-    if (typeof data.mood === 'string' && (mapping.moods?.[data.mood] || data.mood === currentMood)) {
-      currentMood = data.mood;
-      if (moodSelect.value !== currentMood) {
-        moodSelect.value = currentMood;
-      }
-    }
-
-    if (Array.isArray(data.tags)) {
-      const nextTag = data.tags.find((tag) => pacingMap[tag]);
-      if (nextTag) {
-        currentTag = nextTag;
-        storage?.setItem('selectedTag', currentTag);
-        updateTagUI(currentTag);
-        restartTagSpawnLoop();
-      }
-    }
-  } catch (error) {
-    console.error('[WS] Failed to parse message', error);
-  }
-});
-
-setInterval(() => {
-  const elapsed = Date.now() - sessionStart;
-  const minutes = Math.floor(elapsed / 60000)
-    .toString()
-    .padStart(2, '0');
-  const seconds = Math.floor((elapsed % 60000) / 1000)
-    .toString()
-    .padStart(2, '0');
-  timerEl.textContent = `${minutes}:${seconds}`;
-}, 1000);
-
-setStatus('connecting');
-buildMoodSelector();
-buildTagButtons();
-updateStepDisplay();
-restartTagSpawnLoop();
+initHUD();
+highlightTag(currentTag);
+loop();
