@@ -56,19 +56,45 @@ function highlightTag(tag) {
   });
 }
 
-const tagTimings = {
-  Ambient: [14000, 28000],
-  Dreamcore: [8000, 15000],
-  Urban: [6000, 12000],
-  Rare: [25000, 50000],
+const canvas = document.getElementById('fx-canvas');
+
+let effectTimer;
+
+const motionState = {
+  steps: 0,
+  bpm: 0,
+  lastUpdate: Date.now(),
 };
 
-function getCurrentInterval() {
-  const [min, max] = tagTimings[currentTag] || [10000, 20000];
-  return Math.floor(Math.random() * (max - min)) + min;
+function updateMotionData(data) {
+  if (typeof data.steps === 'number') {
+    motionState.steps = data.steps;
+    motionState.lastUpdate = Date.now();
+  }
+
+  if (typeof data.bpm === 'number') {
+    motionState.bpm = data.bpm;
+  }
 }
 
-const canvas = document.getElementById('fx-canvas');
+function getPacingForMotion(steps) {
+  if (steps < 50) return [20000, 30000];
+  if (steps < 150) return [10000, 16000];
+  if (steps < 400) return [6000, 10000];
+  return [3000, 6000];
+}
+
+function scheduleMotionDrivenEffect() {
+  clearTimeout(effectTimer);
+
+  const [minDelay, maxDelay] = getPacingForMotion(motionState.steps);
+  const delay = Math.floor(Math.random() * (maxDelay - minDelay)) + minDelay;
+
+  effectTimer = setTimeout(() => {
+    spawnEffect();
+    scheduleMotionDrivenEffect();
+  }, delay);
+}
 
 function spawnEffect() {
   if (!canvas) return;
@@ -121,14 +147,16 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-function loop() {
-  const delay = getCurrentInterval();
-  setTimeout(() => {
-    spawnEffect();
-    loop();
-  }, delay);
-}
-
 initHUD();
 highlightTag(currentTag);
-loop();
+scheduleMotionDrivenEffect();
+
+const ws = new WebSocket(globalThis.RTW_WS_URL || 'ws://localhost:6789');
+ws.onmessage = (event) => {
+  try {
+    const data = JSON.parse(event.data);
+    updateMotionData(data);
+  } catch (err) {
+    console.warn('Malformed motion input:', event.data);
+  }
+};
