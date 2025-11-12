@@ -3,133 +3,461 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Step Bridge Monitor</title>
+    <title>Run The World HUD</title>
     <style>
       :root {
         color-scheme: light dark;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background-color: #f5f5f5;
-        color: #1f2933;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background-color: #0f172a;
+        color: #e2e8f0;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
         min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 55%),
+          radial-gradient(circle at bottom, rgba(167, 139, 250, 0.18), transparent 60%),
+          #0f172a;
       }
 
       main {
-        background: #ffffffcc;
-        border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+        width: min(1040px, calc(100% - 48px));
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
         padding: 32px;
-        width: min(420px, calc(100% - 40px));
-        backdrop-filter: blur(6px);
+        background: rgba(15, 23, 42, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 24px;
+        backdrop-filter: blur(12px) saturate(130%);
+        box-shadow: 0 40px 80px rgba(15, 23, 42, 0.65);
       }
 
       h1 {
-        margin: 0 0 16px;
-        font-size: 1.8rem;
-        font-weight: 600;
+        margin: 0;
+        font-size: clamp(1.6rem, 2.4vw, 2.4rem);
+        letter-spacing: 0.02em;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 1.15rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #93c5fd;
+      }
+
+      .hud__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+      }
+
+      .hud__brand {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
 
       .status {
-        margin: 0 0 24px;
-        font-weight: 500;
+        margin: 0;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(148, 163, 184, 0.12);
+      }
+
+      .status::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: currentColor;
       }
 
       .status--connected {
-        color: #047857;
+        color: #4ade80;
       }
 
       .status--connecting,
       .status--reconnecting {
-        color: #1d4ed8;
+        color: #60a5fa;
       }
 
       .status--error,
       .status--disconnected {
-        color: #b91c1c;
+        color: #f87171;
       }
 
-      .steps {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: #ffffff;
-        padding: 16px 20px;
+      .hud__versions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        width: 100%;
+        max-width: 320px;
+      }
+
+      .version-card {
+        padding: 12px;
         border-radius: 12px;
-        margin-bottom: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(30, 41, 59, 0.7);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
-      .steps__label {
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
+      .version-card span {
         font-size: 0.75rem;
-        opacity: 0.8;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #cbd5f5;
       }
 
-      .steps__value {
-        font-size: 2.5rem;
-        font-variant-numeric: tabular-nums;
+      .version-card code {
+        font-size: 1.1rem;
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+          monospace;
+        color: #e2e8f0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .hud__steps {
+        display: grid;
+        gap: 16px;
+      }
+
+      .steps-card {
+        padding: 24px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(14, 165, 233, 0.85));
+        color: #eff6ff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .steps-card strong {
+        font-size: 0.9rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+
+      .steps-card span {
+        font-size: clamp(2.5rem, 6vw, 3.8rem);
         font-weight: 700;
+        font-variant-numeric: tabular-nums;
       }
 
       .last-update {
-        margin: 0 0 24px;
-        font-size: 0.9rem;
-        opacity: 0.75;
+        margin: 0;
+        font-size: 0.95rem;
+        color: rgba(226, 232, 240, 0.78);
       }
 
-      section {
-        border-top: 1px solid rgba(15, 23, 42, 0.1);
-        padding-top: 16px;
+      .hud__timers {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
       }
 
-      ul {
-        padding: 0;
-        margin: 12px 0 0;
-        list-style: none;
+      .timer-card {
+        padding: 20px;
+        border-radius: 16px;
+        background: rgba(30, 41, 59, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 120px;
       }
 
-      li + li {
-        margin-top: 8px;
+      .timer-card h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.9);
       }
 
-      code {
-        background: rgba(15, 23, 42, 0.08);
-        padding: 2px 6px;
-        border-radius: 6px;
+      .timer-card time {
+        font-size: 2.4rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: #f8fafc;
+      }
+
+      .timer-card p {
+        margin: 0;
         font-size: 0.85rem;
+        color: rgba(226, 232, 240, 0.72);
+      }
+
+      .hud__controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        align-items: start;
+      }
+
+      .mood-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+        border-radius: 16px;
+        background: rgba(30, 41, 59, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+      }
+
+      .mood-selector label {
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.9);
+      }
+
+      .mood-selector select {
+        appearance: none;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        font-size: 1rem;
+        outline: none;
+        transition: border-color 0.2s ease;
+      }
+
+      .mood-selector select:focus {
+        border-color: rgba(96, 165, 250, 0.9);
+        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.35);
+      }
+
+      .tag-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag-buttons button {
+        border: none;
+        border-radius: 999px;
+        padding: 8px 14px;
+        background: rgba(96, 165, 250, 0.16);
+        color: #bfdbfe;
+        font-size: 0.85rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .tag-buttons button:hover,
+      .tag-buttons button:focus {
+        outline: none;
+        transform: translateY(-1px);
+        background: rgba(59, 130, 246, 0.35);
+      }
+
+      .playlist-panel {
+        padding: 20px;
+        border-radius: 16px;
+        background: rgba(30, 41, 59, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .playlist-panel header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .playlist-panel header h2 {
+        margin: 0;
+      }
+
+      .playlist-meta {
+        font-size: 0.9rem;
+        color: rgba(226, 232, 240, 0.72);
+      }
+
+      .playlist-controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .playlist-controls button {
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: rgba(96, 165, 250, 0.18);
+        color: #bfdbfe;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .playlist-controls button.primary {
+        background: linear-gradient(135deg, rgba(147, 197, 253, 0.8), rgba(59, 130, 246, 0.8));
+        color: #0f172a;
+      }
+
+      .playlist-controls button:hover,
+      .playlist-controls button:focus {
+        outline: none;
+        transform: translateY(-1px);
+        background: rgba(59, 130, 246, 0.35);
+      }
+
+      .playlist-track {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 16px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .playlist-track strong {
+        font-size: 1rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #bae6fd;
+      }
+
+      .playlist-track span {
+        font-size: 0.9rem;
+        color: rgba(226, 232, 240, 0.72);
+      }
+
+      @media (max-width: 720px) {
+        main {
+          padding: 24px;
+        }
+
+        .hud__header {
+          flex-direction: column;
+        }
+
+        .hud__versions {
+          max-width: unset;
+          width: 100%;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Step Bridge Monitor</h1>
-      <p class="status status--disconnected" id="status">Waiting for the fake step server…</p>
-      <div class="steps">
-        <span class="steps__label">Steps</span>
-        <span class="steps__value" id="steps">0</span>
-      </div>
-      <p class="last-update" id="last-update">No data received yet.</p>
-      <section>
-        <h2>Runtime versions</h2>
-        <ul>
-          <li>Electron: <code id="version-electron">(loading)</code></li>
-          <li>Node.js: <code id="version-node">(loading)</code></li>
-          <li>Chromium: <code id="version-chromium">(loading)</code></li>
-        </ul>
-        <p style="margin-top: 16px; font-size: 0.85rem; opacity: 0.8;">
-          Start the fake server with
-          <code>python step-bridge/fake_step_server.py</code>
-          to watch the counter tick up.
-        </p>
+      <header class="hud__header">
+        <div class="hud__brand">
+          <h1>Run The World Heads-Up Display</h1>
+          <p class="status status--disconnected" id="status">Waiting for the fake step server…</p>
+        </div>
+        <div class="hud__versions">
+          <div class="version-card">
+            <span>Electron</span>
+            <code id="version-electron">(loading)</code>
+          </div>
+          <div class="version-card">
+            <span>Node.js</span>
+            <code id="version-node">(loading)</code>
+          </div>
+          <div class="version-card">
+            <span>Chromium</span>
+            <code id="version-chromium">(loading)</code>
+          </div>
+        </div>
+      </header>
+
+      <section class="hud__steps">
+        <div class="steps-card">
+          <strong>Total steps</strong>
+          <span id="steps">0</span>
+        </div>
+        <p class="last-update" id="last-update">No data received yet.</p>
+      </section>
+
+      <section class="hud__timers" aria-label="run timers">
+        <div class="timer-card">
+          <h3>Active Segment</h3>
+          <time id="timer-active" datetime="PT00H00M00S">00:00:00</time>
+          <p>Time spent in the current run segment.</p>
+        </div>
+        <div class="timer-card">
+          <h3>Cooldown</h3>
+          <time id="timer-cooldown" datetime="PT00H00M00S">00:00:00</time>
+          <p>Tracks recovery before the next push.</p>
+        </div>
+        <div class="timer-card">
+          <h3>Stream Duration</h3>
+          <time id="timer-stream" datetime="PT00H00M00S">00:00:00</time>
+          <p>Total runtime since the overlay booted.</p>
+        </div>
+      </section>
+
+      <section class="hud__controls">
+        <article class="mood-selector" aria-label="mood selector">
+          <h2>Mood selector</h2>
+          <label for="mood-select">Choose the broadcast vibe</label>
+          <select id="mood-select" name="mood">
+            <option value="hype">Hype Sprint</option>
+            <option value="focus">Focus Lab</option>
+            <option value="calm">Calm Cruise</option>
+            <option value="party">After Party</option>
+            <option value="wind-down">Wind Down</option>
+          </select>
+          <div class="tag-buttons" aria-label="tag filters">
+            <button type="button" data-tag="focus">#focus</button>
+            <button type="button" data-tag="community">#community</button>
+            <button type="button" data-tag="product">#product</button>
+            <button type="button" data-tag="deepdive">#deepdive</button>
+            <button type="button" data-tag="afterhours">#afterhours</button>
+          </div>
+        </article>
+
+        <article class="playlist-panel" aria-label="playlist controls">
+          <header>
+            <h2>Playlist controls</h2>
+            <span class="playlist-meta" id="playlist-status">Idle</span>
+          </header>
+          <div class="playlist-track">
+            <strong id="playlist-track">No track playing</strong>
+            <span id="playlist-artist">Artist unknown</span>
+          </div>
+          <div class="playlist-controls">
+            <button type="button" id="playlist-prev">Prev</button>
+            <button type="button" class="primary" id="playlist-play">Play</button>
+            <button type="button" id="playlist-pause">Pause</button>
+            <button type="button" id="playlist-next">Next</button>
+            <button type="button" id="playlist-shuffle">Shuffle</button>
+          </div>
+        </article>
       </section>
     </main>
+
     <script src="./renderer.js"></script>
   </body>
 </html>
