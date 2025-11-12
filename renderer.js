@@ -16,9 +16,11 @@ import {
   initialiseSessionLog,
   exportSessionLog as exportGlobalSessionLog,
 } from './renderer/tag-session-logger.js';
+import { loadSettings, saveSettings } from './renderer/settings.js';
 
 const DEFAULT_MOOD = 'dreamcore';
 const MOOD_STORAGE_KEY = 'selectedMood';
+const userSettings = loadSettings();
 const MOODS = {
   dreamcore: { name: 'Dreamcore', min: 5000, max: 9000 },
   ambient: { name: 'Ambient', min: 12000, max: 18000 },
@@ -41,10 +43,24 @@ function persistMood(mood) {
   } catch (error) {
     console.warn('[renderer] Unable to persist mood:', error);
   }
+
+  if (typeof mood === 'string') {
+    if (userSettings && typeof userSettings === 'object') {
+      userSettings.defaultMood = mood;
+      saveSettings(userSettings);
+    }
+  }
 }
 
+const settingsMood =
+  typeof userSettings?.defaultMood === 'string' && MOODS[userSettings.defaultMood]
+    ? userSettings.defaultMood
+    : null;
 const storedMood = readStoredMood();
-let currentMood = storedMood && MOODS[storedMood] ? storedMood : DEFAULT_MOOD;
+let currentMood =
+  (settingsMood && MOODS[settingsMood] ? settingsMood : null) ||
+  (storedMood && MOODS[storedMood] ? storedMood : null) ||
+  DEFAULT_MOOD;
 let moodSyncInitialised = false;
 
 document.addEventListener('DOMContentLoaded', () => {
