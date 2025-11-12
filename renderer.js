@@ -2,6 +2,11 @@ import { WS_URL } from './renderer/config.js';
 import { initialiseHud } from './renderer/hud.js';
 import { createNetworkClient } from './renderer/network.js';
 import { createEffectSpawner } from './renderer/spawn.js';
+import {
+  startSpawnLoop as startFxSpawnLoop,
+  setMood as setFxMood,
+  stopSpawnLoop as stopFxSpawnLoop,
+} from './renderer/spawn-loop.js';
 
 const MOODS = {
   chill: { name: 'Chill', min: 12000, max: 18000 },
@@ -70,6 +75,7 @@ function syncMoodFromPrimaryHud() {
   if (hudMoodSelect) {
     const moodValue = MOODS[hudMoodSelect.value] ? hudMoodSelect.value : currentMood;
     currentMood = MOODS[moodValue] ? moodValue : 'urban';
+    setFxMood(currentMood);
     const selector = document.getElementById('overlay-mood-selector');
     if (selector && selector.value !== currentMood) {
       selector.value = currentMood;
@@ -103,6 +109,7 @@ function ensureMoodSelector(hudElement) {
   select.addEventListener('change', () => {
     currentMood = select.value;
     syncMoodToPrimaryHud();
+    setFxMood(currentMood);
     scheduleNextEffect();
   });
 
@@ -218,6 +225,8 @@ const overlayMoodSelect = document.getElementById('overlay-mood-selector');
 if (overlayMoodSelect && overlayMoodSelect.value !== currentMood) {
   overlayMoodSelect.value = currentMood;
 }
+setFxMood(currentMood);
+startFxSpawnLoop({ immediate: true });
 ensureEffectStyles();
 if (moodSyncInitialised) {
   syncMoodFromPrimaryHud();
@@ -316,6 +325,7 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('beforeunload', () => {
   network.dispose?.();
   spawner.clear?.();
+  stopFxSpawnLoop();
   window.clearTimeout(effectTimer);
   effectTimer = null;
 });
