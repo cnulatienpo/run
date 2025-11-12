@@ -2,22 +2,32 @@ import { WS_URL } from './config.js';
 import { softPulse, scanline, withZoneClip } from '../effects/filters.js';
 import mapping from '../effects/effect-mapping.json' assert { type: 'json' };
 
+const pacingMap = {
+  Dreamcore: [5000, 9000],
+  Urban: [8000, 14000],
+  Ambient: [12000, 24000],
+  Rare: [25000, 40000],
+  Chillwave: [10000, 16000],
+  default: [10000, 20000],
+};
+
 const canvas = document.getElementById('fx-canvas');
 const stepEl = document.getElementById('hud-step');
 const timerEl = document.getElementById('hud-timer');
 const moodSelect = document.getElementById('hud-mood');
-const tagContainer = document.getElementById('tag-buttons');
-const tagStatus = document.getElementById('hud-tag');
+const tagContainer = document.getElementById('hud-tags');
+const tagLabel = document.getElementById('hud-tag-label');
 const statusEl = document.getElementById('hud-status');
 
 const socket = new WebSocket(WS_URL);
-const activeTags = new Set();
 let stepCount = 0;
 let sessionStart = Date.now();
 let currentMood = mapping.defaultMood || 'dreamlike';
+const storage = typeof localStorage !== 'undefined' ? localStorage : undefined;
 
-const fallbackTags = ['ambient', 'rare', 'glide', 'sway', 'night', 'pulse'];
-const availableTags = Array.isArray(mapping.tags) && mapping.tags.length ? mapping.tags : fallbackTags;
+const storedTag = storage?.getItem('selectedTag');
+let currentTag = pacingMap[storedTag] ? storedTag : 'default';
+let tagIntervalHandle;
 
 const STATUS_CLASSNAMES = {
   connecting: 'hud-status--connecting',
@@ -45,32 +55,6 @@ function updateStepDisplay() {
   stepEl.textContent = stepCount.toLocaleString();
 }
 
-function updateTagStatus() {
-  if (activeTags.size === 0) {
-    tagStatus.textContent = 'None';
-    return;
-  }
-
-  tagStatus.textContent = Array.from(activeTags).join(', ');
-}
-
-function syncTagButtons() {
-  tagContainer.querySelectorAll('button[data-tag]').forEach((button) => {
-    const tag = button.dataset.tag;
-    button.classList.toggle('is-active', activeTags.has(tag));
-  });
-  updateTagStatus();
-}
-
-function toggleTag(tag) {
-  if (activeTags.has(tag)) {
-    activeTags.delete(tag);
-  } else {
-    activeTags.add(tag);
-  }
-  syncTagButtons();
-}
-
 function buildMoodSelector() {
   const moods = Object.keys(mapping.moods || {});
   const uniqueMoods = moods.length ? new Set(moods) : new Set([currentMood]);
@@ -96,52 +80,85 @@ function buildMoodSelector() {
 }
 
 function buildTagButtons() {
+  if (!tagContainer) {
+    return;
+  }
+
   tagContainer.innerHTML = '';
-  availableTags.forEach((tag) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'tag-button';
-    button.dataset.tag = tag;
-    button.textContent = tag;
-    button.addEventListener('click', () => toggleTag(tag));
-    tagContainer.appendChild(button);
-  });
-  syncTagButtons();
+  Object.keys(pacingMap)
+    .filter((tag) => tag !== 'default')
+    .forEach((tag) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'tag-button';
+      button.dataset.tag = tag;
+      button.textContent = tag;
+      button.addEventListener('click', () => {
+        currentTag = tag;
+        storage?.setItem('selectedTag', tag);
+        updateTagUI(tag);
+        restartTagSpawnLoop();
+      });
+      tagContainer.appendChild(button);
+    });
+  updateTagUI(currentTag);
 }
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function runEffectLoop() {
+function updateTagUI(tag) {
+  if (tagContainer) {
+    tagContainer.querySelectorAll('button').forEach((button) => {
+      const isSelected = button.dataset.tag === tag;
+      button.classList.toggle('selected', isSelected);
+      button.classList.toggle('is-active', isSelected);
+    });
+  }
+  if (tagLabel) {
+    const displayName = tag === 'default' ? 'Default' : tag;
+    tagLabel.textContent = `Tag: ${displayName}`;
+  }
+}
+
+function triggerHallucination() {
   if (!canvas) {
     return;
   }
-  const interval = mapping.intervalMs || { min: 10000, max: 14000 };
-  const delay = Math.random() * (interval.max - interval.min) + interval.min;
 
-  setTimeout(() => {
-    const effectList = mapping.moods?.[currentMood] || mapping.moods?.[mapping.defaultMood] || [];
-    const zoneList = mapping.zones?.[currentMood] || mapping.zones?.[mapping.defaultMood] || ['center'];
+  const effectList = mapping.moods?.[currentMood] || mapping.moods?.[mapping.defaultMood] || [];
+  const zoneList = mapping.zones?.[currentMood] || mapping.zones?.[mapping.defaultMood] || ['center'];
 
-    if (!effectList.length) {
-      runEffectLoop();
-      return;
-    }
+  if (!effectList.length) {
+    return;
+  }
 
-    const effectName = pick(effectList);
-    const zone = pick(zoneList);
+  const effectName = pick(effectList);
+  const zone = pick(zoneList);
 
-    const cleanup = withZoneClip(canvas, zone);
-    const effectMap = { softPulse, scanline };
-    const effectFn = effectMap[effectName];
-    if (typeof effectFn === 'function') {
-      effectFn(canvas);
-    }
-    if (typeof cleanup === 'function') {
-      setTimeout(cleanup, 2000);
-    }
-    runEffectLoop();
+  const cleanup = withZoneClip(canvas, zone);
+  const effectMap = { softPulse, scanline };
+  const effectFn = effectMap[effectName];
+  if (typeof effectFn === 'function') {
+    effectFn(canvas);
+  }
+  if (typeof cleanup === 'function') {
+    setTimeout(cleanup, 2000);
+  }
+}
+
+function restartTagSpawnLoop() {
+  if (tagIntervalHandle) {
+    clearTimeout(tagIntervalHandle);
+  }
+
+  const [min, max] = pacingMap[currentTag] || pacingMap.default;
+  const delay = Math.random() * (max - min) + min;
+
+  tagIntervalHandle = setTimeout(() => {
+    triggerHallucination();
+    restartTagSpawnLoop();
   }, delay);
 }
 
@@ -183,13 +200,13 @@ socket.addEventListener('message', (event) => {
     }
 
     if (Array.isArray(data.tags)) {
-      activeTags.clear();
-      data.tags.forEach((tag) => {
-        if (typeof tag === 'string' && tag.trim()) {
-          activeTags.add(tag);
-        }
-      });
-      syncTagButtons();
+      const nextTag = data.tags.find((tag) => pacingMap[tag]);
+      if (nextTag) {
+        currentTag = nextTag;
+        storage?.setItem('selectedTag', currentTag);
+        updateTagUI(currentTag);
+        restartTagSpawnLoop();
+      }
     }
   } catch (error) {
     console.error('[WS] Failed to parse message', error);
@@ -211,5 +228,4 @@ setStatus('connecting');
 buildMoodSelector();
 buildTagButtons();
 updateStepDisplay();
-updateTagStatus();
-runEffectLoop();
+restartTagSpawnLoop();
