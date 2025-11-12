@@ -7,6 +7,10 @@ import {
   setMood as setFxMood,
   stopSpawnLoop as stopFxSpawnLoop,
 } from './renderer/spawn-loop.js';
+import {
+  initialiseSessionLog,
+  exportSessionLog as exportGlobalSessionLog,
+} from './renderer/tag-session-logger.js';
 
 const DEFAULT_MOOD = 'dreamcore';
 const MOOD_STORAGE_KEY = 'selectedMood';
@@ -44,8 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
   startSpawnLoop();
 });
 
-const sessionLog = [];
-const sessionStart = Date.now();
+const sessionState = initialiseSessionLog();
+const sessionLog = Array.isArray(sessionState.events)
+  ? sessionState.events
+  : (sessionState.events = []);
+const sessionStart = sessionState.startTime ?? Date.now();
+sessionState.startTime = sessionStart;
 
 function logSessionEvent(type, data = {}) {
   sessionLog.push({
@@ -354,16 +362,7 @@ const network = createNetworkClient({
 
 function downloadSessionLog() {
   logSessionEvent('session-log-exported');
-  const fileName = `session-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-  const blob = new Blob([JSON.stringify(sessionLog, null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  exportGlobalSessionLog();
 }
 
 window.addEventListener('keydown', (event) => {
