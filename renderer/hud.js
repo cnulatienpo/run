@@ -178,7 +178,7 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     updateTimerDisplay();
   });
 
-  moodSelect?.addEventListener('change', () => {
+  moodSelect?.addEventListener('change', (event) => {
     currentState.mood = moodSelect.value;
     persistMood(currentState.mood);
     const label = moodSelect.options[moodSelect.selectedIndex]?.textContent;
@@ -210,15 +210,14 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     button.addEventListener('click', () => {
       const tag = button.dataset.tag;
       if (!tag) return;
-      let action;
       if (selectedTags.has(tag)) {
         selectedTags.delete(tag);
         button.classList.remove('is-active');
-        action = 'removed';
+        logEvent('tagDeselected', { tag, source: 'primary-hud' });
       } else {
         selectedTags.add(tag);
         button.classList.add('is-active');
-        action = 'added';
+        logEvent('tagSelected', { tag, source: 'primary-hud' });
       }
       logEvent('tag-toggle', {
         steps: lastStepCount,
