@@ -1,3 +1,6 @@
+import { setMood } from './spawn-loop.js';
+import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
+
 const STATUS_CLASS_PREFIX = 'status--';
 const STATUS_MESSAGES = {
   connecting: 'Connecting…',
@@ -242,4 +245,149 @@ export function initialiseHud({ sessionLog }) {
     getLastStepCount: () => lastStepCount,
     loadAssetPacks,
   };
+}
+
+function getPrimaryMoodSelect() {
+  return document.getElementById('mood-select');
+}
+
+function getMoodLabel(mood) {
+  const primarySelect = getPrimaryMoodSelect();
+  if (!primarySelect) {
+    return mood;
+  }
+
+  const option = Array.from(primarySelect.options).find((item) => item.value === mood);
+  return option?.textContent?.trim() || mood;
+}
+
+function ensureMoodExists(mood) {
+  if (!mood) {
+    return false;
+  }
+  return Boolean(effectMap.moods?.[mood]);
+}
+
+export function createMoodSelectorHUD() {
+  if (!document?.body) {
+    return null;
+  }
+
+  const existing = document.getElementById('hud-mood-selector');
+  if (existing) {
+    return existing;
+  }
+
+  const moodKeys = Object.keys(effectMap.moods || {});
+  if (moodKeys.length === 0) {
+    console.warn('[hud] No moods available for selector');
+    return null;
+  }
+
+  const container = document.createElement('div');
+  container.id = 'hud-mood-selector';
+  container.style.position = 'fixed';
+  container.style.top = '20px';
+  container.style.left = '20px';
+  container.style.zIndex = '9999';
+  container.style.background = 'rgba(0, 0, 0, 0.7)';
+  container.style.color = '#fff';
+  container.style.padding = '10px 14px';
+  container.style.borderRadius = '10px';
+  container.style.fontSize = '14px';
+  container.style.fontFamily = 'sans-serif';
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.gap = '8px';
+  container.style.boxShadow = '0 12px 24px rgba(0, 0, 0, 0.25)';
+
+  const title = document.createElement('div');
+  title.textContent = '🎛️ Mood Selector';
+  title.style.fontWeight = '600';
+  title.style.marginBottom = '6px';
+  container.appendChild(title);
+
+  const buttons = new Map();
+
+  function updateActiveMood(mood) {
+    title.textContent = `🎛️ Mood: ${getMoodLabel(mood)}`;
+    buttons.forEach((button, buttonMood) => {
+      if (buttonMood === mood) {
+        button.style.background = '#2563eb';
+        button.style.color = '#f9fafb';
+        button.style.boxShadow = '0 0 0 1px rgba(37, 99, 235, 0.5)';
+      } else {
+        button.style.background = '#1f2937';
+        button.style.color = '#e5e7eb';
+        button.style.boxShadow = 'none';
+      }
+    });
+  }
+
+  function applyMood(mood) {
+    if (!ensureMoodExists(mood)) {
+      console.warn('[hud] Cannot apply unknown mood:', mood);
+      return;
+    }
+
+    updateActiveMood(mood);
+    setMood(mood);
+
+    const primarySelect = getPrimaryMoodSelect();
+    if (primarySelect && primarySelect.value !== mood) {
+      const optionExists = Array.from(primarySelect.options).some((option) => option.value === mood);
+      if (optionExists) {
+        primarySelect.value = mood;
+        primarySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  moodKeys.forEach((mood) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = getMoodLabel(mood);
+    button.style.padding = '6px 10px';
+    button.style.borderRadius = '6px';
+    button.style.border = 'none';
+    button.style.background = '#1f2937';
+    button.style.color = '#e5e7eb';
+    button.style.cursor = 'pointer';
+    button.style.transition = 'transform 0.12s ease, background 0.2s ease';
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-1px)';
+    });
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'none';
+    });
+    button.addEventListener('click', () => applyMood(mood));
+    buttons.set(mood, button);
+    container.appendChild(button);
+  });
+
+  const primarySelect = getPrimaryMoodSelect();
+  if (primarySelect) {
+    primarySelect.addEventListener('change', () => {
+      const newMood = primarySelect.value;
+      if (ensureMoodExists(newMood)) {
+        updateActiveMood(newMood);
+      }
+    });
+  }
+
+  const initialMood = (() => {
+    if (primarySelect && ensureMoodExists(primarySelect.value)) {
+      return primarySelect.value;
+    }
+    if (effectMap.defaultMood && ensureMoodExists(effectMap.defaultMood)) {
+      return effectMap.defaultMood;
+    }
+    return moodKeys[0];
+  })();
+
+  applyMood(initialMood);
+
+  document.body.appendChild(container);
+
+  return container;
 }

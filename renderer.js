@@ -1,5 +1,5 @@
 import { WS_URL } from './renderer/config.js';
-import { initialiseHud } from './renderer/hud.js';
+import { initialiseHud, createMoodSelectorHUD } from './renderer/hud.js';
 import { createNetworkClient } from './renderer/network.js';
 import { createEffectSpawner } from './renderer/spawn.js';
 
@@ -181,6 +181,7 @@ updateTimer();
 window.setInterval(updateTimer, 1000);
 
 const hud = initialiseHud({ sessionLog });
+createMoodSelectorHUD();
 const canvas = document.getElementById('fx-canvas');
 const spawner = createEffectSpawner({
   canvas,
