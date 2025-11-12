@@ -7,41 +7,18 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <div id="fx-canvas" class="fx-layer" aria-hidden="true"></div>
-
-      <section class="hud" aria-live="polite">
-        <header class="hud-header">
-          <span id="hud-status" class="hud-status hud-status--connecting">Connecting…</span>
-          <div class="hud-timer">
-            <span class="hud-label">Session</span>
-            <span id="hud-timer" class="hud-value">00:00</span>
-          </div>
-        </header>
-
-        <div class="hud-grid">
-          <div class="metric">
-            <span class="hud-label">Steps</span>
-            <span id="hud-step" class="hud-value">0</span>
-          </div>
-          <div class="metric">
-            <span class="hud-label">Mood</span>
-            <select id="hud-mood" class="hud-control" aria-label="Mood selector"></select>
-          </div>
-        </div>
-
-        <div class="tags-panel">
-          <span id="hud-tag-label" class="hud-label">Tag: Default</span>
-          <div
-            id="hud-tags"
-            class="tag-buttons"
-            role="group"
-            aria-label="Select a hallucination tag"
-          ></div>
-        </div>
-      </section>
-    </main>
-
+    <div id="hud">
+      <div class="row">
+        <strong>Mood:</strong>
+        <select id="mood-select">
+          <option value="dreamlike">Dreamlike</option>
+          <option value="urban">Urban</option>
+          <option value="rare">Rare</option>
+        </select>
+        <strong>Session:</strong> <span id="session-timer">0:00</span>
+      </div>
+    </div>
+    <canvas id="fx-canvas"></canvas>
     <script src="./renderer.js" type="module"></script>
   </body>
 </html>
