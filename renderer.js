@@ -125,8 +125,12 @@ function syncMoodToPrimaryHud() {
 function syncMoodFromPrimaryHud() {
   const hudMoodSelect = document.getElementById('mood-select');
   if (hudMoodSelect) {
+    const previousMood = currentMood;
     const moodValue = MOODS[hudMoodSelect.value] ? hudMoodSelect.value : currentMood;
     currentMood = MOODS[moodValue] ? moodValue : DEFAULT_MOOD;
+    if (currentMood !== previousMood) {
+      logSessionEvent('mood-update', { mood: currentMood, source: 'primary-hud' });
+    }
     persistMood(currentMood);
     setFxMood(currentMood);
     const selector = document.getElementById('overlay-mood-selector');
@@ -167,7 +171,7 @@ function ensureMoodSelector(hudElement) {
     setFxMood(currentMood);
     scheduleNextEffect();
     if (currentMood !== previousMood) {
-      logSessionEvent('moodSelected', { mood: currentMood, source: 'overlay' });
+      logSessionEvent('mood-update', { mood: currentMood, source: 'overlay' });
     }
   });
 

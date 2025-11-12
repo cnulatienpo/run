@@ -185,12 +185,10 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     if (label && moodLabelEl) {
       moodLabelEl.textContent = label;
     }
-    if (event?.isTrusted) {
-      logEvent('moodSelected', {
-        mood: currentState.mood,
-        source: 'primary-hud',
-      });
-    }
+    logEvent('mood-change', {
+      steps: lastStepCount,
+      mood: currentState.mood,
+    });
   });
 
   if (moodSelect && moodLabelEl) {
@@ -221,6 +219,11 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
         button.classList.add('is-active');
         logEvent('tagSelected', { tag, source: 'primary-hud' });
       }
+      logEvent('tag-toggle', {
+        steps: lastStepCount,
+        tag,
+        tagAction: action,
+      });
     });
   });
 
