@@ -7,10 +7,24 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div id="hud"></div>
+    <div id="hud">
+      <div class="row">
+        <strong>Tag:</strong>
+        <button data-tag="Dreamcore">Dreamcore</button>
+        <button data-tag="Ambient">Ambient</button>
+        <button data-tag="Urban">Urban</button>
+        <span id="current-tag" style="margin-left:12px; opacity: 0.6;"></span>
+      </div>
+      <div class="row">
+        <strong>Time:</strong>
+        <span id="session-time">00:00</span>
+      </div>
+      <!-- Add to HUD for manual export button -->
+      <div class="row">
+        <button onclick="window.downloadSessionLog()">Download Log</button>
+      </div>
+    </div>
     <div id="fx-canvas"></div>
-    <!-- Add to HUD for manual export button -->
-    <button onclick="window.downloadSessionLog()">Download Log</button>
     <script type="module">
       import { downloadLog } from './sessionLogger.js';
       window.downloadSessionLog = downloadLog;
