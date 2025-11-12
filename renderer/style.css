@@ -18,6 +18,13 @@ body {
   color: #e2e8f0;
 }
 
+#fx-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
 .app-shell {
   position: relative;
   min-height: 100vh;
