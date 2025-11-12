@@ -14,6 +14,22 @@ const RETRY_DELAY_MS = 4000;
 let reconnectTimer;
 let socket;
 
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function resolveSocketUrl() {
+  if (typeof window !== 'undefined' && isNonEmptyString(window.RTW_WS_URL)) {
+    return window.RTW_WS_URL.trim();
+  }
+
+  if (typeof globalThis !== 'undefined' && isNonEmptyString(globalThis.RTW_WS_URL)) {
+    return globalThis.RTW_WS_URL.trim();
+  }
+
+  return 'ws://localhost:6789';
+}
+
 function setStatus(message, stateClass) {
   const classList = statusEl.className
     .split(' ')
@@ -53,8 +69,17 @@ function connectToServer() {
     return;
   }
 
+  const targetUrl = resolveSocketUrl();
+
+  if (!isNonEmptyString(window.RTW_WS_URL)) {
+    console.warn(
+      '[renderer] RTW_WS_URL was not injected by the preload script; falling back to',
+      targetUrl
+    );
+  }
+
   try {
-    socket = new WebSocket('ws://localhost:6789');
+    socket = new WebSocket(targetUrl);
   } catch (error) {
     console.error('Unable to create WebSocket:', error);
     setStatus('Unable to initialise WebSocket. Retrying…', 'error');
@@ -62,10 +87,10 @@ function connectToServer() {
     return;
   }
 
-  setStatus('Connecting to the fake step server…', 'connecting');
+  setStatus(`Connecting to ${targetUrl}…`, 'connecting');
 
   socket.addEventListener('open', () => {
-    setStatus('Connected to the fake step server.', 'connected');
+    setStatus(`Connected to ${targetUrl}.`, 'connected');
   });
 
   socket.addEventListener('message', (event) => {

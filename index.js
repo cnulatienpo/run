@@ -3,10 +3,14 @@ const path = require('path');
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
+    width: 1280,
+    height: 800,
+    backgroundColor: '#000000',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
     show: false,
   });

@@ -2,7 +2,7 @@
   "name": "run",
   "version": "1.0.0",
   "description": "Run The World overlay",
-  "main": "main.js",
+  "main": "index.js",
   "scripts": {
     "start": "electron .",
     "dev": "nodemon main.js"
