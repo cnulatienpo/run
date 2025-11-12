@@ -28,6 +28,73 @@ let log = createFallbackLogger();
   log.info('Session started:', new Date().toISOString());
 })();
 
+function safeStorageGet(key) {
+  try {
+    return window?.localStorage?.getItem(key) ?? null;
+  } catch (error) {
+    console.warn('[hud] Unable to read from storage:', error);
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    window?.localStorage?.setItem(key, value);
+  } catch (error) {
+    console.warn('[hud] Unable to write to storage:', error);
+  }
+}
+
+function readStoredTag() {
+  const stored = safeStorageGet(TAG_STORAGE_KEY);
+  return stored && Object.prototype.hasOwnProperty.call(activeFilters, stored) ? stored : null;
+}
+
+function readStoredMood() {
+  const stored = safeStorageGet(MOOD_STORAGE_KEY);
+  return stored && moods[stored] ? stored : null;
+}
+
+function persistTag(tag) {
+  safeStorageSet(TAG_STORAGE_KEY, tag);
+}
+
+function persistMood(mood) {
+  if (!moods[mood]) {
+    return;
+  }
+  safeStorageSet(MOOD_STORAGE_KEY, mood);
+}
+
+function getPacingSnapshot(range = moodIntervalRange) {
+  if (!Array.isArray(range)) {
+    return null;
+  }
+  const [min, max] = range;
+  return { min, max };
+}
+
+function syncSessionMetadata() {
+  sessionLog.mood = currentMood;
+  sessionLog.tag = currentTag;
+  sessionLog.pacing = getPacingSnapshot();
+}
+
+function logEvent(event) {
+  const entry = {
+    time: new Date().toISOString(),
+    tag: currentTag,
+    mood: currentMood,
+    pacing: getPacingSnapshot(),
+    ...event,
+  };
+  sessionLog.events.push(entry);
+  log.info('[LOG]', entry);
+}
+
+syncSessionMetadata();
+logEvent({ type: 'sessionStart' });
+
 const app = new Application();
 const overlay = new Container();
 
@@ -40,15 +107,31 @@ const activeFilters = {
   Ambient: [],
 };
 
-const pacing = {
-  Dreamcore: [4000, 6000],
-  Urban: [6000, 12000],
-  Ambient: [15000, 25000],
+const moods = {
+  Chill: [15000, 30000],
+  Dreamlike: [10000, 18000],
+  Intense: [4000, 8000],
 };
 
-let currentTag = 'Ambient';
+const DEFAULT_MOOD = 'Dreamlike';
+const TAG_STORAGE_KEY = 'selectedTag';
+const MOOD_STORAGE_KEY = 'hudMood';
+
+const sessionLog = {
+  sessionId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+  start: new Date().toISOString(),
+  mood: null,
+  tag: null,
+  pacing: null,
+  events: [],
+};
+
+let currentTag = readStoredTag() ?? 'Ambient';
+let currentMood = readStoredMood() ?? DEFAULT_MOOD;
+let moodIntervalRange = moods[currentMood] ?? moods[DEFAULT_MOOD];
 let steps = 0;
 let scheduleHandle;
+let effectsPrimed = false;
 
 const hud = document.getElementById('hud') ?? document.body.appendChild(document.createElement('div'));
 
@@ -68,6 +151,39 @@ tagContainer.style.display = 'flex';
 tagContainer.style.gap = '6px';
 tagContainer.style.marginBottom = '8px';
 hud.appendChild(tagContainer);
+
+const moodWrapper = document.createElement('div');
+moodWrapper.style.display = 'flex';
+moodWrapper.style.alignItems = 'center';
+moodWrapper.style.gap = '6px';
+moodWrapper.style.marginBottom = '10px';
+
+const moodLabel = document.createElement('label');
+moodLabel.textContent = 'Mood:';
+moodWrapper.appendChild(moodLabel);
+
+const moodSelect = document.createElement('select');
+moodSelect.style.background = '#111827';
+moodSelect.style.color = '#f8fafc';
+moodSelect.style.border = '1px solid #374151';
+moodSelect.style.borderRadius = '4px';
+moodSelect.style.padding = '4px 6px';
+moodSelect.style.fontSize = '0.85rem';
+
+Object.entries(moods).forEach(([mood, range]) => {
+  const option = document.createElement('option');
+  option.value = mood;
+  option.textContent = `${mood} (${Math.round(range[0] / 1000)}-${Math.round(range[1] / 1000)}s)`;
+  moodSelect.appendChild(option);
+});
+
+moodSelect.value = currentMood;
+moodSelect.addEventListener('change', () => {
+  applyMood(moodSelect.value);
+});
+
+moodWrapper.appendChild(moodSelect);
+hud.insertBefore(moodWrapper, tagContainer);
 
 const statusEl = document.createElement('div');
 statusEl.textContent = 'Steps: 0';
@@ -89,6 +205,25 @@ function updateTagButtonStyles() {
   });
 }
 
+function getMoodDelayRange() {
+  return moodIntervalRange ?? moods[DEFAULT_MOOD];
+}
+
+function applyMood(nextMood) {
+  if (!moods[nextMood]) {
+    return;
+  }
+  if (currentMood === nextMood) {
+    return;
+  }
+  currentMood = nextMood;
+  moodIntervalRange = moods[nextMood];
+  persistMood(nextMood);
+  syncSessionMetadata();
+  logEvent({ type: 'moodChange', mood: nextMood });
+  rescheduleEffects();
+}
+
 tags.forEach((tag) => {
   const button = document.createElement('button');
   button.textContent = tag;
@@ -101,13 +236,17 @@ tags.forEach((tag) => {
     updateTagButtonStyles();
     applyTagFilters();
     rescheduleEffects();
+    persistTag(tag);
+    syncSessionMetadata();
     log.info('Mood tag set:', tag);
+    logEvent({ type: 'tagChange', tag });
   });
   tagContainer.appendChild(button);
   tagButtons.set(tag, button);
 });
 
 updateTagButtonStyles();
+applyTagFilters();
 
 function applyTagFilters() {
   overlay.filters = activeFilters[currentTag] ?? [];
@@ -131,11 +270,19 @@ function spawnEffect() {
     graphic.destroy({ children: true });
   }, 4000);
 
-  log.info('Effect spawned', { time: Date.now(), tag: currentTag, step: steps });
+  const effectType = 'pixiBurst';
+  log.info('Effect spawned', {
+    time: Date.now(),
+    tag: currentTag,
+    step: steps,
+    mood: currentMood,
+    effect: effectType,
+  });
+  logEvent({ type: 'effectSpawn', effect: effectType });
 }
 
 function scheduleNext() {
-  const [minDelay, maxDelay] = pacing[currentTag] ?? [6000, 10000];
+  const [minDelay, maxDelay] = getMoodDelayRange();
   const delay = minDelay + Math.random() * (maxDelay - minDelay);
   scheduleHandle = window.setTimeout(() => {
     spawnEffect();
@@ -144,6 +291,9 @@ function scheduleNext() {
 }
 
 function rescheduleEffects() {
+  if (!effectsPrimed) {
+    return;
+  }
   if (scheduleHandle) {
     window.clearTimeout(scheduleHandle);
   }
@@ -154,6 +304,27 @@ function updateSteps(stepCount) {
   steps = stepCount;
   statusEl.textContent = `Steps: ${stepCount.toLocaleString()}`;
 }
+
+function exportSessionLog() {
+  sessionLog.end = new Date().toISOString();
+  const blob = new Blob([JSON.stringify(sessionLog, null, 2)], {
+    type: 'application/json',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `session-${sessionLog.sessionId}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+window.downloadSessionLog = exportSessionLog;
+
+window.addEventListener('keydown', (event) => {
+  if (event.key?.toLowerCase() === 'l') {
+    exportSessionLog();
+  }
+});
 
 const wsUrl =
   globalThis.preloadConfig?.WS_URL ?? globalThis.RTW_WS_URL ?? 'ws://localhost:6789';
@@ -215,5 +386,6 @@ connectSocket();
   });
   app.stage.addChild(overlay);
   applyTagFilters();
+  effectsPrimed = true;
   scheduleNext();
 })();
