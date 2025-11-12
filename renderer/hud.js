@@ -1,5 +1,6 @@
 import { setMood, getCurrentMood } from './spawn-loop.js';
 import { logTagSelection } from './tag-session-logger.js';
+import { loadSettings, saveSettings } from './settings.js';
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
 
 const STATUS_CLASS_PREFIX = 'status--';
@@ -12,8 +13,15 @@ const STATUS_MESSAGES = {
 };
 
 const MOOD_STORAGE_KEY = 'selectedMood';
+const userSettings = loadSettings();
 
 function readStoredMood() {
+  const settingsMood =
+    typeof userSettings?.defaultMood === 'string' ? userSettings.defaultMood : null;
+  if (settingsMood && ensureMoodExists(settingsMood)) {
+    return settingsMood;
+  }
+
   try {
     return window?.localStorage?.getItem(MOOD_STORAGE_KEY) ?? null;
   } catch (error) {
@@ -27,6 +35,13 @@ function persistMood(mood) {
     window?.localStorage?.setItem(MOOD_STORAGE_KEY, mood);
   } catch (error) {
     console.warn('[hud] Unable to persist mood:', error);
+  }
+
+  if (typeof mood === 'string') {
+    if (userSettings && typeof userSettings === 'object') {
+      userSettings.defaultMood = mood;
+      saveSettings(userSettings);
+    }
   }
 }
 
@@ -92,6 +107,8 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   let sessionStartTime;
   let timerInterval;
   const selectedTags = new Set();
+  const storedDefaultTag =
+    typeof userSettings?.defaultTag === 'string' ? userSettings.defaultTag : null;
   const storedMood = readStoredMood();
   if (moodSelect && storedMood && ensureMoodExists(storedMood)) {
     moodSelect.value = storedMood;
@@ -104,6 +121,27 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     bpm: bpmSelect?.value || '120',
     playlist: 'Untitled Session',
   };
+
+  if (typeof userSettings?.lastPlaylist === 'string') {
+    currentState.playlist = userSettings.lastPlaylist;
+  }
+
+  if (playlistInput && typeof userSettings?.lastPlaylist === 'string') {
+    playlistInput.value = userSettings.lastPlaylist;
+    currentState.playlist = userSettings.lastPlaylist;
+  }
+
+  if (playlistNameEl && typeof userSettings?.lastPlaylist === 'string') {
+    playlistNameEl.textContent = userSettings.lastPlaylist;
+  }
+
+  if (storedDefaultTag) {
+    const defaultButton = tagButtons.find((button) => button.dataset.tag === storedDefaultTag);
+    if (defaultButton) {
+      selectedTags.add(storedDefaultTag);
+      defaultButton.classList.add('is-active');
+    }
+  }
 
   function updateTimerDisplay() {
     if (!sessionStartTime) {
@@ -161,6 +199,10 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       const name = playlistInput.value.trim() || 'Untitled Session';
       currentState.playlist = name;
       playlistNameEl.textContent = name;
+      if (userSettings && typeof userSettings === 'object') {
+        userSettings.lastPlaylist = name;
+        saveSettings(userSettings);
+      }
       logEvent('playlist-start', {
         steps: lastStepCount,
         playlist: name,
@@ -224,6 +266,10 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
         button.classList.add('is-active');
         logEvent('tagSelected', { tag, source: 'primary-hud' });
         logTagSelection(tag, 'primary-hud');
+        if (userSettings && typeof userSettings === 'object') {
+          userSettings.defaultTag = tag;
+          saveSettings(userSettings);
+        }
       }
       logEvent('tag-toggle', {
         steps: lastStepCount,
