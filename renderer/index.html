@@ -1,48 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <title>Run The World — Desktop</title>
-  <!-- CSP allows YouTube embeds; adjust as needed -->
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://i.ytimg.com;
-                 script-src 'self' 'unsafe-inline' https://www.youtube.com https://www.youtube-nocookie.com;
-                 style-src 'self' 'unsafe-inline';
-                 img-src 'self' https://i.ytimg.com data:;
-                 frame-src https://www.youtube.com https://www.youtube-nocookie.com;">
-  <link rel="stylesheet" href="style.css" />
-  <script>globalThis.RTW_WS_URL = 'wss://redesigned-cod-g95ww76g4g5fvqxj-6789.app.github.dev';</script>
-</head>
-<body>
-  <div id="hud">
-    <div class="row">
-      <strong>Pack:</strong> <span id="hud-pack">Default</span>
-      <strong>Mode:</strong> <span id="hud-mode">Just Let Me Run</span>
-      <strong>Timer:</strong> <span id="hud-time">00:00</span>
-    </div>
-    <div class="row">
-      <label>Video URL:</label>
-      <input id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." />
-      <button id="loadBtn">Load</button>
-      <button id="surpriseBtn">Surprise Me</button>
-    </div>
-  </div>
-
-  <div id="player-wrap">
-    <div id="player"></div>
-    <canvas id="fx-canvas"></canvas>
-  </div>
-
-  <!-- YouTube IFrame API -->
-  <script src="https://www.youtube.com/iframe_api"></script>
-
-  <!-- Effects config + logic (stubbed; you’ll expand later) -->
-  <script type="module">
-    import * as Filters from '../effects/filters.js';
-    import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
-    window.RTW_EFFECTS = { Filters, effectMap };
-  </script>
-
-  <script type="module" src="renderer.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>Run The World</title>
+  </head>
+  <body>
+    <h1>Run The World Overlay</h1>
+    <div id="step-count">Steps: 0</div>
+    <script src="./renderer.js"></script>
+  </body>
 </html>
