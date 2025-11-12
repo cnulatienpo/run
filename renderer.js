@@ -8,6 +8,11 @@ import {
   stopSpawnLoop as stopFxSpawnLoop,
 } from './renderer/spawn-loop.js';
 import {
+  startHallucinationLoop,
+  setMood as setHallucinationMood,
+  stopHallucinationLoop,
+} from './renderer/hallucination-loop.js';
+import {
   initialiseSessionLog,
   exportSessionLog as exportGlobalSessionLog,
 } from './renderer/tag-session-logger.js';
@@ -40,7 +45,6 @@ function persistMood(mood) {
 
 const storedMood = readStoredMood();
 let currentMood = storedMood && MOODS[storedMood] ? storedMood : DEFAULT_MOOD;
-let effectTimer = null;
 let moodSyncInitialised = false;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -83,45 +87,6 @@ function ensureEffectStyles() {
   document.head.appendChild(style);
 }
 
-function spawnEffect() {
-  const canvas = document.getElementById('fx-canvas');
-  if (!canvas) {
-    return;
-  }
-
-  import('./effects/filters.js')
-    .then(({ softPulse, scanline, withZoneClip }) => {
-      const zoneOptions = ['topLeft', 'center', 'bottom'];
-      const zone = zoneOptions[Math.floor(Math.random() * zoneOptions.length)];
-      const release = typeof withZoneClip === 'function' ? withZoneClip(canvas, zone) : null;
-
-      const effect = Math.random() < 0.5 ? softPulse : scanline;
-      if (typeof effect === 'function') {
-        effect(canvas);
-      }
-
-      window.setTimeout(() => {
-        if (typeof release === 'function') {
-          release();
-        }
-      }, 2200);
-    })
-    .catch((error) => {
-      console.warn('[renderer] Unable to spawn mood effect:', error);
-    });
-}
-
-function scheduleNextEffect() {
-  window.clearTimeout(effectTimer);
-  const mood = MOODS[currentMood] || MOODS[DEFAULT_MOOD];
-  const range = Math.max(0, mood.max - mood.min);
-  const delay = Math.floor(Math.random() * (range + 1)) + mood.min;
-  effectTimer = window.setTimeout(() => {
-    spawnEffect();
-    scheduleNextEffect();
-  }, delay);
-}
-
 function syncMoodToPrimaryHud() {
   const hudMoodSelect = document.getElementById('mood-select');
   if (hudMoodSelect && hudMoodSelect.value !== currentMood) {
@@ -141,12 +106,12 @@ function syncMoodFromPrimaryHud() {
     }
     persistMood(currentMood);
     setFxMood(currentMood);
+    setHallucinationMood(currentMood);
     const selector = document.getElementById('overlay-mood-selector');
     if (selector && selector.value !== currentMood) {
       selector.value = currentMood;
     }
   }
-  scheduleNextEffect();
 }
 
 function ensureMoodSelector(hudElement) {
@@ -177,7 +142,7 @@ function ensureMoodSelector(hudElement) {
     persistMood(currentMood);
     syncMoodToPrimaryHud();
     setFxMood(currentMood);
-    scheduleNextEffect();
+    setHallucinationMood(currentMood);
     if (currentMood !== previousMood) {
       logSessionEvent('mood-update', { mood: currentMood, source: 'overlay' });
     }
@@ -297,10 +262,9 @@ if (overlayMoodSelect && overlayMoodSelect.value !== currentMood) {
 setFxMood(currentMood);
 startFxSpawnLoop({ immediate: true });
 ensureEffectStyles();
+startHallucinationLoop({ mood: currentMood });
 if (moodSyncInitialised) {
   syncMoodFromPrimaryHud();
-} else {
-  scheduleNextEffect();
 }
 
 hud.updateVersions(window.electronInfo?.versions ?? {});
@@ -384,6 +348,5 @@ window.addEventListener('beforeunload', () => {
   network.dispose?.();
   spawner.clear?.();
   stopFxSpawnLoop();
-  window.clearTimeout(effectTimer);
-  effectTimer = null;
+  stopHallucinationLoop();
 });
