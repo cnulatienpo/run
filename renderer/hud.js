@@ -59,9 +59,11 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
           if (!Array.isArray(sessionLog)) {
             return;
           }
+          const now = Date.now();
           sessionLog.push({
             type,
-            timestamp: Date.now(),
+            t: now,
+            timestamp: now,
             ...data,
           });
         };
