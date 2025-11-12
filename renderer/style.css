@@ -19,10 +19,10 @@ body {
 }
 
 #fx-canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 9;
+  z-index: 9999;
 }
 
 .app-shell {
@@ -196,7 +196,7 @@ body {
     filter: brightness(1) blur(0px);
   }
   40% {
-    filter: brightness(1.25) blur(1.4px);
+    filter: brightness(1.2) blur(1.4px);
   }
   100% {
     filter: brightness(1) blur(0px);
@@ -206,8 +206,8 @@ body {
 .fx-scanline {
   background: repeating-linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.12) 0px,
-    rgba(255, 255, 255, 0.12) 1px,
+    rgba(255, 255, 255, 0.09) 0px,
+    rgba(255, 255, 255, 0.09) 1px,
     transparent 2px,
     transparent 3px
   );
@@ -217,7 +217,7 @@ body {
 
 @keyframes scanfade {
   0% {
-    opacity: 0.85;
+    opacity: 0.9;
   }
   100% {
     opacity: 0;
