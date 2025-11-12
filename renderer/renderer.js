@@ -1,8 +1,8 @@
 import { softPulse, scanline, withZoneClip } from '../effects/filters.js';
 import config from '../effects/effect-mapping.json' assert { type: 'json' };
+import { createTagHUD } from './tagManager.js';
 
 const moods = Object.keys(config.moods || {});
-const tags = ['Ambient', 'Dreamcore', 'Urban', 'Rare'];
 let currentMood = moods.includes('dreamlike') ? 'dreamlike' : moods[0] || '';
 let currentTag = 'Ambient';
 
@@ -31,29 +31,10 @@ function initHUD() {
 
   hud.appendChild(moodSelect);
 
-  const tagWrap = document.createElement('div');
-  tagWrap.id = 'tag-wrap';
-
-  tags.forEach((tag) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = tag;
-    btn.addEventListener('click', () => {
-      currentTag = tag;
-      highlightTag(tag);
-      logEvent('tag-change', { tag });
-    });
-    tagWrap.appendChild(btn);
-  });
-
-  hud.appendChild(tagWrap);
-}
-
-function highlightTag(tag) {
-  const buttons = document.querySelectorAll('#tag-wrap button');
-  buttons.forEach((btn) => {
-    btn.style.background = btn.textContent === tag ? '#2dd4bf' : '#1f2937';
-  });
+  createTagHUD((tag) => {
+    currentTag = tag;
+    logEvent('tag-change', { tag });
+  }, { defaultTag: currentTag });
 }
 
 const canvas = document.getElementById('fx-canvas');
@@ -148,7 +129,6 @@ document.addEventListener('keydown', (event) => {
 });
 
 initHUD();
-highlightTag(currentTag);
 scheduleMotionDrivenEffect();
 
 const ws = new WebSocket(globalThis.RTW_WS_URL || 'ws://localhost:6789');
