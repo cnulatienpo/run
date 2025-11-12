@@ -1,5 +1,8 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const AutoLaunch = require('electron-launcher');
+
+const appLauncher = new AutoLaunch({ name: 'Run The World' });
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -23,6 +26,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  appLauncher.enable().catch((err) => {
+    console.error('Auto-launch failed:', err);
+  });
+
   createWindow();
 
   app.on('activate', () => {

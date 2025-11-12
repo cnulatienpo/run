@@ -48,6 +48,12 @@ let currentMood = storedMood && MOODS[storedMood] ? storedMood : DEFAULT_MOOD;
 let moodSyncInitialised = false;
 
 document.addEventListener('DOMContentLoaded', () => {
+  const versionEl = document.getElementById('version-text');
+  const appVersion = window.electronInfo?.version;
+  if (versionEl && appVersion) {
+    versionEl.textContent = `v${appVersion}`;
+  }
+
   createMoodSelectorHUD();
   startSpawnLoop();
 });
