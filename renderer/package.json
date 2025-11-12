@@ -11,10 +11,15 @@
   "license": "ISC",
   "dependencies": {
     "animejs": "^4.2.2",
+    "clubber": "^2.0.2",
+    "dat.gui": "^0.7.9",
     "gsap": "^3.13.0",
+    "lodash": "^4.17.21",
     "meyda": "^5.6.3",
     "pixi.js": "^8.14.1",
+    "socket.io-client": "^4.8.1",
     "tone": "^15.1.22",
+    "uuid": "^10.0.0",
     "ws": "^8.18.3"
   }
 }
