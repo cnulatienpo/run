@@ -1,5 +1,6 @@
 import { WS_URL } from './renderer/config.js';
-import { initialiseHud } from './renderer/hud.js';
+import { initialiseHud, createMoodSelectorHUD } from './renderer/hud.js';
+import { startSpawnLoop } from './renderer/spawn-loop.js';
 import { createNetworkClient } from './renderer/network.js';
 import { createEffectSpawner } from './renderer/spawn.js';
 
@@ -13,6 +14,11 @@ const MOODS = {
 let currentMood = 'urban';
 let effectTimer = null;
 let moodSyncInitialised = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+  createMoodSelectorHUD();
+  startSpawnLoop();
+});
 
 const sessionLog = [];
 let previousStepCount = 0;
