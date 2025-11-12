@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "dev": "nodemon main.js"
+    "dev": "nodemon main.js",
+    "release:mac": "electron-builder --mac",
+    "release:win": "electron-builder --win",
+    "release:linux": "electron-builder --linux",
+    "release:all": "electron-builder -mwl"
   },
   "author": "",
   "license": "ISC",
@@ -22,6 +26,36 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7"
+    "nodemon": "^3.1.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.run.app",
+    "productName": "Run The World",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "index.js",
+      "preload.js",
+      "renderer/**/*",
+      "effects/**/*",
+      "step-bridge/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      "hallucinations/**/*"
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
