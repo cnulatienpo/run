@@ -1,4 +1,4 @@
-import { setMood } from './spawn-loop.js';
+import { setMood, getCurrentMood } from './spawn-loop.js';
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
 
 const STATUS_CLASS_PREFIX = 'status--';
@@ -9,6 +9,25 @@ const STATUS_MESSAGES = {
   error: 'Connection issue',
   disconnected: 'Disconnected',
 };
+
+const MOOD_STORAGE_KEY = 'selectedMood';
+
+function readStoredMood() {
+  try {
+    return window?.localStorage?.getItem(MOOD_STORAGE_KEY) ?? null;
+  } catch (error) {
+    console.warn('[hud] Unable to read stored mood:', error);
+    return null;
+  }
+}
+
+function persistMood(mood) {
+  try {
+    window?.localStorage?.setItem(MOOD_STORAGE_KEY, mood);
+  } catch (error) {
+    console.warn('[hud] Unable to persist mood:', error);
+  }
+}
 
 function formatDuration(totalSeconds) {
   const hours = Math.floor(totalSeconds / 3600)
@@ -57,8 +76,15 @@ export function initialiseHud({ sessionLog }) {
   let sessionStartTime;
   let timerInterval;
   const selectedTags = new Set();
+  const storedMood = readStoredMood();
+  if (moodSelect && storedMood && ensureMoodExists(storedMood)) {
+    moodSelect.value = storedMood;
+  }
   const currentState = {
-    mood: moodSelect?.value || 'dreamlike',
+    mood:
+      moodSelect?.value ||
+      (ensureMoodExists(effectMap.defaultMood) ? effectMap.defaultMood : getCurrentMood()) ||
+      'dreamcore',
     bpm: bpmSelect?.value || '120',
     playlist: 'Untitled Session',
   };
@@ -145,6 +171,7 @@ export function initialiseHud({ sessionLog }) {
 
   moodSelect?.addEventListener('change', () => {
     currentState.mood = moodSelect.value;
+    persistMood(currentState.mood);
     const label = moodSelect.options[moodSelect.selectedIndex]?.textContent;
     if (label && moodLabelEl) {
       moodLabelEl.textContent = label;
@@ -252,13 +279,20 @@ function getPrimaryMoodSelect() {
 }
 
 function getMoodLabel(mood) {
-  const primarySelect = getPrimaryMoodSelect();
-  if (!primarySelect) {
-    return mood;
+  const labelFromConfig = effectMap.labels?.[mood];
+  if (labelFromConfig) {
+    return labelFromConfig;
   }
 
-  const option = Array.from(primarySelect.options).find((item) => item.value === mood);
-  return option?.textContent?.trim() || mood;
+  const primarySelect = getPrimaryMoodSelect();
+  if (primarySelect) {
+    const option = Array.from(primarySelect.options).find((item) => item.value === mood);
+    if (option?.textContent) {
+      return option.textContent.trim();
+    }
+  }
+
+  return mood;
 }
 
 function ensureMoodExists(mood) {
@@ -331,6 +365,7 @@ export function createMoodSelectorHUD() {
     }
 
     updateActiveMood(mood);
+    persistMood(mood);
     setMood(mood);
 
     const primarySelect = getPrimaryMoodSelect();
