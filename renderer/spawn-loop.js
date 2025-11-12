@@ -4,9 +4,54 @@ import * as filters from '../effects/filters.js';
 // 2. Load the effect map config
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
 
-// 3. Define global state
-let currentMood = effectMap.defaultMood || 'dreamlike';
+// 3. Define mood pacing and global state
+const MOOD_INTERVALS = {
+  dreamcore: [5000, 9000],
+  ambient: [12000, 18000],
+  hype: [2500, 5000],
+  rare: [30000, 45000],
+};
+
+const MOOD_STORAGE_KEY = 'selectedMood';
+
+let currentMood = getInitialMood();
 let spawnTimer = null;
+
+function getInitialMood() {
+  const storedMood = readStoredMood();
+  if (storedMood && effectMap.moods?.[storedMood]) {
+    return storedMood;
+  }
+
+  const defaultMood = effectMap.defaultMood;
+  if (defaultMood && effectMap.moods?.[defaultMood]) {
+    return defaultMood;
+  }
+
+  const firstMood = Object.keys(effectMap.moods || {})[0];
+  if (firstMood) {
+    return firstMood;
+  }
+
+  return 'dreamcore';
+}
+
+function readStoredMood() {
+  try {
+    return window?.localStorage?.getItem(MOOD_STORAGE_KEY) ?? null;
+  } catch (error) {
+    console.warn('[spawn-loop] Unable to read stored mood:', error);
+    return null;
+  }
+}
+
+function persistMood(mood) {
+  try {
+    window?.localStorage?.setItem(MOOD_STORAGE_KEY, mood);
+  } catch (error) {
+    console.warn('[spawn-loop] Unable to persist mood:', error);
+  }
+}
 
 // 4. Utility: Get a random item from an array
 function pickRandom(arr) {
@@ -15,10 +60,10 @@ function pickRandom(arr) {
 
 // 5. Get next interval based on mood pacing
 function getNextInterval() {
-  const [min, max] = [
-    effectMap.intervalMs?.min || 8000,
-    effectMap.intervalMs?.max || 16000
-  ];
+  const [min, max] = MOOD_INTERVALS[currentMood] || [8000, 12000];
+  if (max <= min) {
+    return min;
+  }
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -57,12 +102,24 @@ function scheduleNextSpawn() {
 
 // 8. Public API
 export function setMood(newMood) {
-  if (effectMap.moods?.[newMood]) {
-    currentMood = newMood;
-    scheduleNextSpawn();
+  if (!effectMap.moods?.[newMood]) {
+    return;
   }
+
+  currentMood = newMood;
+  persistMood(newMood);
+  scheduleNextSpawn();
 }
 
 export function startSpawnLoop() {
   scheduleNextSpawn();
+}
+
+export function getCurrentMood() {
+  return currentMood;
+}
+
+export function stopSpawnLoop() {
+  clearTimeout(spawnTimer);
+  spawnTimer = null;
 }

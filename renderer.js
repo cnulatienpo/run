@@ -8,14 +8,34 @@ import {
   stopSpawnLoop as stopFxSpawnLoop,
 } from './renderer/spawn-loop.js';
 
+const DEFAULT_MOOD = 'dreamcore';
+const MOOD_STORAGE_KEY = 'selectedMood';
 const MOODS = {
-  chill: { name: 'Chill', min: 12000, max: 18000 },
-  urban: { name: 'Urban', min: 8000, max: 14000 },
-  high: { name: 'High Energy', min: 4000, max: 7000 },
-  ambient: { name: 'Ambient', min: 20000, max: 30000 },
+  dreamcore: { name: 'Dreamcore', min: 5000, max: 9000 },
+  ambient: { name: 'Ambient', min: 12000, max: 18000 },
+  hype: { name: 'Hype', min: 2500, max: 5000 },
+  rare: { name: 'Rare Drop', min: 30000, max: 45000 },
 };
 
-let currentMood = 'urban';
+function readStoredMood() {
+  try {
+    return window?.localStorage?.getItem(MOOD_STORAGE_KEY) ?? null;
+  } catch (error) {
+    console.warn('[renderer] Unable to read stored mood:', error);
+    return null;
+  }
+}
+
+function persistMood(mood) {
+  try {
+    window?.localStorage?.setItem(MOOD_STORAGE_KEY, mood);
+  } catch (error) {
+    console.warn('[renderer] Unable to persist mood:', error);
+  }
+}
+
+const storedMood = readStoredMood();
+let currentMood = storedMood && MOODS[storedMood] ? storedMood : DEFAULT_MOOD;
 let effectTimer = null;
 let moodSyncInitialised = false;
 
@@ -44,21 +64,36 @@ function ensureEffectStyles() {
 }
 
 function spawnEffect() {
-  const overlay = document.createElement('div');
-  overlay.className = 'hallucination-overlay';
-  overlay.style.position = 'fixed';
-  overlay.style.inset = '0';
-  overlay.style.zIndex = '99998';
-  overlay.style.pointerEvents = 'none';
-  overlay.style.background = 'transparent';
-  overlay.style.animation = 'flashPulse 1.4s ease-in-out';
-  document.body.appendChild(overlay);
-  window.setTimeout(() => overlay.remove(), 1400);
+  const canvas = document.getElementById('fx-canvas');
+  if (!canvas) {
+    return;
+  }
+
+  import('./effects/filters.js')
+    .then(({ softPulse, scanline, withZoneClip }) => {
+      const zoneOptions = ['topLeft', 'center', 'bottom'];
+      const zone = zoneOptions[Math.floor(Math.random() * zoneOptions.length)];
+      const release = typeof withZoneClip === 'function' ? withZoneClip(canvas, zone) : null;
+
+      const effect = Math.random() < 0.5 ? softPulse : scanline;
+      if (typeof effect === 'function') {
+        effect(canvas);
+      }
+
+      window.setTimeout(() => {
+        if (typeof release === 'function') {
+          release();
+        }
+      }, 2200);
+    })
+    .catch((error) => {
+      console.warn('[renderer] Unable to spawn mood effect:', error);
+    });
 }
 
 function scheduleNextEffect() {
   window.clearTimeout(effectTimer);
-  const mood = MOODS[currentMood] || MOODS.urban;
+  const mood = MOODS[currentMood] || MOODS[DEFAULT_MOOD];
   const range = Math.max(0, mood.max - mood.min);
   const delay = Math.floor(Math.random() * (range + 1)) + mood.min;
   effectTimer = window.setTimeout(() => {
@@ -79,7 +114,8 @@ function syncMoodFromPrimaryHud() {
   const hudMoodSelect = document.getElementById('mood-select');
   if (hudMoodSelect) {
     const moodValue = MOODS[hudMoodSelect.value] ? hudMoodSelect.value : currentMood;
-    currentMood = MOODS[moodValue] ? moodValue : 'urban';
+    currentMood = MOODS[moodValue] ? moodValue : DEFAULT_MOOD;
+    persistMood(currentMood);
     setFxMood(currentMood);
     const selector = document.getElementById('overlay-mood-selector');
     if (selector && selector.value !== currentMood) {
@@ -113,6 +149,7 @@ function ensureMoodSelector(hudElement) {
 
   select.addEventListener('change', () => {
     currentMood = select.value;
+    persistMood(currentMood);
     syncMoodToPrimaryHud();
     setFxMood(currentMood);
     scheduleNextEffect();
@@ -226,6 +263,7 @@ initialiseMoodIntegration();
 const hudMood = hud.getMood?.();
 if (hudMood && MOODS[hudMood]) {
   currentMood = hudMood;
+  persistMood(currentMood);
 }
 const overlayMoodSelect = document.getElementById('overlay-mood-selector');
 if (overlayMoodSelect && overlayMoodSelect.value !== currentMood) {
