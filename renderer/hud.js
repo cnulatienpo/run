@@ -50,7 +50,20 @@ async function fetchJson(url) {
   return response.json();
 }
 
-export function initialiseHud({ sessionLog }) {
+export function initialiseHud({ sessionLog, logSessionEvent }) {
+  const logEvent =
+    typeof logSessionEvent === 'function'
+      ? logSessionEvent
+      : (type, data = {}) => {
+          if (!Array.isArray(sessionLog)) {
+            return;
+          }
+          sessionLog.push({
+            type,
+            timestamp: Date.now(),
+            ...data,
+          });
+        };
   const statusEl = document.getElementById('status');
   const stepsEl = document.getElementById('steps');
   const lastUpdateEl = document.getElementById('last-update');
@@ -145,10 +158,8 @@ export function initialiseHud({ sessionLog }) {
       const name = playlistInput.value.trim() || 'Untitled Session';
       currentState.playlist = name;
       playlistNameEl.textContent = name;
-      sessionLog.push({
-        timestamp: new Date().toISOString(),
+      logEvent('playlist-start', {
         steps: lastStepCount,
-        tag: 'playlist-start',
         playlist: name,
       });
     } else {
@@ -159,29 +170,27 @@ export function initialiseHud({ sessionLog }) {
       }
       playlistButton.textContent = 'Start';
       playlistStatusEl.textContent = 'Idle';
-      sessionLog.push({
-        timestamp: new Date().toISOString(),
+      logEvent('playlist-stop', {
         steps: lastStepCount,
-        tag: 'playlist-stop',
         playlist: currentState.playlist,
       });
     }
     updateTimerDisplay();
   });
 
-  moodSelect?.addEventListener('change', () => {
+  moodSelect?.addEventListener('change', (event) => {
     currentState.mood = moodSelect.value;
     persistMood(currentState.mood);
     const label = moodSelect.options[moodSelect.selectedIndex]?.textContent;
     if (label && moodLabelEl) {
       moodLabelEl.textContent = label;
     }
-    sessionLog.push({
-      timestamp: new Date().toISOString(),
-      steps: lastStepCount,
-      tag: 'mood-change',
-      mood: currentState.mood,
-    });
+    if (event?.isTrusted) {
+      logEvent('moodSelected', {
+        mood: currentState.mood,
+        source: 'primary-hud',
+      });
+    }
   });
 
   if (moodSelect && moodLabelEl) {
@@ -193,8 +202,7 @@ export function initialiseHud({ sessionLog }) {
 
   bpmSelect?.addEventListener('change', () => {
     currentState.bpm = bpmSelect.value;
-    sessionLog.push({
-      timestamp: new Date().toISOString(),
+    logEvent('bpm-change', {
       steps: lastStepCount,
       bpm: Number(currentState.bpm),
     });
@@ -204,30 +212,21 @@ export function initialiseHud({ sessionLog }) {
     button.addEventListener('click', () => {
       const tag = button.dataset.tag;
       if (!tag) return;
-      let action;
       if (selectedTags.has(tag)) {
         selectedTags.delete(tag);
         button.classList.remove('is-active');
-        action = 'removed';
+        logEvent('tagDeselected', { tag, source: 'primary-hud' });
       } else {
         selectedTags.add(tag);
         button.classList.add('is-active');
-        action = 'added';
+        logEvent('tagSelected', { tag, source: 'primary-hud' });
       }
-      sessionLog.push({
-        timestamp: new Date().toISOString(),
-        steps: lastStepCount,
-        tag,
-        tagAction: action,
-      });
     });
   });
 
   assetPackSelect?.addEventListener('change', () => {
-    sessionLog.push({
-      timestamp: new Date().toISOString(),
+    logEvent('asset-pack-change', {
       steps: lastStepCount,
-      tag: 'asset-pack',
       assetPack: assetPackSelect.value,
     });
   });
