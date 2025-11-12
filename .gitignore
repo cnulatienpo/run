@@ -3,6 +3,9 @@ node_modules/
 dist/
 out/
 build/
+!build/
+build/*
+!build/README.md
 release/
 *.asar
 npm-debug.log*

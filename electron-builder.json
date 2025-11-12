@@ -1,0 +1,21 @@
+{
+  "appId": "com.run.overlay",
+  "productName": "Run The World",
+  "files": [
+    "**/*"
+  ],
+  "directories": {
+    "buildResources": "build"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "build/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "installerSidebar": "build/installerSplash.bmp",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  }
+}
