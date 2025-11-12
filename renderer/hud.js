@@ -1,4 +1,5 @@
 import { setMood, getCurrentMood } from './spawn-loop.js';
+import { logTagSelection } from './tag-session-logger.js';
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
 
 const STATUS_CLASS_PREFIX = 'status--';
@@ -210,7 +211,9 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     button.addEventListener('click', () => {
       const tag = button.dataset.tag;
       if (!tag) return;
-      if (selectedTags.has(tag)) {
+      const wasSelected = selectedTags.has(tag);
+      const action = wasSelected ? 'deselected' : 'selected';
+      if (wasSelected) {
         selectedTags.delete(tag);
         button.classList.remove('is-active');
         logEvent('tagDeselected', { tag, source: 'primary-hud' });
@@ -218,6 +221,7 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
         selectedTags.add(tag);
         button.classList.add('is-active');
         logEvent('tagSelected', { tag, source: 'primary-hud' });
+        logTagSelection(tag, 'primary-hud');
       }
       logEvent('tag-toggle', {
         steps: lastStepCount,
