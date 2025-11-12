@@ -45,6 +45,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 const sessionLog = [];
+const sessionStart = Date.now();
+
+function logSessionEvent(type, data = {}) {
+  sessionLog.push({
+    type,
+    timestamp: Date.now() - sessionStart,
+    ...data,
+  });
+}
+
+logSessionEvent('session-start');
+
 let previousStepCount = 0;
 
 function ensureEffectStyles() {
@@ -113,8 +125,12 @@ function syncMoodToPrimaryHud() {
 function syncMoodFromPrimaryHud() {
   const hudMoodSelect = document.getElementById('mood-select');
   if (hudMoodSelect) {
+    const previousMood = currentMood;
     const moodValue = MOODS[hudMoodSelect.value] ? hudMoodSelect.value : currentMood;
     currentMood = MOODS[moodValue] ? moodValue : DEFAULT_MOOD;
+    if (currentMood !== previousMood) {
+      logSessionEvent('mood-update', { mood: currentMood, source: 'primary-hud' });
+    }
     persistMood(currentMood);
     setFxMood(currentMood);
     const selector = document.getElementById('overlay-mood-selector');
@@ -148,11 +164,15 @@ function ensureMoodSelector(hudElement) {
   select.value = currentMood;
 
   select.addEventListener('change', () => {
+    const previousMood = currentMood;
     currentMood = select.value;
     persistMood(currentMood);
     syncMoodToPrimaryHud();
     setFxMood(currentMood);
     scheduleNextEffect();
+    if (currentMood !== previousMood) {
+      logSessionEvent('mood-update', { mood: currentMood, source: 'overlay' });
+    }
   });
 
   wrap.appendChild(label);
@@ -195,8 +215,6 @@ function initOverlayHUD() {
   ensureMoodSelector(hud);
 }
 
-const sessionStart = Date.now();
-
 function updateTimer() {
   const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
   const minutes = Math.floor(elapsed / 60);
@@ -229,14 +247,13 @@ initOverlayHUD();
 updateTimer();
 window.setInterval(updateTimer, 1000);
 
-const hud = initialiseHud({ sessionLog });
+const hud = initialiseHud({ sessionLog, logSessionEvent });
 createMoodSelectorHUD();
 const canvas = document.getElementById('fx-canvas');
 const spawner = createEffectSpawner({
   canvas,
   onEffect(effectName, context) {
-    sessionLog.push({
-      timestamp: new Date().toISOString(),
+    logSessionEvent('effect-spawned', {
       steps: hud.getLastStepCount(),
       effect: effectName,
       mood: context?.mood,
@@ -290,6 +307,9 @@ const network = createNetworkClient({
   url: WS_URL,
   onStatus: (message, state) => {
     hud.setStatus(message, state);
+    if (state) {
+      logSessionEvent('connection-status', { state, message });
+    }
     if (state === 'connected') {
       updateConnectionStatus('Connected', 'ok');
     } else if (state === 'reconnecting') {
@@ -304,10 +324,7 @@ const network = createNetworkClient({
     if (typeof payload.steps === 'number') {
       const stepCount = payload.steps;
       hud.updateSteps(stepCount);
-      sessionLog.push({
-        timestamp: new Date().toISOString(),
-        steps: stepCount,
-      });
+      logSessionEvent('step-update', { steps: stepCount });
       const stepDelta = Math.max(0, stepCount - previousStepCount);
       const iterations = stepDelta > 0 ? Math.min(stepDelta, 10) : 0;
       for (let i = 0; i < iterations; i += 1) {
@@ -320,18 +337,15 @@ const network = createNetworkClient({
     }
 
     if (typeof payload.bpm === 'number') {
-      sessionLog.push({
-        timestamp: new Date().toISOString(),
+      logSessionEvent('bpm-update', {
         steps: hud.getLastStepCount(),
         bpm: payload.bpm,
       });
     }
 
     if (typeof payload.playlist === 'string') {
-      sessionLog.push({
-        timestamp: new Date().toISOString(),
+      logSessionEvent('playlist-update', {
         steps: hud.getLastStepCount(),
-        tag: 'playlist-update',
         playlist: payload.playlist,
       });
     }
@@ -339,6 +353,7 @@ const network = createNetworkClient({
 });
 
 function downloadSessionLog() {
+  logSessionEvent('session-log-exported');
   const fileName = `session-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
   const blob = new Blob([JSON.stringify(sessionLog, null, 2)], {
     type: 'application/json',
