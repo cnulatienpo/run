@@ -6,6 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "nodemon main.js",
+    "build": "electron-builder",
+    "dist": "electron-builder --win",
     "release:mac": "electron-builder --mac",
     "release:win": "electron-builder --win",
     "release:linux": "electron-builder --linux",
@@ -26,8 +28,8 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "nodemon": "^3.1.7"
   },
   "build": {
     "appId": "com.run.app",
