@@ -3,8 +3,113 @@ import { initialiseHud } from './renderer/hud.js';
 import { createNetworkClient } from './renderer/network.js';
 import { createEffectSpawner } from './renderer/spawn.js';
 
+const MOODS = {
+  chill: { name: 'Chill', min: 12000, max: 18000 },
+  urban: { name: 'Urban', min: 8000, max: 14000 },
+  high: { name: 'High Energy', min: 4000, max: 7000 },
+  ambient: { name: 'Ambient', min: 20000, max: 30000 },
+};
+
+let currentMood = 'urban';
+let effectTimer = null;
+let moodSyncInitialised = false;
+
 const sessionLog = [];
 let previousStepCount = 0;
+
+function ensureEffectStyles() {
+  if (document.getElementById('hallucination-style')) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = 'hallucination-style';
+  style.textContent = `
+@keyframes flashPulse {
+  0% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(60deg) brightness(1.4); }
+  100% { filter: hue-rotate(0deg) brightness(1); }
+}
+`;
+  document.head.appendChild(style);
+}
+
+function spawnEffect() {
+  const overlay = document.createElement('div');
+  overlay.className = 'hallucination-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '99998';
+  overlay.style.pointerEvents = 'none';
+  overlay.style.background = 'transparent';
+  overlay.style.animation = 'flashPulse 1.4s ease-in-out';
+  document.body.appendChild(overlay);
+  window.setTimeout(() => overlay.remove(), 1400);
+}
+
+function scheduleNextEffect() {
+  window.clearTimeout(effectTimer);
+  const mood = MOODS[currentMood] || MOODS.urban;
+  const range = Math.max(0, mood.max - mood.min);
+  const delay = Math.floor(Math.random() * (range + 1)) + mood.min;
+  effectTimer = window.setTimeout(() => {
+    spawnEffect();
+    scheduleNextEffect();
+  }, delay);
+}
+
+function syncMoodToPrimaryHud() {
+  const hudMoodSelect = document.getElementById('mood-select');
+  if (hudMoodSelect && hudMoodSelect.value !== currentMood) {
+    hudMoodSelect.value = currentMood;
+    hudMoodSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+function syncMoodFromPrimaryHud() {
+  const hudMoodSelect = document.getElementById('mood-select');
+  if (hudMoodSelect) {
+    const moodValue = MOODS[hudMoodSelect.value] ? hudMoodSelect.value : currentMood;
+    currentMood = MOODS[moodValue] ? moodValue : 'urban';
+    const selector = document.getElementById('overlay-mood-selector');
+    if (selector && selector.value !== currentMood) {
+      selector.value = currentMood;
+    }
+  }
+  scheduleNextEffect();
+}
+
+function ensureMoodSelector(hudElement) {
+  if (!hudElement || hudElement.querySelector('#overlay-mood-selector')) {
+    return;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.style.marginTop = '8px';
+
+  const label = document.createElement('label');
+  label.textContent = 'Mood: ';
+  label.style.marginRight = '6px';
+
+  const select = document.createElement('select');
+  select.id = 'overlay-mood-selector';
+  Object.entries(MOODS).forEach(([key, mood]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = mood.name;
+    select.appendChild(option);
+  });
+  select.value = currentMood;
+
+  select.addEventListener('change', () => {
+    currentMood = select.value;
+    syncMoodToPrimaryHud();
+    scheduleNextEffect();
+  });
+
+  wrap.appendChild(label);
+  wrap.appendChild(select);
+  hudElement.appendChild(wrap);
+}
 
 function initOverlayHUD() {
   const existingHud = document.getElementById('overlay-hud');
@@ -37,6 +142,8 @@ function initOverlayHUD() {
 
     document.body.appendChild(hud);
   }
+
+  ensureMoodSelector(hud);
 }
 
 const sessionStart = Date.now();
@@ -87,6 +194,36 @@ const spawner = createEffectSpawner({
     });
   },
 });
+
+function initialiseMoodIntegration() {
+  if (moodSyncInitialised) {
+    return;
+  }
+
+  const hudMoodSelect = document.getElementById('mood-select');
+  if (!hudMoodSelect) {
+    return;
+  }
+
+  moodSyncInitialised = true;
+  hudMoodSelect.addEventListener('change', syncMoodFromPrimaryHud);
+}
+
+initialiseMoodIntegration();
+const hudMood = hud.getMood?.();
+if (hudMood && MOODS[hudMood]) {
+  currentMood = hudMood;
+}
+const overlayMoodSelect = document.getElementById('overlay-mood-selector');
+if (overlayMoodSelect && overlayMoodSelect.value !== currentMood) {
+  overlayMoodSelect.value = currentMood;
+}
+ensureEffectStyles();
+if (moodSyncInitialised) {
+  syncMoodFromPrimaryHud();
+} else {
+  scheduleNextEffect();
+}
 
 hud.updateVersions(window.electronInfo?.versions ?? {});
 const assetPackPromise = hud.loadAssetPacks?.();
@@ -179,4 +316,6 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('beforeunload', () => {
   network.dispose?.();
   spawner.clear?.();
+  window.clearTimeout(effectTimer);
+  effectTimer = null;
 });
