@@ -1,21 +1,32 @@
 {
   "defaultMood": "dreamcore",
+  "intervalMs": [9000, 14000],
   "labels": {
     "dreamcore": "Dreamcore",
     "ambient": "Ambient",
     "hype": "Hype",
-    "rare": "Rare Drop"
+    "rare": "Rare Drop",
+    "dreamlike": "Dreamlike Drift"
+  },
+  "tagMoodMap": {
+    "dreamlike": "dreamlike",
+    "dreamcore": "dreamcore",
+    "ambient": "ambient",
+    "hype": "hype",
+    "rare": "rare"
   },
   "moods": {
     "dreamcore": ["softPulse", "scanline"],
     "ambient": ["softPulse", "scanline"],
     "hype": ["softPulse", "scanline"],
-    "rare": ["softPulse", "scanline"]
+    "rare": ["softPulse", "scanline"],
+    "dreamlike": ["softPulse", "scanline"]
   },
   "zones": {
     "dreamcore": ["center", "topLeft", "bottom"],
     "ambient": ["center", "topLeft", "bottom"],
     "hype": ["center", "topLeft", "bottom"],
-    "rare": ["center", "topLeft", "bottom"]
+    "rare": ["center", "topLeft", "bottom"],
+    "dreamlike": ["center", "topLeft", "bottom"]
   }
 }

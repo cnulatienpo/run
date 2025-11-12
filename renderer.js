@@ -7,11 +7,7 @@ import {
   setMood as setFxMood,
   stopSpawnLoop as stopFxSpawnLoop,
 } from './renderer/spawn-loop.js';
-import {
-  startHallucinationLoop,
-  setMood as setHallucinationMood,
-  stopHallucinationLoop,
-} from './renderer/hallucination-loop.js';
+import { softPulse, scanline, withZoneClip } from './effects/filters.js';
 import {
   initialiseSessionLog,
   exportSessionLog as exportGlobalSessionLog,
@@ -109,6 +105,26 @@ logSessionEvent('session-start');
 
 let previousStepCount = 0;
 
+const SELECTED_TAG_STORAGE_KEY = 'selectedTag';
+const HALLUCINATION_DEFAULT_MOOD = 'dreamlike';
+const HALLUCINATION_INTERVAL_FALLBACK = [9000, 14000];
+const HALLUCINATION_TAG_POLL_INTERVAL = 2000;
+const HALLUCINATION_EFFECT_HANDLERS = {
+  softPulse,
+  scanline,
+};
+
+let hallucinationEffectMap;
+let hallucinationEffectMapPromise;
+let hallucinationCanvas;
+let hallucinationTimer;
+let hallucinationTagPollTimer;
+let hallucinationEffectActive = false;
+let hallucinationLoopStarted = false;
+let hallucinationMood = HALLUCINATION_DEFAULT_MOOD;
+let lastSelectedTagValue = null;
+let tagStorageListenerAttached = false;
+
 function ensureEffectStyles() {
   if (document.getElementById('hallucination-style')) {
     return;
@@ -144,7 +160,6 @@ function syncMoodFromPrimaryHud() {
     }
     persistMood(currentMood);
     setFxMood(currentMood);
-    setHallucinationMood(currentMood);
     const selector = document.getElementById('overlay-mood-selector');
     if (selector && selector.value !== currentMood) {
       selector.value = currentMood;
@@ -180,7 +195,6 @@ function ensureMoodSelector(hudElement) {
     persistMood(currentMood);
     syncMoodToPrimaryHud();
     setFxMood(currentMood);
-    setHallucinationMood(currentMood);
     if (currentMood !== previousMood) {
       logSessionEvent('mood-update', { mood: currentMood, source: 'overlay' });
     }
@@ -300,7 +314,7 @@ if (overlayMoodSelect && overlayMoodSelect.value !== currentMood) {
 setFxMood(currentMood);
 startFxSpawnLoop({ immediate: true });
 ensureEffectStyles();
-startHallucinationLoop({ mood: currentMood });
+startTagHallucinationLoop();
 if (moodSyncInitialised) {
   syncMoodFromPrimaryHud();
 }
@@ -392,5 +406,253 @@ window.addEventListener('beforeunload', () => {
   network.dispose?.();
   spawner.clear?.();
   stopFxSpawnLoop();
-  stopHallucinationLoop();
+  stopTagHallucinationLoop();
 });
+
+function pickRandomItem(list) {
+  if (!Array.isArray(list) || list.length === 0) {
+    return undefined;
+  }
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
+
+function readSelectedTag() {
+  try {
+    return window?.localStorage?.getItem(SELECTED_TAG_STORAGE_KEY) ?? null;
+  } catch (error) {
+    console.warn('[renderer] Unable to read selected tag:', error);
+    return null;
+  }
+}
+
+function normalizeIntervalRange(range) {
+  if (!Array.isArray(range) || range.length < 2) {
+    return null;
+  }
+  const [rawMin, rawMax] = range;
+  const min = Number.isFinite(rawMin) ? rawMin : null;
+  const max = Number.isFinite(rawMax) ? rawMax : null;
+  if (min === null || max === null) {
+    return null;
+  }
+  if (max < min) {
+    return [max, min];
+  }
+  return [min, max];
+}
+
+function getHallucinationIntervalRange(mood = hallucinationMood) {
+  const mapping = hallucinationEffectMap;
+  if (!mapping) {
+    return HALLUCINATION_INTERVAL_FALLBACK;
+  }
+
+  const moodSpecific = mapping.intervals?.[mood];
+  const intervalRange = normalizeIntervalRange(moodSpecific) ?? normalizeIntervalRange(mapping.intervalMs);
+  return intervalRange ?? HALLUCINATION_INTERVAL_FALLBACK;
+}
+
+function getHallucinationDelay(mood = hallucinationMood) {
+  const [min, max] = getHallucinationIntervalRange(mood);
+  if (max <= min) {
+    return Math.max(0, min);
+  }
+  const span = max - min;
+  return Math.floor(Math.random() * span) + min;
+}
+
+function getEffectDurationMs() {
+  return Math.floor(Math.random() * 2000) + 1000;
+}
+
+async function ensureHallucinationEffectMap() {
+  if (hallucinationEffectMap) {
+    return hallucinationEffectMap;
+  }
+  if (!hallucinationEffectMapPromise) {
+    hallucinationEffectMapPromise = fetch('./effects/effect-mapping.json', { cache: 'no-cache' })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load effect mapping (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((json) => {
+        hallucinationEffectMap = json || {};
+        return hallucinationEffectMap;
+      })
+      .catch((error) => {
+        hallucinationEffectMapPromise = null;
+        console.warn('[renderer] Unable to load hallucination effect mapping:', error);
+        throw error;
+      });
+  }
+  return hallucinationEffectMapPromise;
+}
+
+function resolveMoodFromTag(tagValue) {
+  const mapping = hallucinationEffectMap;
+  if (!mapping) {
+    return HALLUCINATION_DEFAULT_MOOD;
+  }
+
+  const fallbackMood =
+    (mapping.defaultMood && mapping.moods?.[mapping.defaultMood]
+      ? mapping.defaultMood
+      : null) || HALLUCINATION_DEFAULT_MOOD;
+  if (tagValue) {
+    const tagMoodMap = mapping.tagMoodMap || mapping.tags;
+    if (tagMoodMap?.[tagValue] && mapping.moods?.[tagMoodMap[tagValue]]) {
+      return tagMoodMap[tagValue];
+    }
+    if (mapping.moods?.[tagValue]) {
+      return tagValue;
+    }
+  }
+  return fallbackMood;
+}
+
+function queueNextHallucination(delayOverride) {
+  if (!hallucinationCanvas || !hallucinationEffectMap) {
+    return;
+  }
+  window.clearTimeout(hallucinationTimer);
+  const delay =
+    typeof delayOverride === 'number' && delayOverride >= 0
+      ? delayOverride
+      : getHallucinationDelay(hallucinationMood);
+
+  hallucinationTimer = window.setTimeout(() => {
+    const triggered = triggerTagHallucinationEffect();
+    const followUpDelay = triggered ? getHallucinationDelay(hallucinationMood) : 1000;
+    queueNextHallucination(followUpDelay);
+  }, delay);
+}
+
+function syncMoodToTag(tagValue, { forceReschedule = false } = {}) {
+  lastSelectedTagValue = tagValue ?? null;
+  if (!hallucinationEffectMap) {
+    hallucinationMood = HALLUCINATION_DEFAULT_MOOD;
+    return;
+  }
+  const nextMood = resolveMoodFromTag(tagValue);
+  if (nextMood !== hallucinationMood || forceReschedule) {
+    hallucinationMood = nextMood;
+    if (hallucinationCanvas) {
+      queueNextHallucination(forceReschedule ? 0 : undefined);
+    }
+  }
+}
+
+function triggerTagHallucinationEffect() {
+  if (hallucinationEffectActive || !hallucinationCanvas || !hallucinationEffectMap) {
+    return false;
+  }
+
+  const moodKey = hallucinationEffectMap.moods?.[hallucinationMood]
+    ? hallucinationMood
+    : resolveMoodFromTag(lastSelectedTagValue);
+  const effects = hallucinationEffectMap.moods?.[moodKey];
+  if (!effects || effects.length === 0) {
+    return false;
+  }
+  const effectName = pickRandomItem(effects);
+  const handler = HALLUCINATION_EFFECT_HANDLERS[effectName];
+  if (typeof handler !== 'function') {
+    return false;
+  }
+
+  const zones = hallucinationEffectMap.zones?.[moodKey] || hallucinationEffectMap.zones?.default || ['center'];
+  const zone = pickRandomItem(zones) || 'center';
+  const duration = getEffectDurationMs();
+  const unclip = typeof withZoneClip === 'function' ? withZoneClip(hallucinationCanvas, zone) : () => {};
+
+  hallucinationEffectActive = true;
+  try {
+    handler(hallucinationCanvas, duration);
+  } catch (error) {
+    console.warn('[renderer] Unable to trigger hallucination effect:', error);
+    unclip();
+    hallucinationEffectActive = false;
+    return false;
+  }
+
+  window.setTimeout(() => {
+    unclip();
+    hallucinationEffectActive = false;
+  }, duration + 80);
+
+  return true;
+}
+
+function handleSelectedTagStorageChange(event) {
+  if (event.key !== SELECTED_TAG_STORAGE_KEY) {
+    return;
+  }
+  syncMoodToTag(event.newValue, { forceReschedule: true });
+}
+
+function startTagWatcher() {
+  if (hallucinationTagPollTimer) {
+    return;
+  }
+  hallucinationTagPollTimer = window.setInterval(() => {
+    const latestValue = readSelectedTag();
+    if (latestValue !== lastSelectedTagValue) {
+      syncMoodToTag(latestValue, { forceReschedule: true });
+    }
+  }, HALLUCINATION_TAG_POLL_INTERVAL);
+}
+
+function attachTagStorageListener() {
+  if (tagStorageListenerAttached) {
+    return;
+  }
+  window.addEventListener('storage', handleSelectedTagStorageChange);
+  tagStorageListenerAttached = true;
+}
+
+function detachTagStorageListener() {
+  if (!tagStorageListenerAttached) {
+    return;
+  }
+  window.removeEventListener('storage', handleSelectedTagStorageChange);
+  tagStorageListenerAttached = false;
+}
+
+async function startTagHallucinationLoop() {
+  if (hallucinationLoopStarted) {
+    return;
+  }
+  const canvasEl = document.getElementById('fx-canvas');
+  if (!canvasEl) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startTagHallucinationLoop, { once: true });
+    }
+    return;
+  }
+  hallucinationLoopStarted = true;
+  hallucinationCanvas = canvasEl;
+  try {
+    await ensureHallucinationEffectMap();
+  } catch (error) {
+    hallucinationLoopStarted = false;
+    return;
+  }
+  const initialTag = readSelectedTag();
+  syncMoodToTag(initialTag, { forceReschedule: true });
+  startTagWatcher();
+  attachTagStorageListener();
+}
+
+function stopTagHallucinationLoop() {
+  window.clearTimeout(hallucinationTimer);
+  window.clearInterval(hallucinationTagPollTimer);
+  hallucinationTimer = null;
+  hallucinationTagPollTimer = null;
+  hallucinationEffectActive = false;
+  detachTagStorageListener();
+  hallucinationLoopStarted = false;
+  hallucinationCanvas = null;
+}
