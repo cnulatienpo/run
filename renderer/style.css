@@ -18,6 +18,37 @@ body {
   color: #e2e8f0;
 }
 
+#hud {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px;
+  z-index: 10000;
+  font-family: system-ui, sans-serif;
+}
+
+#hud .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+#hud button {
+  background: #1f2937;
+  border: 1px solid #334155;
+  color: #e5e7eb;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#hud button:hover {
+  background: #273449;
+}
+
 #fx-canvas {
   position: fixed;
   inset: 0;
