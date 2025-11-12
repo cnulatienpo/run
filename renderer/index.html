@@ -9,6 +9,12 @@
   <body>
     <div id="hud"></div>
     <div id="fx-canvas" aria-hidden="true"></div>
+    <!-- Add to HUD for manual export button -->
+    <button onclick="window.downloadSessionLog()">Download Log</button>
+    <script type="module">
+      import { downloadLog } from './sessionLogger.js';
+      window.downloadSessionLog = downloadLog;
+    </script>
     <script src="./hallucination-hud.js" type="module"></script>
   </body>
 </html>
