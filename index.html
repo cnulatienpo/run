@@ -6,9 +6,9 @@
     <title>Run The World HUD</title>
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: dark;
         font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background-color: #0f172a;
+        background-color: #050816;
         color: #e2e8f0;
       }
 
@@ -22,60 +22,100 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 55%),
-          radial-gradient(circle at bottom, rgba(167, 139, 250, 0.18), transparent 60%),
-          #0f172a;
+        background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.25), transparent 60%),
+          radial-gradient(circle at 80% 0%, rgba(147, 51, 234, 0.18), transparent 60%),
+          #050816;
+      }
+
+      #app {
+        position: relative;
+        width: min(1280px, calc(100% - 48px));
+        padding: 32px;
+        border-radius: 28px;
+        overflow: hidden;
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        box-shadow: 0 40px 80px rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(14px) saturate(140%);
+      }
+
+      #fx-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        mix-blend-mode: screen;
+      }
+
+      #fx-canvas.fx-softPulse {
+        animation: fx-softPulse 2.2s ease-out;
+      }
+
+      #fx-canvas.fx-scanline {
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(148, 163, 184, 0.2) 0px,
+          rgba(148, 163, 184, 0.2) 2px,
+          transparent 2px,
+          transparent 6px
+        );
+        animation: fx-scanline 1.6s linear;
+      }
+
+      @keyframes fx-softPulse {
+        0% {
+          opacity: 0.05;
+        }
+        40% {
+          opacity: 0.4;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes fx-scanline {
+        0% {
+          background-position-y: 0;
+          opacity: 0.3;
+        }
+        100% {
+          background-position-y: 12px;
+          opacity: 0;
+        }
       }
 
       main {
-        width: min(1040px, calc(100% - 48px));
-        display: flex;
-        flex-direction: column;
+        position: relative;
+        z-index: 1;
+        display: grid;
         gap: 24px;
-        padding: 32px;
-        background: rgba(15, 23, 42, 0.78);
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        border-radius: 24px;
-        backdrop-filter: blur(12px) saturate(130%);
-        box-shadow: 0 40px 80px rgba(15, 23, 42, 0.65);
       }
 
-      h1 {
-        margin: 0;
-        font-size: clamp(1.6rem, 2.4vw, 2.4rem);
-        letter-spacing: 0.02em;
-      }
-
-      h2 {
-        margin: 0 0 12px;
-        font-size: 1.15rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #93c5fd;
-      }
-
-      .hud__header {
+      header.hud-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         gap: 24px;
       }
 
-      .hud__brand {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+      .hud-title {
+        margin: 0 0 8px;
+        font-size: clamp(1.75rem, 2.2vw, 2.6rem);
+        letter-spacing: 0.04em;
       }
 
       .status {
-        margin: 0;
-        font-weight: 600;
-        padding: 6px 12px;
-        border-radius: 999px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        background: rgba(148, 163, 184, 0.12);
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        background: rgba(15, 118, 110, 0.15);
+        color: #5eead4;
       }
 
       .status::before {
@@ -86,21 +126,19 @@
         background-color: currentColor;
       }
 
-      .status--connected {
-        color: #4ade80;
-      }
-
       .status--connecting,
       .status--reconnecting {
-        color: #60a5fa;
+        background: rgba(37, 99, 235, 0.2);
+        color: #93c5fd;
       }
 
       .status--error,
       .status--disconnected {
-        color: #f87171;
+        background: rgba(248, 113, 113, 0.2);
+        color: #fca5a5;
       }
 
-      .hud__versions {
+      .version-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
         gap: 12px;
@@ -109,142 +147,94 @@
       }
 
       .version-card {
-        padding: 12px;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(30, 41, 59, 0.7);
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      .version-card span {
-        font-size: 0.75rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: #cbd5f5;
-      }
-
-      .version-card code {
-        font-size: 1.1rem;
-        font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-          monospace;
-        color: #e2e8f0;
-        background: transparent;
-        padding: 0;
-      }
-
-      .hud__steps {
-        display: grid;
-        gap: 16px;
-      }
-
-      .steps-card {
-        padding: 24px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(14, 165, 233, 0.85));
-        color: #eff6ff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-
-      .steps-card strong {
-        font-size: 0.9rem;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        opacity: 0.9;
-      }
-
-      .steps-card span {
-        font-size: clamp(2.5rem, 6vw, 3.8rem);
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-      }
-
-      .last-update {
-        margin: 0;
-        font-size: 0.95rem;
-        color: rgba(226, 232, 240, 0.78);
-      }
-
-      .hud__timers {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px;
-      }
-
-      .timer-card {
-        padding: 20px;
+        padding: 14px;
         border-radius: 16px;
-        background: rgba(30, 41, 59, 0.72);
-        border: 1px solid rgba(148, 163, 184, 0.18);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(30, 41, 59, 0.8);
         display: flex;
         flex-direction: column;
         gap: 6px;
-        min-height: 120px;
       }
 
-      .timer-card h3 {
-        margin: 0;
-        font-size: 0.95rem;
-        letter-spacing: 0.16em;
+      .version-card span {
+        font-size: 0.72rem;
         text-transform: uppercase;
-        color: rgba(148, 163, 184, 0.9);
+        letter-spacing: 0.12em;
+        color: rgba(148, 163, 184, 0.85);
       }
 
-      .timer-card time {
-        font-size: 2.4rem;
-        font-weight: 600;
+      .hud-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 18px;
+      }
+
+      .metric-card {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(15, 23, 42, 0.75);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .metric-card strong {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(148, 163, 184, 0.75);
+      }
+
+      .metric-card span {
+        font-size: 2.6rem;
         font-variant-numeric: tabular-nums;
-        color: #f8fafc;
       }
 
-      .timer-card p {
+      .subtext {
         margin: 0;
         font-size: 0.85rem;
         color: rgba(226, 232, 240, 0.72);
       }
 
-      .hud__controls {
+      .hud-controls {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
         gap: 24px;
-        align-items: start;
       }
 
-      .mood-selector {
+      .panel {
+        padding: 24px;
+        border-radius: 20px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(15, 23, 42, 0.78);
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        padding: 20px;
-        border-radius: 16px;
-        background: rgba(30, 41, 59, 0.72);
-        border: 1px solid rgba(148, 163, 184, 0.18);
+        gap: 16px;
       }
 
-      .mood-selector label {
-        font-size: 0.85rem;
+      .panel h2 {
+        margin: 0;
+        font-size: 1rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: rgba(148, 163, 184, 0.9);
+        color: #93c5fd;
       }
 
-      .mood-selector select {
-        appearance: none;
-        padding: 12px 16px;
+      label {
+        font-size: 0.9rem;
+        color: rgba(226, 232, 240, 0.85);
+      }
+
+      select,
+      input[type='text'] {
+        width: 100%;
+        padding: 10px 12px;
         border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.28);
-        background: rgba(15, 23, 42, 0.6);
-        color: #e2e8f0;
-        font-size: 1rem;
-        outline: none;
-        transition: border-color 0.2s ease;
-      }
-
-      .mood-selector select:focus {
-        border-color: rgba(96, 165, 250, 0.9);
-        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.35);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(30, 41, 59, 0.85);
+        color: inherit;
+        font-size: 0.95rem;
       }
 
       .tag-buttons {
@@ -254,210 +244,175 @@
       }
 
       .tag-buttons button {
-        border: none;
+        padding: 8px 12px;
         border-radius: 999px;
-        padding: 8px 14px;
-        background: rgba(96, 165, 250, 0.16);
-        color: #bfdbfe;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(30, 41, 59, 0.8);
+        color: inherit;
         font-size: 0.85rem;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
         cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
+        transition: background 0.2s ease, border-color 0.2s ease;
       }
 
-      .tag-buttons button:hover,
-      .tag-buttons button:focus {
-        outline: none;
-        transform: translateY(-1px);
+      .tag-buttons button.is-active {
+        border-color: rgba(96, 165, 250, 0.9);
         background: rgba(59, 130, 246, 0.35);
-      }
-
-      .playlist-panel {
-        padding: 20px;
-        border-radius: 16px;
-        background: rgba(30, 41, 59, 0.72);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-
-      .playlist-panel header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .playlist-panel header h2 {
-        margin: 0;
       }
 
       .playlist-meta {
-        font-size: 0.9rem;
-        color: rgba(226, 232, 240, 0.72);
-      }
-
-      .playlist-controls {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 12px;
-        flex-wrap: wrap;
       }
 
-      .playlist-controls button {
+      .playlist-meta span {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(148, 163, 184, 0.75);
+      }
+
+      button.primary {
+        align-self: flex-start;
+        padding: 10px 18px;
+        border-radius: 999px;
         border: none;
-        border-radius: 12px;
-        padding: 12px 18px;
         font-size: 0.95rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        background: rgba(96, 165, 250, 0.18);
-        color: #bfdbfe;
-        cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
-      }
-
-      .playlist-controls button.primary {
-        background: linear-gradient(135deg, rgba(147, 197, 253, 0.8), rgba(59, 130, 246, 0.8));
+        background: linear-gradient(135deg, #38bdf8, #a855f7);
         color: #0f172a;
+        cursor: pointer;
+        transition: transform 0.15s ease;
       }
 
-      .playlist-controls button:hover,
-      .playlist-controls button:focus {
-        outline: none;
+      button.primary:hover {
         transform: translateY(-1px);
-        background: rgba(59, 130, 246, 0.35);
       }
 
-      .playlist-track {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 16px;
-        border-radius: 12px;
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid rgba(148, 163, 184, 0.12);
+      .timer-display {
+        font-size: 2.2rem;
+        font-variant-numeric: tabular-nums;
       }
 
-      .playlist-track strong {
-        font-size: 1rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: #bae6fd;
-      }
-
-      .playlist-track span {
-        font-size: 0.9rem;
-        color: rgba(226, 232, 240, 0.72);
-      }
-
-      @media (max-width: 720px) {
-        main {
-          padding: 24px;
-        }
-
-        .hud__header {
+      @media (max-width: 840px) {
+        header.hud-header {
           flex-direction: column;
         }
 
-        .hud__versions {
-          max-width: unset;
-          width: 100%;
+        .version-grid {
+          max-width: none;
         }
       }
     </style>
+    <script>
+      globalThis.RTW_WS_URL = 'ws://localhost:6789';
+    </script>
   </head>
   <body>
-    <main>
-      <header class="hud__header">
-        <div class="hud__brand">
-          <h1>Run The World Heads-Up Display</h1>
-          <p class="status status--disconnected" id="status">Waiting for the fake step server…</p>
-        </div>
-        <div class="hud__versions">
-          <div class="version-card">
-            <span>Electron</span>
-            <code id="version-electron">(loading)</code>
+    <div id="app">
+      <canvas id="fx-canvas"></canvas>
+      <main>
+        <header class="hud-header">
+          <div>
+            <h1 class="hud-title">Run The World Overlay</h1>
+            <p class="status status--disconnected" id="status">Waiting for step stream…</p>
           </div>
-          <div class="version-card">
-            <span>Node.js</span>
-            <code id="version-node">(loading)</code>
+          <div class="version-grid">
+            <div class="version-card">
+              <span>Electron</span>
+              <code id="version-electron">(loading)</code>
+            </div>
+            <div class="version-card">
+              <span>Node.js</span>
+              <code id="version-node">(loading)</code>
+            </div>
+            <div class="version-card">
+              <span>Chromium</span>
+              <code id="version-chromium">(loading)</code>
+            </div>
           </div>
-          <div class="version-card">
-            <span>Chromium</span>
-            <code id="version-chromium">(loading)</code>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <section class="hud__steps">
-        <div class="steps-card">
-          <strong>Total steps</strong>
-          <span id="steps">0</span>
-        </div>
-        <p class="last-update" id="last-update">No data received yet.</p>
-      </section>
+        <section class="hud-metrics">
+          <article class="metric-card">
+            <strong>Total steps</strong>
+            <span id="steps">0</span>
+            <p class="subtext" id="last-update">No data received yet.</p>
+          </article>
+          <article class="metric-card">
+            <strong>Session Timer</strong>
+            <span class="timer-display" id="session-timer">00:00:00</span>
+            <p class="subtext">Tracks time since the playlist started.</p>
+          </article>
+          <article class="metric-card">
+            <strong>Mood</strong>
+            <span id="mood-label">Live mixer</span>
+            <p class="subtext">Curate the vibe and BPM pairings.</p>
+          </article>
+        </section>
 
-      <section class="hud__timers" aria-label="run timers">
-        <div class="timer-card">
-          <h3>Active Segment</h3>
-          <time id="timer-active" datetime="PT00H00M00S">00:00:00</time>
-          <p>Time spent in the current run segment.</p>
-        </div>
-        <div class="timer-card">
-          <h3>Cooldown</h3>
-          <time id="timer-cooldown" datetime="PT00H00M00S">00:00:00</time>
-          <p>Tracks recovery before the next push.</p>
-        </div>
-        <div class="timer-card">
-          <h3>Stream Duration</h3>
-          <time id="timer-stream" datetime="PT00H00M00S">00:00:00</time>
-          <p>Total runtime since the overlay booted.</p>
-        </div>
-      </section>
+        <section class="hud-controls">
+          <article class="panel" aria-label="mood selector">
+            <h2>Mood &amp; BPM</h2>
+            <div>
+              <label for="mood-select">Mood preset</label>
+              <select id="mood-select" name="mood">
+                <option value="urban">Urban Pulse</option>
+                <option value="nature">Nature Drift</option>
+                <option value="dreamcore">Dreamcore Bloom</option>
+                <option value="ambient">Ambient Float</option>
+              </select>
+            </div>
+            <div>
+              <label for="bpm-select">Target BPM</label>
+              <select id="bpm-select" name="bpm">
+                <option value="90">90 BPM</option>
+                <option value="110">110 BPM</option>
+                <option value="128" selected>128 BPM</option>
+                <option value="140">140 BPM</option>
+                <option value="160">160 BPM</option>
+              </select>
+            </div>
+            <div>
+              <p class="subtext">Tags</p>
+              <div class="tag-buttons">
+                <button type="button" data-tag="Urban">Urban</button>
+                <button type="button" data-tag="Nature">Nature</button>
+                <button type="button" data-tag="Dreamcore">Dreamcore</button>
+                <button type="button" data-tag="Ambient">Ambient</button>
+              </div>
+            </div>
+            <div id="asset-pack-container" hidden>
+              <label for="asset-pack">Asset pack</label>
+              <select id="asset-pack" name="asset-pack"></select>
+            </div>
+          </article>
 
-      <section class="hud__controls">
-        <article class="mood-selector" aria-label="mood selector">
-          <h2>Mood selector</h2>
-          <label for="mood-select">Choose the broadcast vibe</label>
-          <select id="mood-select" name="mood">
-            <option value="hype">Hype Sprint</option>
-            <option value="focus">Focus Lab</option>
-            <option value="calm">Calm Cruise</option>
-            <option value="party">After Party</option>
-            <option value="wind-down">Wind Down</option>
-          </select>
-          <div class="tag-buttons" aria-label="tag filters">
-            <button type="button" data-tag="focus">#focus</button>
-            <button type="button" data-tag="community">#community</button>
-            <button type="button" data-tag="product">#product</button>
-            <button type="button" data-tag="deepdive">#deepdive</button>
-            <button type="button" data-tag="afterhours">#afterhours</button>
-          </div>
-        </article>
+          <article class="panel" aria-label="playlist controls">
+            <h2>Playlist control</h2>
+            <div class="playlist-meta">
+              <div>
+                <span>Status</span>
+                <p id="playlist-status">Idle</p>
+              </div>
+              <div>
+                <span>Current playlist</span>
+                <p id="playlist-name">Untitled Session</p>
+              </div>
+            </div>
+            <div>
+              <label for="playlist-input">Playlist name</label>
+              <input id="playlist-input" type="text" placeholder="Enter playlist name" />
+            </div>
+            <button type="button" class="primary" id="playlist-start">Start</button>
+          </article>
+        </section>
+      </main>
+    </div>
 
-        <article class="playlist-panel" aria-label="playlist controls">
-          <header>
-            <h2>Playlist controls</h2>
-            <span class="playlist-meta" id="playlist-status">Idle</span>
-          </header>
-          <div class="playlist-track">
-            <strong id="playlist-track">No track playing</strong>
-            <span id="playlist-artist">Artist unknown</span>
-          </div>
-          <div class="playlist-controls">
-            <button type="button" id="playlist-prev">Prev</button>
-            <button type="button" class="primary" id="playlist-play">Play</button>
-            <button type="button" id="playlist-pause">Pause</button>
-            <button type="button" id="playlist-next">Next</button>
-            <button type="button" id="playlist-shuffle">Shuffle</button>
-          </div>
-        </article>
-      </section>
-    </main>
-
-    <script src="./renderer.js"></script>
+    <script type="module" src="./renderer.js"></script>
   </body>
 </html>

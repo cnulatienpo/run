@@ -4,20 +4,23 @@ function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function resolveFromGlobal() {
+function readInjectedUrl() {
   if (typeof globalThis !== 'undefined' && isNonEmptyString(globalThis.RTW_WS_URL)) {
     return globalThis.RTW_WS_URL.trim();
   }
+
+  if (typeof window !== 'undefined') {
+    const preloadUrl = window.preloadConfig?.WS_URL;
+    if (isNonEmptyString(preloadUrl)) {
+      return preloadUrl.trim();
+    }
+  }
+
   return undefined;
 }
 
-const resolvedUrl = resolveFromGlobal() ?? DEFAULT_WS_URL;
+export const WS_URL = readInjectedUrl() ?? DEFAULT_WS_URL;
 
-const config = {
-  RTW_WS_URL: resolvedUrl,
-  default: resolvedUrl,
+export default {
+  WS_URL,
 };
-
-Object.defineProperty(config, '__esModule', { value: true });
-
-module.exports = config;
