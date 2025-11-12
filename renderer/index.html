@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Run the World HUD</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top right, rgba(45, 212, 191, 0.15), transparent 60%),
+          radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 70%),
+          #04060b;
+        color: #f1f5f9;
+      }
+
+      .hud-overlay {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        width: min(360px, calc(100% - 32px));
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+        background: rgba(15, 23, 42, 0.86);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 18px;
+        box-shadow: 0 24px 64px rgba(2, 6, 23, 0.65);
+        backdrop-filter: blur(12px) saturate(140%);
+      }
+
+      .hud-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .hud-row--column {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .hud-label {
+        font-size: 0.7rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.75);
+      }
+
+      .hud-value {
+        font-size: 1.05rem;
+        font-weight: 600;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      .status-badge::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .status-connected {
+        color: #4ade80;
+        background: rgba(74, 222, 128, 0.14);
+      }
+
+      .status-connecting {
+        color: #60a5fa;
+        background: rgba(96, 165, 250, 0.16);
+      }
+
+      .status-disconnected {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.16);
+      }
+
+      select,
+      button {
+        appearance: none;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        padding: 8px 12px;
+        font: inherit;
+        color: inherit;
+        background: rgba(30, 41, 59, 0.8);
+        transition: border-color 150ms ease, transform 150ms ease, background 150ms ease;
+      }
+
+      select:focus,
+      button:focus {
+        outline: none;
+        border-color: rgba(56, 189, 248, 0.8);
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(148, 163, 184, 0.5);
+      }
+
+      .tag-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag-button {
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.7);
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .tag-button.is-active {
+        border-color: rgba(56, 189, 248, 0.9);
+        background: rgba(56, 189, 248, 0.18);
+        color: #bef7ff;
+      }
+
+      .metric-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        background: rgba(2, 6, 23, 0.55);
+      }
+
+      .metric-card strong {
+        font-size: 1.8rem;
+        line-height: 1;
+      }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .button-secondary {
+        background: rgba(15, 23, 42, 0.65);
+      }
+
+      .button-primary {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(14, 165, 233, 0.85));
+        border: none;
+      }
+
+      .button-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud-overlay" role="status" aria-live="polite">
+      <div class="hud-row">
+        <span class="hud-label">Connection</span>
+        <span id="connection-status" class="status-badge status-connecting">Connecting…</span>
+      </div>
+
+      <div class="hud-row">
+        <span class="hud-label">Input</span>
+        <span id="input-source" class="hud-value">Fake Server</span>
+      </div>
+
+      <div class="hud-row">
+        <span class="hud-label">Audio</span>
+        <span id="audio-status" class="hud-value">Muted</span>
+      </div>
+
+      <div class="hud-row">
+        <span class="hud-label">Session</span>
+        <span id="session-timer" class="hud-value">00:00</span>
+      </div>
+
+      <div class="hud-row">
+        <label class="hud-label" for="mood-select">Mood</label>
+        <select id="mood-select" aria-label="Select mood">
+          <option value="chill">Chill</option>
+          <option value="high-energy">High Energy</option>
+          <option value="dreamcore">Dreamcore</option>
+          <option value="neon">Neon Pulse</option>
+          <option value="zen">Zen Garden</option>
+        </select>
+      </div>
+
+      <div class="hud-row hud-row--column">
+        <span class="hud-label">Tags</span>
+        <div id="tag-buttons" class="tag-buttons" role="group" aria-label="Toggle tags">
+          <button type="button" class="tag-button" data-tag="ambient">Ambient</button>
+          <button type="button" class="tag-button" data-tag="rare">Rare</button>
+          <button type="button" class="tag-button" data-tag="glide">Glide</button>
+          <button type="button" class="tag-button" data-tag="sway">Sway</button>
+          <button type="button" class="tag-button" data-tag="night">Night</button>
+          <button type="button" class="tag-button" data-tag="pulse">Pulse</button>
+        </div>
+      </div>
+
+      <div class="hud-row">
+        <label class="hud-label" for="pack-select">Pack</label>
+        <select id="pack-select" aria-label="Select pack">
+          <option value="starter">Starter Pack</option>
+          <option value="aurora">Aurora Trails</option>
+          <option value="afterglow">Afterglow</option>
+          <option value="midnight">Midnight Drive</option>
+        </select>
+      </div>
+
+      <div class="hud-row hud-row--column">
+        <div class="metric-card">
+          <div>
+            <span class="hud-label">Steps</span>
+            <strong id="step-count">0</strong>
+          </div>
+          <div>
+            <span class="hud-label">BPM</span>
+            <div id="bpm-display" class="hud-value">0</div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <span class="hud-label">Energy</span>
+          <strong id="energy-display">0%</strong>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="start-session" class="button-primary" type="button">Start Session</button>
+        <button id="reset-session" class="button-secondary" type="button">Reset</button>
+      </div>
+    </div>
+
+    <script src="./renderer.js" type="module"></script>
+  </body>
+</html>
