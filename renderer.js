@@ -16,6 +16,21 @@ import { loadSettings, saveSettings } from './renderer/settings.js';
 
 const DEFAULT_MOOD = 'dreamcore';
 const MOOD_STORAGE_KEY = 'selectedMood';
+const YTMUSIC_PLAYLIST_STORAGE_KEY = 'ytmusicSelectedPlaylist';
+const YTMUSIC_PLAYLISTS = [
+  {
+    name: 'YouTube Music',
+    url: 'https://music.youtube.com/playlist?list=PLabc123',
+  },
+  {
+    name: 'Lo-fi Walks',
+    url: 'https://music.youtube.com/playlist?list=PLdef456',
+  },
+  {
+    name: 'Night City Runs',
+    url: 'https://music.youtube.com/playlist?list=PLghi789',
+  },
+];
 const userSettings = loadSettings();
 const MOODS = {
   dreamcore: { name: 'Dreamcore', min: 5000, max: 9000 },
@@ -59,6 +74,86 @@ let currentMood =
   DEFAULT_MOOD;
 let moodSyncInitialised = false;
 
+function readStoredPlaylistSelection() {
+  try {
+    return window?.localStorage?.getItem(YTMUSIC_PLAYLIST_STORAGE_KEY) ?? '';
+  } catch (error) {
+    console.warn('[renderer] Unable to read stored playlist selection:', error);
+    return '';
+  }
+}
+
+function persistPlaylistSelection(url) {
+  try {
+    if (url) {
+      window?.localStorage?.setItem(YTMUSIC_PLAYLIST_STORAGE_KEY, url);
+    } else {
+      window?.localStorage?.removeItem(YTMUSIC_PLAYLIST_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('[renderer] Unable to persist playlist selection:', error);
+  }
+}
+
+function addYouTubeMusicDropdownToHUD() {
+  const hud = document.getElementById('hud');
+  if (!hud) {
+    return;
+  }
+
+  const existingRow = hud.querySelector('.row.playlist-row');
+  if (existingRow) {
+    return;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'row playlist-row';
+
+  const label = document.createElement('strong');
+  label.textContent = 'Playlist:';
+  label.style.marginRight = '8px';
+  row.appendChild(label);
+
+  const select = document.createElement('select');
+  select.id = 'ytmusic-playlist';
+  select.style.fontSize = '14px';
+  select.style.padding = '4px 8px';
+
+  YTMUSIC_PLAYLISTS.forEach((playlist) => {
+    const option = document.createElement('option');
+    option.value = playlist.url;
+    option.textContent = playlist.name;
+    select.appendChild(option);
+  });
+
+  const storedSelection = readStoredPlaylistSelection();
+  if (storedSelection) {
+    const optionExists = YTMUSIC_PLAYLISTS.some((playlist) => playlist.url === storedSelection);
+    if (optionExists) {
+      select.value = storedSelection;
+    }
+  }
+
+  select.addEventListener('change', (event) => {
+    persistPlaylistSelection(event.target.value);
+  });
+
+  row.appendChild(select);
+
+  const button = document.createElement('button');
+  button.textContent = 'Start Playlist';
+  button.style.marginLeft = '8px';
+  button.addEventListener('click', () => {
+    const url = select.value;
+    if (typeof url === 'string' && url.trim().length > 0) {
+      window.open(url, '_blank', 'noopener');
+    }
+  });
+  row.appendChild(button);
+
+  hud.appendChild(row);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const versionEl = document.getElementById('version-text');
   const appVersion = window.electronInfo?.version;
@@ -67,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   createMoodSelectorHUD();
+  addYouTubeMusicDropdownToHUD();
   startSpawnLoop();
 });
 
