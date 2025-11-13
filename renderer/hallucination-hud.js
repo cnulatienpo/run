@@ -1,6 +1,7 @@
 import { Application, Container, Graphics } from '../node_modules/pixi.js/dist/pixi.min.mjs';
 import { GlitchFilter } from '../node_modules/@pixi/filter-glitch/dist/filter-glitch.mjs';
 import { GodrayFilter } from '../node_modules/@pixi/filter-godray/dist/filter-godray.mjs';
+import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
 
 function createFallbackLogger() {
   return {
@@ -188,6 +189,178 @@ hud.insertBefore(moodWrapper, tagContainer);
 const statusEl = document.createElement('div');
 statusEl.textContent = 'Steps: 0';
 hud.appendChild(statusEl);
+
+const effectControlsSection = document.createElement('div');
+effectControlsSection.style.marginTop = '12px';
+effectControlsSection.style.display = 'flex';
+effectControlsSection.style.flexDirection = 'column';
+effectControlsSection.style.gap = '8px';
+
+const effectSectionTitle = document.createElement('div');
+effectSectionTitle.textContent = 'Effect Controls';
+effectSectionTitle.style.fontWeight = '600';
+effectSectionTitle.style.fontSize = '0.9rem';
+effectControlsSection.appendChild(effectSectionTitle);
+
+const selectStyles = {
+  background: '#111827',
+  color: '#f8fafc',
+  border: '1px solid #374151',
+  borderRadius: '4px',
+  padding: '4px 6px',
+  fontSize: '0.85rem',
+};
+
+function applySelectStyles(element) {
+  Object.entries(selectStyles).forEach(([key, value]) => {
+    element.style[key] = value;
+  });
+}
+
+const effectTypeOptions = Array.from(
+  new Set(
+    Object.values(effectMap?.moods ?? {}).flatMap((entries) => entries ?? [])
+  )
+);
+
+if (!effectTypeOptions.length) {
+  effectTypeOptions.push('softPulse', 'scanline', 'glitch', 'godray');
+}
+
+if (!effectTypeOptions.includes('random')) {
+  effectTypeOptions.push('random');
+}
+
+const typeWrapper = document.createElement('label');
+
+const typeLabelText = document.createElement('span');
+typeLabelText.textContent = 'Effect Type: ';
+typeWrapper.appendChild(typeLabelText);
+
+const typeSelect = document.createElement('select');
+applySelectStyles(typeSelect);
+
+effectTypeOptions.forEach((effectType) => {
+  const option = document.createElement('option');
+  option.value = effectType;
+  option.textContent = effectType;
+  typeSelect.appendChild(option);
+});
+
+typeWrapper.appendChild(typeSelect);
+effectControlsSection.appendChild(typeWrapper);
+
+const frequencyWrapper = document.createElement('label');
+const frequencyLabelText = document.createElement('span');
+
+const freqSlider = document.createElement('input');
+freqSlider.type = 'range';
+freqSlider.min = '3';
+freqSlider.max = '30';
+freqSlider.step = '1';
+freqSlider.value = '10';
+freqSlider.style.width = '100%';
+frequencyLabelText.textContent = `Spawn Frequency: ${freqSlider.value}s`;
+freqSlider.addEventListener('input', () => {
+  frequencyLabelText.textContent = `Spawn Frequency: ${freqSlider.value}s`;
+});
+frequencyWrapper.appendChild(frequencyLabelText);
+frequencyWrapper.appendChild(document.createElement('br'));
+frequencyWrapper.appendChild(freqSlider);
+effectControlsSection.appendChild(frequencyWrapper);
+
+const intensityWrapper = document.createElement('label');
+const intensityLabelText = document.createElement('span');
+
+const intensitySlider = document.createElement('input');
+intensitySlider.type = 'range';
+intensitySlider.min = '1';
+intensitySlider.max = '10';
+intensitySlider.step = '1';
+intensitySlider.value = '5';
+intensitySlider.style.width = '100%';
+intensityLabelText.textContent = `Effect Intensity: ${intensitySlider.value}`;
+intensitySlider.addEventListener('input', () => {
+  intensityLabelText.textContent = `Effect Intensity: ${intensitySlider.value}`;
+});
+intensityWrapper.appendChild(intensityLabelText);
+intensityWrapper.appendChild(document.createElement('br'));
+intensityWrapper.appendChild(intensitySlider);
+effectControlsSection.appendChild(intensityWrapper);
+
+const zoneWrapper = document.createElement('label');
+
+const zoneLabelText = document.createElement('span');
+zoneLabelText.textContent = 'Effect Zone: ';
+zoneWrapper.appendChild(zoneLabelText);
+
+const availableZones = Array.from(
+  new Set(
+    Object.values(effectMap?.zones ?? {}).flatMap((entries) => entries ?? [])
+  )
+);
+
+if (!availableZones.length) {
+  availableZones.push('center', 'topLeft', 'bottom', 'left', 'right', 'full');
+}
+
+['center', 'topLeft', 'bottom', 'left', 'right', 'full'].forEach((zone) => {
+  if (!availableZones.includes(zone)) {
+    availableZones.push(zone);
+  }
+});
+
+const zoneSelect = document.createElement('select');
+applySelectStyles(zoneSelect);
+
+availableZones.forEach((zone) => {
+  const option = document.createElement('option');
+  option.value = zone;
+  option.textContent = zone;
+  zoneSelect.appendChild(option);
+});
+
+zoneWrapper.appendChild(zoneSelect);
+effectControlsSection.appendChild(zoneWrapper);
+
+hud.appendChild(effectControlsSection);
+
+function readEffectSettings() {
+  return {
+    type: typeSelect.value,
+    interval: Number.parseInt(freqSlider.value, 10) * 1000,
+    intensity: Number.parseInt(intensitySlider.value, 10),
+    zone: zoneSelect.value,
+  };
+}
+
+let lastEffectSettingsSignature;
+
+function notifyEffectSettingsChange(source) {
+  const settings = readEffectSettings();
+  const signature = JSON.stringify(settings);
+  const hasChanged = signature !== lastEffectSettingsSignature;
+  if (!hasChanged && source !== 'init') {
+    return;
+  }
+  lastEffectSettingsSignature = signature;
+  window.dispatchEvent(
+    new CustomEvent('hud:effect-settings-change', {
+      detail: { source, settings },
+    })
+  );
+  if (hasChanged) {
+    logEvent({ type: 'effectSettingsChange', source, settings });
+  }
+}
+
+typeSelect.addEventListener('change', () => notifyEffectSettingsChange('type'));
+freqSlider.addEventListener('input', () => notifyEffectSettingsChange('frequency'));
+intensitySlider.addEventListener('input', () => notifyEffectSettingsChange('intensity'));
+zoneSelect.addEventListener('change', () => notifyEffectSettingsChange('zone'));
+
+window.getEffectSettings = readEffectSettings;
+notifyEffectSettingsChange('init');
 
 const tags = ['Dreamcore', 'Urban', 'Ambient'];
 const tagButtons = new Map();
