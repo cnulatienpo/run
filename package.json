@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
+    "start:browser": "echo 'Starting HTTP server and opening in Simple Browser...' && cd renderer && python3 -m http.server 3000 &",
     "start:headless": "./dev/start-headless.sh",
+    "start:gui": "./dev/start-gui.sh",
     "dev": "nodemon main.js",
     "build": "electron-builder",
     "dist": "electron-builder --win",
@@ -22,7 +24,6 @@
     "@pixi/filter-godray": "^5.0.5",
     "auto-launch": "^5.0.6",
     "concurrently": "^8.2.2",
-    "electron": "^28.3.3",
     "electron-log": "^5.1.2",
     "express": "^4.19.2",
     "pixi.js": "^8.4.1",
