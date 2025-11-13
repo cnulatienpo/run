@@ -179,6 +179,8 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   const statusEl = document.getElementById('status');
   const stepsEl = document.getElementById('steps');
   const lastUpdateEl = document.getElementById('last-update');
+  const heartRateEl = document.getElementById('heart-rate');
+  const heartRateStatusEl = document.getElementById('heart-rate-status');
   const versionSpans = {
     electron: document.getElementById('version-electron'),
     node: document.getElementById('version-node'),
@@ -266,6 +268,7 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     bpm: bpmSelect?.value || '120',
     playlist: 'Untitled Session',
     currentTrackUrl: null,
+    heartRate: null,
   };
 
   let musicPlaying = false;
@@ -366,6 +369,10 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     }
     const moodLabel = getMoodLabelText(currentState.mood);
     const playlistName = currentState.playlist || 'None';
+    const stepText = Number.isFinite(lastStepCount) ? lastStepCount.toLocaleString() : '0';
+    const heartText = Number.isFinite(currentState.heartRate)
+      ? `${currentState.heartRate} bpm`
+      : '—';
     let musicSource = playlistName;
     if (musicPlaying) {
       musicSource =
@@ -375,7 +382,7 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     } else if (currentState.currentTrackUrl) {
       musicSource = playlistName !== 'None' ? `Queued • ${playlistName}` : 'Track queued';
     }
-    infoHud.textContent = `Tag: ${getTagDisplay()} | Mood: ${moodLabel} | Music: ${musicSource}`;
+    infoHud.textContent = `Tag: ${getTagDisplay()} | Mood: ${moodLabel} | Music: ${musicSource} | Steps: ${stepText} | Heart: ${heartText}`;
   }
 
   if (typeof userSettings?.lastPlaylist === 'string') {
@@ -441,6 +448,28 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       const detail = hasNumber ? `${stepCount} steps` : 'No recent data';
       lastUpdateEl.textContent = `Last update: ${now.toLocaleTimeString()} (${detail})`;
     }
+    updateFloatingHUD();
+  }
+
+  function updateHeartRate(bpm) {
+    const isValid = Number.isFinite(bpm);
+    const normalized = isValid ? Math.max(0, Math.round(bpm)) : null;
+
+    if (heartRateEl) {
+      heartRateEl.textContent = normalized !== null ? `${normalized}` : '--';
+    }
+
+    if (heartRateStatusEl) {
+      if (normalized !== null) {
+        const now = new Date();
+        heartRateStatusEl.textContent = `Last BPM update: ${now.toLocaleTimeString()} (${normalized} bpm)`;
+      } else {
+        heartRateStatusEl.textContent = 'Waiting for heart rate data…';
+      }
+    }
+
+    currentState.heartRate = normalized;
+    updateFloatingHUD();
   }
 
   function ensureTimerRunning() {
@@ -623,6 +652,7 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     setStatus,
     updateVersions,
     updateSteps,
+    updateHeartRate,
     getMood: () => currentState.mood,
     getBpm: () => Number(currentState.bpm),
     getSelectedTags: () => Array.from(selectedTags),

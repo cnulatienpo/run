@@ -36,6 +36,29 @@ body {
   margin-bottom: 6px;
 }
 
+.sensor-row {
+  display: flex;
+  gap: 24px;
+  font-size: 16px;
+  color: #ccc;
+  margin-top: 8px;
+}
+
+.sensor-badge {
+  align-self: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sensor-badge[hidden] {
+  display: none;
+}
+
 #hud button {
   background: #1f2937;
   border: 1px solid #334155;

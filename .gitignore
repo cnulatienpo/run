@@ -27,10 +27,7 @@ coverage/
 .env
 .env.*
 !.env.example
-client_secrets.json
-token.json
-step-bridge/client_secrets.json
-step-bridge/token.json
+googlefit-bridge/token.json
 
 # Electron artifacts
 *.dmg
