@@ -12,6 +12,7 @@ import {
   exportSessionLog as exportGlobalSessionLog,
 } from './renderer/tag-session-logger.js';
 import { loadSettings, saveSettings } from './renderer/settings.js';
+import './renderer/youtube-runner.js';
 
 const DEFAULT_MOOD = 'dreamcore';
 const MOOD_STORAGE_KEY = 'selectedMood';
@@ -248,6 +249,18 @@ logSessionEvent('session-start');
 
 let previousStepCount = 0;
 let previousHeartRate = null;
+
+const PACE_WINDOW_MS = 20000;
+const PACE_MIN_WINDOW_MS = 4000;
+const PACE_IDLE_TIMEOUT_MS = 8000;
+const PACE_DISPATCH_THROTTLE_MS = 900;
+const PACE_DISPATCH_DELTA_THRESHOLD = 0.8;
+
+const paceSamples = [];
+let smoothedPace = null;
+let lastPaceDispatchAt = 0;
+let lastDispatchedPace = null;
+let lastMovementTimestamp = 0;
 
 const SELECTED_TAG_STORAGE_KEY = 'selectedTag';
 const HALLUCINATION_DEFAULT_MOOD = 'dreamlike';
@@ -561,6 +574,83 @@ function updateOverlayHeartRateDisplay(bpm) {
   }
 }
 
+function dispatchPaceUpdate(pace) {
+  const runner = window.youtubeRunner;
+  if (!runner || typeof runner.updatePace !== 'function') {
+    return;
+  }
+
+  const now = Date.now();
+  if (pace === 0) {
+    if (lastDispatchedPace === 0 && now - lastPaceDispatchAt < PACE_IDLE_TIMEOUT_MS) {
+      return;
+    }
+  } else if (
+    lastDispatchedPace !== null &&
+    now - lastPaceDispatchAt < PACE_DISPATCH_THROTTLE_MS &&
+    Math.abs(pace - lastDispatchedPace) < PACE_DISPATCH_DELTA_THRESHOLD
+  ) {
+    return;
+  }
+
+  runner.updatePace(pace);
+  lastPaceDispatchAt = now;
+  lastDispatchedPace = pace;
+}
+
+function updatePaceEstimate(stepCount) {
+  const now = Date.now();
+  paceSamples.push({ t: now, steps: stepCount });
+  while (paceSamples.length > 1 && now - paceSamples[0].t > PACE_WINDOW_MS) {
+    paceSamples.shift();
+  }
+
+  const latestSample = paceSamples[paceSamples.length - 1];
+  const earliestSample = paceSamples[0];
+  if (!latestSample || !earliestSample) {
+    return;
+  }
+
+  const deltaSteps = latestSample.steps - earliestSample.steps;
+  const deltaMs = latestSample.t - earliestSample.t;
+
+  if (deltaSteps < 0) {
+    paceSamples.length = 0;
+    paceSamples.push({ t: now, steps: stepCount });
+    smoothedPace = null;
+    lastDispatchedPace = null;
+    lastPaceDispatchAt = 0;
+    lastMovementTimestamp = now;
+    return;
+  }
+
+  if (deltaSteps > 0) {
+    lastMovementTimestamp = now;
+  }
+
+  if (deltaSteps <= 0 || deltaMs < PACE_MIN_WINDOW_MS) {
+    if (lastMovementTimestamp && now - lastMovementTimestamp > PACE_IDLE_TIMEOUT_MS) {
+      dispatchPaceUpdate(0);
+      smoothedPace = null;
+    }
+    return;
+  }
+
+  const stepsPerMinute = (deltaSteps / deltaMs) * 60000;
+  if (!Number.isFinite(stepsPerMinute)) {
+    return;
+  }
+
+  if (smoothedPace == null) {
+    smoothedPace = stepsPerMinute;
+  } else {
+    const alpha = 0.35;
+    smoothedPace = smoothedPace * (1 - alpha) + stepsPerMinute * alpha;
+  }
+
+  dispatchPaceUpdate(smoothedPace);
+}
+
 function syncConnectionStatus(message, state) {
   hud.setStatus?.(message, state);
   if (state) {
@@ -596,6 +686,7 @@ function updateStepCount(stepCount) {
   }
   previousStepCount = normalizedSteps;
   logStepUpdate(normalizedSteps);
+  updatePaceEstimate(normalizedSteps);
 }
 
 function updateHeartRate(bpm) {
