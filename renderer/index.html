@@ -19,6 +19,11 @@
         <strong>Time:</strong>
         <span id="session-time">00:00</span>
       </div>
+      <div class="row">
+        <strong>Steps:</strong>
+        <span id="step-count">0</span>
+        <span id="ws-status" style="margin-left: 10px; font-size: 0.8em; opacity: 0.7;">Connecting...</span>
+      </div>
       <!-- Add to HUD for manual export button -->
       <div class="row">
         <button onclick="window.downloadSessionLog()">Download Log</button>
@@ -29,6 +34,6 @@
       import { downloadLog } from './sessionLogger.js';
       window.downloadSessionLog = downloadLog;
     </script>
-    <script src="./hallucination-hud.js" type="module"></script>
+    <script src="./renderer.js" type="module"></script>
   </body>
 </html>

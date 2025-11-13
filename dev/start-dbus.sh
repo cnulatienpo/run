@@ -31,3 +31,4 @@ else
   echo "Failed to create system dbus socket at $SOCKET_PATH"
   exit 1
 fi
+start-dbus.sh

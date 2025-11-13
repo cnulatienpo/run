@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const AutoLaunch = require('electron-launcher');
+const AutoLaunch = require('auto-launch');
 
 const appLauncher = new AutoLaunch({ name: 'Run The World' });
 

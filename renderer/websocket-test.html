@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Test</title>
+    <script>globalThis.RTW_WS_URL = 'wss://redesigned-cod-g95ww76g4g5fvqxj-6789.app.github.dev';</script>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
+      .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+      .connected { background: #4CAF50; }
+      .disconnected { background: #f44336; }
+      .connecting { background: #FF9800; }
+    </style>
+  </head>
+  <body>
+    <h1>WebSocket Test</h1>
+    <div id="status" class="status connecting">Testing connection...</div>
+    <div>Step Count: <span id="step-count">0</span></div>
+    <div>Messages received: <span id="message-count">0</span></div>
+    <div id="messages" style="height: 200px; overflow-y: auto; border: 1px solid #666; padding: 10px; margin-top: 10px;"></div>
+
+    <script>
+      const WS_URL = globalThis.RTW_WS_URL || 'ws://localhost:6789';
+      const statusEl = document.getElementById('status');
+      const stepCountEl = document.getElementById('step-count');
+      const messageCountEl = document.getElementById('message-count');
+      const messagesEl = document.getElementById('messages');
+      
+      let messageCount = 0;
+      let ws;
+
+      function log(message) {
+        const div = document.createElement('div');
+        div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function connect() {
+        log('Attempting to connect to: ' + WS_URL);
+        statusEl.textContent = 'Connecting to ' + WS_URL;
+        statusEl.className = 'status connecting';
+
+        try {
+          ws = new WebSocket(WS_URL);
+          
+          ws.onopen = () => {
+            log('Connected successfully!');
+            statusEl.textContent = 'Connected to ' + WS_URL;
+            statusEl.className = 'status connected';
+          };
+
+          ws.onmessage = (event) => {
+            messageCount++;
+            messageCountEl.textContent = messageCount;
+            log('Received: ' + event.data);
+            
+            try {
+              const data = JSON.parse(event.data);
+              if (data.steps) {
+                stepCountEl.textContent = data.steps;
+              }
+            } catch(e) {
+              log('Failed to parse JSON: ' + e.message);
+            }
+          };
+
+          ws.onclose = () => {
+            log('Connection closed, retrying in 3 seconds...');
+            statusEl.textContent = 'Disconnected, retrying...';
+            statusEl.className = 'status disconnected';
+            setTimeout(connect, 3000);
+          };
+
+          ws.onerror = (error) => {
+            log('WebSocket error: ' + error);
+            statusEl.textContent = 'Connection error';
+            statusEl.className = 'status disconnected';
+          };
+        } catch (error) {
+          log('Failed to create WebSocket: ' + error.message);
+          statusEl.textContent = 'Failed to create WebSocket';
+          statusEl.className = 'status disconnected';
+          setTimeout(connect, 3000);
+        }
+      }
+
+      // Start connection
+      connect();
+    </script>
+  </body>
+</html>
