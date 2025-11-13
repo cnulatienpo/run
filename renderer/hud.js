@@ -19,20 +19,95 @@ const moodOptions = {
   dreamcore: {
     name: 'Dreamcore',
     playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_DREAM',
+    // Replace the sample entries below with actual track URLs for Dreamcore sessions.
+    playlistUrls: [
+      'https://music.youtube.com/watch?v=dream001',
+      'https://music.youtube.com/watch?v=dream002',
+      'https://music.youtube.com/watch?v=dream003',
+    ],
   },
   ambient: {
     name: 'Ambient',
     playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_AMB',
+    // Replace the sample entries below with actual track URLs for Ambient sessions.
+    playlistUrls: [
+      'https://music.youtube.com/watch?v=ambient001',
+      'https://music.youtube.com/watch?v=ambient002',
+      'https://music.youtube.com/watch?v=ambient003',
+    ],
   },
   hype: {
     name: 'Hype',
     playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_HYPE',
+    // Replace the sample entries below with actual track URLs for Hype sessions.
+    playlistUrls: [
+      'https://music.youtube.com/watch?v=hype001',
+      'https://music.youtube.com/watch?v=hype002',
+      'https://music.youtube.com/watch?v=hype003',
+    ],
   },
   rare: {
     name: 'Rare',
     playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_RARE',
+    // Replace the sample entries below with actual track URLs for Rare Drop sessions.
+    playlistUrls: [
+      'https://music.youtube.com/watch?v=rare001',
+      'https://music.youtube.com/watch?v=rare002',
+      'https://music.youtube.com/watch?v=rare003',
+    ],
   },
 };
+
+const playlistCycleState = new Map();
+
+function getPlaylistEntriesForMood(moodKey) {
+  const urls = moodOptions[moodKey]?.playlistUrls;
+  if (!Array.isArray(urls)) {
+    return [];
+  }
+  return urls
+    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+    .filter((url) => url.length > 0);
+}
+
+function shufflePlaylist(urls) {
+  const list = urls.slice();
+  for (let i = list.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+
+function getNextPlaylistEntryForMood(moodKey, { resetCycle = false } = {}) {
+  if (!moodKey) {
+    return null;
+  }
+
+  const entries = getPlaylistEntriesForMood(moodKey);
+  if (entries.length === 0) {
+    const fallback = moodOptions[moodKey]?.playlistUrl;
+    return fallback ? { url: fallback, fromLocalList: false } : null;
+  }
+
+  if (resetCycle) {
+    playlistCycleState.delete(moodKey);
+  }
+
+  let state = playlistCycleState.get(moodKey);
+  if (!state || state.index >= state.urls.length) {
+    state = {
+      urls: shufflePlaylist(entries),
+      index: 0,
+    };
+  }
+
+  const url = state.urls[state.index];
+  state.index += 1;
+  playlistCycleState.set(moodKey, state);
+
+  return url ? { url, fromLocalList: true } : null;
+}
 
 function readStoredMood() {
   const settingsMood =
@@ -119,6 +194,8 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   const playlistNameEl = document.getElementById('playlist-name');
   const playlistButton = document.getElementById('playlist-start');
   const playlistStatusEl = document.getElementById('playlist-status');
+  const playlistFrame = document.getElementById('ytmusic-frame');
+  const playlistNextButton = document.getElementById('playlist-next');
   const assetPackContainer = document.getElementById('asset-pack-container');
   const assetPackSelect = document.getElementById('asset-pack');
   const hudControlsContainer =
@@ -188,25 +265,67 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       'dreamcore',
     bpm: bpmSelect?.value || '120',
     playlist: 'Untitled Session',
+    currentTrackUrl: null,
   };
 
   let musicPlaying = false;
 
-  function openPlaylistForMood(moodKey) {
-    const playlistUrl = moodOptions[moodKey]?.playlistUrl;
-    if (!playlistUrl) {
+  updatePlaylistControlsForMood(currentState.mood);
+
+  function updatePlaylistControlsForMood(moodKey) {
+    if (!playlistNextButton) {
       return;
     }
-    try {
-      const electronShell = window?.electron?.shell ?? window?.electronAPI?.shell;
-      if (electronShell && typeof electronShell.openExternal === 'function') {
-        electronShell.openExternal(playlistUrl);
-        return;
-      }
-    } catch (error) {
-      console.warn('[hud] Unable to open playlist via Electron shell:', error);
+    const hasLocalPlaylist = getPlaylistEntriesForMood(moodKey).length > 0;
+    playlistNextButton.disabled = !hasLocalPlaylist;
+    playlistNextButton.title = hasLocalPlaylist
+      ? 'Load another track from the local playlist.'
+      : 'Add track URLs for this mood in hud.js to enable shuffling.';
+  }
+
+  function openPlaylistForMood(
+    moodKey,
+    { resetCycle = false, triggeredBy = 'mood-change' } = {},
+  ) {
+    if (!moodKey) {
+      return;
     }
-    window.open(playlistUrl, '_blank', 'noopener');
+
+    const entry = getNextPlaylistEntryForMood(moodKey, { resetCycle });
+    if (!entry) {
+      console.warn('[hud] No playlist entry available for mood:', moodKey);
+      return;
+    }
+
+    const { url, fromLocalList } = entry;
+    if (playlistFrame) {
+      playlistFrame.src = url;
+    } else {
+      let opened = false;
+      try {
+        const electronShell = window?.electron?.shell ?? window?.electronAPI?.shell;
+        if (electronShell && typeof electronShell.openExternal === 'function') {
+          electronShell.openExternal(url);
+          opened = true;
+        }
+      } catch (error) {
+        console.warn('[hud] Unable to open playlist via Electron shell:', error);
+      }
+      if (!opened) {
+        window.open(url, '_blank', 'noopener');
+      }
+    }
+
+    currentState.currentTrackUrl = fromLocalList ? url : null;
+    updatePlaylistControlsForMood(moodKey);
+    updateFloatingHUD();
+    logEvent('playlist-track-change', {
+      steps: lastStepCount,
+      mood: moodKey,
+      url,
+      fromLocalList,
+      triggeredBy,
+    });
   }
 
   function updateVideoMute(isPlaying) {
@@ -246,7 +365,16 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       return;
     }
     const moodLabel = getMoodLabelText(currentState.mood);
-    const musicSource = musicPlaying ? currentState.playlist || 'Live Session' : currentState.playlist || 'None';
+    const playlistName = currentState.playlist || 'None';
+    let musicSource = playlistName;
+    if (musicPlaying) {
+      musicSource =
+        currentState.currentTrackUrl && playlistName !== 'None'
+          ? `${playlistName} (Track queued)`
+          : playlistName;
+    } else if (currentState.currentTrackUrl) {
+      musicSource = playlistName !== 'None' ? `Queued • ${playlistName}` : 'Track queued';
+    }
     infoHud.textContent = `Tag: ${getTagDisplay()} | Mood: ${moodLabel} | Music: ${musicSource}`;
   }
 
@@ -338,6 +466,10 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       });
       musicPlaying = true;
       updateVideoMute(true);
+      openPlaylistForMood(currentState.mood, {
+        resetCycle: true,
+        triggeredBy: 'playlist-start',
+      });
     } else {
       sessionStartTime = undefined;
       if (timerInterval) {
@@ -352,9 +484,17 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       });
       musicPlaying = false;
       updateVideoMute(false);
+      currentState.currentTrackUrl = null;
     }
     updateTimerDisplay();
     updateFloatingHUD();
+  });
+
+  playlistNextButton?.addEventListener('click', () => {
+    openPlaylistForMood(currentState.mood, { triggeredBy: 'manual-next' });
+    if (musicPlaying) {
+      updateVideoMute(true);
+    }
   });
 
   moodSelect?.addEventListener('change', () => {
@@ -365,7 +505,11 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
       moodLabelEl.textContent = label;
     }
     setMood(currentState.mood);
-    openPlaylistForMood(currentState.mood);
+    updatePlaylistControlsForMood(currentState.mood);
+    openPlaylistForMood(currentState.mood, {
+      resetCycle: true,
+      triggeredBy: 'mood-change',
+    });
     updateFloatingHUD();
     logEvent('mood-change', {
       steps: lastStepCount,
