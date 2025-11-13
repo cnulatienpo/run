@@ -6,12 +6,17 @@ document.body.appendChild(ytScript);
 // --- Playlist Map ---
 const PLAYLISTS = {
   "Night City Run": "PLSOO4vYXpMCe01uTOmj_3_G4C8-Kjy26X",
-  "Lofi Study": "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI"
+  "Lofi Study": "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI",
+  "Walking Tours": "PLJ-dF835PSwkh5zCGlPPfgHnZu7nrqgkZ",
+  "California Walks": "PL_uLYGDZi5I6qrv6PwsFSPsGH2Dk3Ybgy",
+  "Virtual Run (360)": "PLWlKQlGXPzlUwIezr79HXSEowfjseY7Yr",
+  "Treadmill Runs": "PLu6XgYDxOz6lxcFq4iB-PefGW0chfdxaW"
 };
 
 let currentPlaylist = PLAYLISTS["Night City Run"];
 let ytPlayer = null;
 let jumpTimer = null;
+let currentJumpInterval = 10000;
 
 // --- Create and mount player container ---
 const playerWrap = document.createElement('div');
@@ -45,7 +50,7 @@ window.onYouTubeIframeAPIReady = () => {
       onReady: (event) => {
         event.target.mute();
         event.target.playVideo();
-        startRandomJump();
+        startRandomJump(currentJumpInterval);
       },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.ENDED) {
@@ -57,15 +62,21 @@ window.onYouTubeIframeAPIReady = () => {
 };
 
 // --- Randomize video position every 10s ---
-function startRandomJump() {
+function startRandomJump(intervalMs = 10000) {
   clearInterval(jumpTimer);
+
+  if (!intervalMs || intervalMs <= 0) {
+    jumpTimer = null;
+    return;
+  }
+
   jumpTimer = setInterval(() => {
     const duration = ytPlayer.getDuration();
     if (duration > 10) {
       const seekTime = Math.floor(Math.random() * (duration - 10));
       ytPlayer.seekTo(seekTime, true);
     }
-  }, 10000);
+  }, intervalMs);
 }
 
 // --- HUD: Playlist Dropdown ---
@@ -103,6 +114,8 @@ Object.entries(PLAYLISTS).forEach(([label, id]) => {
   playlistSelect.appendChild(option);
 });
 
+playlistSelect.value = currentPlaylist;
+
 playlistSelect.addEventListener('change', (e) => {
   const newId = e.target.value;
   currentPlaylist = newId;
@@ -117,3 +130,46 @@ playlistWrap.appendChild(playlistLabel);
 playlistWrap.appendChild(playlistSelect);
 
 hud.appendChild(playlistWrap);
+
+// --- HUD: Interval Selector ---
+const intervalLabel = document.createElement('label');
+intervalLabel.textContent = 'Change Interval: ';
+intervalLabel.style.marginRight = '6px';
+intervalLabel.style.fontSize = '14px';
+intervalLabel.style.verticalAlign = 'middle';
+
+const intervalSelect = document.createElement('select');
+intervalSelect.style.fontSize = '14px';
+intervalSelect.style.padding = '2px 6px';
+intervalSelect.style.borderRadius = '4px';
+
+const INTERVAL_OPTIONS = {
+  Off: 0,
+  '5s': 5000,
+  '10s': 10000,
+  '30s': 30000,
+  '60s': 60000
+};
+
+Object.entries(INTERVAL_OPTIONS).forEach(([label, ms]) => {
+  const option = document.createElement('option');
+  option.value = ms;
+  option.textContent = label;
+  intervalSelect.appendChild(option);
+});
+
+intervalSelect.value = currentJumpInterval;
+
+intervalSelect.addEventListener('change', (e) => {
+  const newInterval = Number(e.target.value);
+  currentJumpInterval = newInterval;
+  startRandomJump(currentJumpInterval);
+});
+
+const intervalWrap = document.createElement('div');
+intervalWrap.style.display = 'inline-block';
+intervalWrap.style.marginLeft = '10px';
+intervalWrap.appendChild(intervalLabel);
+intervalWrap.appendChild(intervalSelect);
+
+hud.appendChild(intervalWrap);
