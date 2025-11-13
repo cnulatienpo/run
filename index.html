@@ -273,6 +273,50 @@
         color: rgba(148, 163, 184, 0.75);
       }
 
+      .ytmusic-player {
+        margin-top: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .ytmusic-player iframe {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.6);
+      }
+
+      .ytmusic-player-controls {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      #playlist-next {
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(59, 130, 246, 0.2);
+        color: rgba(191, 219, 254, 0.95);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.15s ease;
+      }
+
+      #playlist-next:hover:not(:disabled) {
+        background: rgba(59, 130, 246, 0.32);
+        transform: translateY(-1px);
+      }
+
+      #playlist-next:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+      }
+
       button.primary {
         align-self: flex-start;
         padding: 10px 18px;
@@ -409,6 +453,17 @@
               <input id="playlist-input" type="text" placeholder="Enter playlist name" />
             </div>
             <button type="button" class="primary" id="playlist-start">Start</button>
+            <div class="ytmusic-player">
+              <iframe
+                id="ytmusic-frame"
+                title="YouTube Music player"
+                loading="lazy"
+                allow="autoplay; encrypted-media"
+              ></iframe>
+              <div class="ytmusic-player-controls">
+                <button type="button" id="playlist-next">Next track</button>
+              </div>
+            </div>
           </article>
         </section>
       </main>
