@@ -1,6 +1,5 @@
 import { WS_URL } from './renderer/config.js';
 import { initialiseHud, createMoodSelectorHUD } from './renderer/hud.js';
-import { createNetworkClient } from './renderer/network.js';
 import { createEffectSpawner } from './renderer/spawn.js';
 import {
   startSpawnLoop as startFxSpawnLoop,
@@ -200,6 +199,7 @@ function logStepUpdate(stepCount) {
 logSessionEvent('session-start');
 
 let previousStepCount = 0;
+let previousHeartRate = null;
 
 const SELECTED_TAG_STORAGE_KEY = 'selectedTag';
 const HALLUCINATION_DEFAULT_MOOD = 'dreamlike';
@@ -330,6 +330,57 @@ function initOverlayHUD() {
     status.style.marginTop = '6px';
     hud.appendChild(status);
 
+    const metrics = document.createElement('div');
+    metrics.id = 'overlay-metrics';
+    metrics.style.display = 'grid';
+    metrics.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+    metrics.style.gap = '6px';
+    metrics.style.marginTop = '10px';
+
+    const createMetricRow = (labelText, valueId, initialValue) => {
+      const row = document.createElement('div');
+      row.className = 'overlay-metric-row';
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.alignItems = 'center';
+      row.style.gap = '12px';
+
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      label.style.fontWeight = '600';
+      label.style.fontSize = '13px';
+
+      const value = document.createElement('span');
+      value.id = valueId;
+      value.textContent = initialValue;
+      value.style.fontVariantNumeric = 'tabular-nums';
+      value.style.fontSize = '15px';
+
+      row.appendChild(label);
+      row.appendChild(value);
+      return row;
+    };
+
+    metrics.appendChild(createMetricRow('Steps', 'overlay-steps-value', '0'));
+    metrics.appendChild(createMetricRow('Heart Rate', 'overlay-heart-rate-value', '--'));
+    hud.appendChild(metrics);
+
+    const reconnectButton = document.createElement('button');
+    reconnectButton.id = 'overlay-reconnect';
+    reconnectButton.textContent = 'Reconnect';
+    reconnectButton.style.marginTop = '10px';
+    reconnectButton.style.padding = '6px 12px';
+    reconnectButton.style.borderRadius = '6px';
+    reconnectButton.style.border = '1px solid rgba(148, 163, 184, 0.6)';
+    reconnectButton.style.background = 'rgba(148, 163, 184, 0.18)';
+    reconnectButton.style.color = '#f8fafc';
+    reconnectButton.style.cursor = 'pointer';
+    reconnectButton.style.fontSize = '13px';
+    reconnectButton.style.fontWeight = '600';
+    reconnectButton.style.textTransform = 'uppercase';
+    reconnectButton.style.letterSpacing = '0.06em';
+    hud.appendChild(reconnectButton);
+
     document.body.appendChild(hud);
   }
 
@@ -367,6 +418,18 @@ function updateConnectionStatus(text, state = 'neutral') {
 initOverlayHUD();
 updateTimer();
 window.setInterval(updateTimer, 1000);
+
+let overlayStepsValueEl;
+let overlayHeartRateValueEl;
+let overlayReconnectButton;
+
+function refreshOverlayElements() {
+  overlayStepsValueEl = document.getElementById('overlay-steps-value');
+  overlayHeartRateValueEl = document.getElementById('overlay-heart-rate-value');
+  overlayReconnectButton = document.getElementById('overlay-reconnect');
+}
+
+refreshOverlayElements();
 
 const hud = initialiseHud({ sessionLog, logSessionEvent });
 createMoodSelectorHUD();
@@ -423,60 +486,238 @@ if (assetPackPromise?.catch) {
   });
 }
 
-const network = createNetworkClient({
-  url: WS_URL,
-  onStatus: (message, state) => {
-    hud.setStatus(message, state);
-    if (state) {
-      logSessionEvent('connection-status', { state, message });
-    }
-    if (state === 'connected') {
-      updateConnectionStatus('Connected', 'ok');
-    } else if (state === 'reconnecting') {
-      updateConnectionStatus('Reconnecting', 'reconnecting');
-    } else if (state === 'connecting') {
-      updateConnectionStatus('Connecting…');
-    } else {
-      updateConnectionStatus('Disconnected', 'error');
-    }
-  },
-  onStepData: (payload) => {
-    if (typeof payload.steps === 'number') {
-      const stepCount = payload.steps;
-      hud.updateSteps(stepCount);
-      logStepUpdate(stepCount);
-      const stepDelta = Math.max(0, stepCount - previousStepCount);
-      const iterations = stepDelta > 0 ? Math.min(stepDelta, 10) : 0;
-      for (let i = 0; i < iterations; i += 1) {
-        spawner.trigger({
-          mood: hud.getMood(),
-          stepCount,
-        });
-      }
-      previousStepCount = stepCount;
-    }
+const BRIDGE_URL =
+  typeof WS_URL === 'string' && WS_URL.trim().length > 0 ? WS_URL.trim() : 'ws://localhost:6789';
+const RECONNECT_DELAY_MS = 4000;
+let bridgeSocket;
+let reconnectTimer;
+let intentionallyClosed = false;
 
-    if (typeof payload.bpm === 'number') {
-      sessionState.music.bpm = payload.bpm;
-      logSessionEvent('bpm-update', {
-        steps: hud.getLastStepCount(),
-        bpm: payload.bpm,
-      });
-    }
+function updateOverlayStepsDisplay(stepCount) {
+  if (!overlayStepsValueEl || !document.body.contains(overlayStepsValueEl)) {
+    refreshOverlayElements();
+  }
+  if (overlayStepsValueEl) {
+    overlayStepsValueEl.textContent = Number.isFinite(stepCount)
+      ? Number(stepCount).toLocaleString()
+      : '—';
+  }
+}
 
-    if (typeof payload.playlist === 'string') {
-      sessionState.music.playlist = payload.playlist;
-      logSessionEvent('playlist-update', {
-        steps: hud.getLastStepCount(),
-        playlist: payload.playlist,
-      });
-    }
+function updateOverlayHeartRateDisplay(bpm) {
+  if (!overlayHeartRateValueEl || !document.body.contains(overlayHeartRateValueEl)) {
+    refreshOverlayElements();
+  }
+  if (overlayHeartRateValueEl) {
+    overlayHeartRateValueEl.textContent = Number.isFinite(bpm) ? `${Math.round(bpm)}` : '--';
+  }
+}
 
-    if (typeof payload.device === 'string' && payload.device.trim()) {
-      sessionState.device = payload.device.trim();
+function syncConnectionStatus(message, state) {
+  hud.setStatus?.(message, state);
+  if (state) {
+    logSessionEvent('connection-status', { state, message });
+  }
+  if (state === 'connected') {
+    updateConnectionStatus('Connected', 'ok');
+  } else if (state === 'reconnecting') {
+    updateConnectionStatus('Reconnecting…', 'reconnecting');
+  } else if (state === 'connecting') {
+    updateConnectionStatus('Connecting…');
+  } else if (state === 'error') {
+    updateConnectionStatus(message || 'Connection error', 'error');
+  } else if (state === 'disconnected') {
+    updateConnectionStatus(message || 'Disconnected', 'error');
+  }
+}
+
+function updateStepCount(stepCount) {
+  if (!Number.isFinite(stepCount)) {
+    return;
+  }
+  const normalizedSteps = Math.max(0, Math.round(stepCount));
+  hud.updateSteps?.(normalizedSteps);
+  updateOverlayStepsDisplay(normalizedSteps);
+  const stepDelta = Math.max(0, normalizedSteps - previousStepCount);
+  const iterations = stepDelta > 0 ? Math.min(stepDelta, 10) : 0;
+  for (let i = 0; i < iterations; i += 1) {
+    spawner.trigger({
+      mood: hud.getMood?.(),
+      stepCount: normalizedSteps,
+    });
+  }
+  previousStepCount = normalizedSteps;
+  logStepUpdate(normalizedSteps);
+}
+
+function updateHeartRate(bpm) {
+  if (!Number.isFinite(bpm)) {
+    return;
+  }
+  const normalizedBpm = Math.max(0, Math.round(bpm));
+  const changed = normalizedBpm !== previousHeartRate;
+  previousHeartRate = normalizedBpm;
+  hud.updateHeartRate?.(normalizedBpm);
+  updateOverlayHeartRateDisplay(normalizedBpm);
+  sessionState.music.bpm = normalizedBpm;
+  if (changed) {
+    logSessionEvent('bpm-update', {
+      steps: hud.getLastStepCount?.(),
+      bpm: normalizedBpm,
+    });
+  }
+}
+
+function handleBridgePayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return;
+  }
+
+  const summary = {};
+
+  if (typeof payload.steps === 'number') {
+    summary.steps = Math.round(Number(payload.steps));
+    updateStepCount(payload.steps);
+  }
+
+  if (typeof payload.bpm === 'number') {
+    summary.bpm = Math.round(Number(payload.bpm));
+    updateHeartRate(payload.bpm);
+  }
+
+  if (typeof payload.playlist === 'string') {
+    sessionState.music.playlist = payload.playlist;
+    logSessionEvent('playlist-update', {
+      steps: hud.getLastStepCount?.(),
+      playlist: payload.playlist,
+    });
+  }
+
+  if (typeof payload.device === 'string' && payload.device.trim()) {
+    summary.device = payload.device.trim();
+    sessionState.device = summary.device;
+  }
+
+  if (Object.keys(summary).length > 0) {
+    logSessionEvent('bridge-message', summary);
+    sessionState.latestBridgePayload = summary;
+  }
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+  }
+}
+
+function scheduleReconnect() {
+  if (intentionallyClosed) {
+    return;
+  }
+  clearReconnectTimer();
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = undefined;
+    connectToBridge();
+  }, RECONNECT_DELAY_MS);
+}
+
+function disconnectBridge({ intentional = false } = {}) {
+  intentionallyClosed = intentional;
+  clearReconnectTimer();
+  if (bridgeSocket) {
+    const socket = bridgeSocket;
+    bridgeSocket = undefined;
+    try {
+      socket.onopen = null;
+      socket.onclose = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.close();
+    } catch (error) {
+      console.warn('[renderer] Error while closing bridge socket:', error);
     }
-  },
-});
+  }
+}
+
+function connectToBridge({ manual = false } = {}) {
+  disconnectBridge({ intentional: true });
+  intentionallyClosed = false;
+  clearReconnectTimer();
+
+  const targetUrl = BRIDGE_URL;
+  try {
+    bridgeSocket = new WebSocket(targetUrl);
+  } catch (error) {
+    console.error('[renderer] Failed to create WebSocket connection:', error);
+    syncConnectionStatus(`Unable to open ${targetUrl}`, 'error');
+    scheduleReconnect();
+    return;
+  }
+
+  const socket = bridgeSocket;
+  syncConnectionStatus(
+    manual ? `Reconnecting to Google Fit bridge…` : `Connecting to Google Fit bridge…`,
+    manual ? 'reconnecting' : 'connecting',
+  );
+
+  socket.onopen = () => {
+    if (bridgeSocket !== socket) {
+      return;
+    }
+    syncConnectionStatus('Connected to Google Fit bridge', 'connected');
+  };
+
+  socket.onmessage = (event) => {
+    if (bridgeSocket !== socket) {
+      return;
+    }
+    try {
+      const payload = JSON.parse(event.data);
+      handleBridgePayload(payload);
+    } catch (error) {
+      console.error('[renderer] Malformed payload from bridge:', error, event.data);
+      syncConnectionStatus('Received malformed data – waiting for next update', 'error');
+    }
+  };
+
+  socket.onclose = () => {
+    if (bridgeSocket !== socket) {
+      return;
+    }
+    bridgeSocket = undefined;
+    if (intentionallyClosed) {
+      syncConnectionStatus('Disconnected from Google Fit bridge', 'disconnected');
+      return;
+    }
+    syncConnectionStatus('Connection closed. Reconnecting…', 'reconnecting');
+    scheduleReconnect();
+  };
+
+  socket.onerror = (event) => {
+    if (bridgeSocket !== socket) {
+      return;
+    }
+    console.error('[renderer] Bridge socket error:', event);
+    syncConnectionStatus('Connection error. Retrying…', 'error');
+    try {
+      socket.close();
+    } catch (error) {
+      console.warn('[renderer] Failed to close errored socket:', error);
+    }
+  };
+}
+
+if (overlayReconnectButton) {
+  overlayReconnectButton.addEventListener('click', () => {
+    logSessionEvent('bridge-reconnect-requested');
+    disconnectBridge({ intentional: true });
+    intentionallyClosed = false;
+    connectToBridge({ manual: true });
+  });
+}
+
+connectToBridge();
 
 function downloadSessionLog() {
   logSessionEvent('session-log-exported');
@@ -499,7 +740,7 @@ window.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('beforeunload', () => {
-  network.dispose?.();
+  disconnectBridge({ intentional: true });
   spawner.clear?.();
   stopFxSpawnLoop();
   stopTagHallucinationLoop();
