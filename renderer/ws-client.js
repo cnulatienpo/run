@@ -4,11 +4,13 @@ let reconnectTimer;
 const RETRY_DELAY_MS = 4000;
 let onStepUpdateCallback;
 let onStatusChangeCallback;
+let onHeartRateUpdateCallback;
 
-export function connectToStepServer(onStepUpdate, onStatusChange) {
+export function connectToStepServer(onStepUpdate, onStatusChange, onHeartRateUpdate) {
   onStepUpdateCallback = onStepUpdate;
   onStatusChangeCallback = onStatusChange;
-  
+  onHeartRateUpdateCallback = onHeartRateUpdate;
+
   if (socket && socket.readyState === WebSocket.OPEN) return;
 
   updateStatus('Connecting...', '#FFA500');
@@ -30,8 +32,11 @@ export function connectToStepServer(onStepUpdate, onStatusChange) {
   socket.addEventListener('message', (event) => {
     try {
       const payload = JSON.parse(event.data);
-      if (typeof payload.steps === 'number') {
+      if (payload.steps !== undefined && onStepUpdateCallback) {
         onStepUpdateCallback(payload.steps);
+      }
+      if (payload.bpm !== undefined && onHeartRateUpdateCallback) {
+        onHeartRateUpdateCallback(payload.bpm);
       }
     } catch (err) {
       console.error('[WS] Bad payload:', event.data, err);
@@ -42,12 +47,14 @@ export function connectToStepServer(onStepUpdate, onStatusChange) {
     console.warn('[WS] Disconnected');
     updateStatus('Disconnected', '#FF9800');
     scheduleReconnect();
+    socket = undefined;
   });
 
   socket.addEventListener('error', (err) => {
     console.error('[WS] Socket error:', err);
     updateStatus('Connection Error', '#F44336');
     scheduleReconnect();
+    socket = undefined;
   });
 }
 
@@ -57,10 +64,14 @@ function updateStatus(text, color) {
   }
 }
 
-function scheduleReconnect(onStepUpdate) {
+function scheduleReconnect() {
   if (reconnectTimer) return;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = undefined;
-    connectToStepServer(onStepUpdate);
+    connectToStepServer(
+      onStepUpdateCallback,
+      onStatusChangeCallback,
+      onHeartRateUpdateCallback,
+    );
   }, RETRY_DELAY_MS);
 }

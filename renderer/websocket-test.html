@@ -17,6 +17,7 @@
     <h1>WebSocket Test</h1>
     <div id="status" class="status connecting">Testing connection...</div>
     <div>Step Count: <span id="step-count">0</span></div>
+    <div>Heart Rate: <span id="heart-rate">—</span></div>
     <div>Messages received: <span id="message-count">0</span></div>
     <div id="messages" style="height: 200px; overflow-y: auto; border: 1px solid #666; padding: 10px; margin-top: 10px;"></div>
 
@@ -25,6 +26,7 @@
       const statusEl = document.getElementById('status');
       const stepCountEl = document.getElementById('step-count');
       const messageCountEl = document.getElementById('message-count');
+      const heartRateEl = document.getElementById('heart-rate');
       const messagesEl = document.getElementById('messages');
       
       let messageCount = 0;
@@ -58,8 +60,13 @@
             
             try {
               const data = JSON.parse(event.data);
-              if (data.steps) {
-                stepCountEl.textContent = data.steps;
+              if (data.steps !== undefined) {
+                stepCountEl.textContent =
+                  typeof data.steps === 'number' ? data.steps : '—';
+              }
+              if (data.bpm !== undefined) {
+                heartRateEl.textContent =
+                  typeof data.bpm === 'number' ? Math.round(data.bpm) : '—';
               }
             } catch(e) {
               log('Failed to parse JSON: ' + e.message);

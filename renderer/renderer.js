@@ -11,6 +11,7 @@ start();
 // Connect to WebSocket step server
 const stepCountElement = document.getElementById('step-count');
 const wsStatusElement = document.getElementById('ws-status');
+const heartRateElement = document.getElementById('heart-rate');
 
 // 1. Load the YouTube IFrame API
 const tag = document.createElement('script');
@@ -136,13 +137,26 @@ document.addEventListener('DOMContentLoaded', () => {
 connectToStepServer(
   (stepCount) => {
     if (stepCountElement) {
-      stepCountElement.textContent = stepCount;
+      if (typeof stepCount === 'number' && Number.isFinite(stepCount)) {
+        stepCountElement.textContent = stepCount;
+      } else {
+        stepCountElement.textContent = '—';
+      }
     }
   },
   (statusText, color) => {
     if (wsStatusElement) {
       wsStatusElement.textContent = statusText;
       wsStatusElement.style.color = color;
+    }
+  },
+  (bpm) => {
+    if (heartRateElement) {
+      if (typeof bpm === 'number' && Number.isFinite(bpm)) {
+        heartRateElement.textContent = Math.round(bpm);
+      } else {
+        heartRateElement.textContent = '—';
+      }
     }
   }
 );

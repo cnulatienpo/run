@@ -441,27 +441,34 @@ const network = createNetworkClient({
     }
   },
   onStepData: (payload) => {
-    if (typeof payload.steps === 'number') {
-      const stepCount = payload.steps;
-      hud.updateSteps(stepCount);
-      logStepUpdate(stepCount);
-      const stepDelta = Math.max(0, stepCount - previousStepCount);
-      const iterations = stepDelta > 0 ? Math.min(stepDelta, 10) : 0;
-      for (let i = 0; i < iterations; i += 1) {
-        spawner.trigger({
-          mood: hud.getMood(),
-          stepCount,
-        });
+    if (payload.steps !== undefined) {
+      hud.updateSteps(payload.steps);
+
+      if (typeof payload.steps === 'number') {
+        const stepCount = payload.steps;
+        logStepUpdate(stepCount);
+        const stepDelta = Math.max(0, stepCount - previousStepCount);
+        const iterations = stepDelta > 0 ? Math.min(stepDelta, 10) : 0;
+        for (let i = 0; i < iterations; i += 1) {
+          spawner.trigger({
+            mood: hud.getMood(),
+            stepCount,
+          });
+        }
+        previousStepCount = stepCount;
       }
-      previousStepCount = stepCount;
     }
 
-    if (typeof payload.bpm === 'number') {
-      sessionState.music.bpm = payload.bpm;
-      logSessionEvent('bpm-update', {
-        steps: hud.getLastStepCount(),
-        bpm: payload.bpm,
-      });
+    if (payload.bpm !== undefined) {
+      if (typeof payload.bpm === 'number') {
+        sessionState.music.bpm = payload.bpm;
+        logSessionEvent('bpm-update', {
+          steps: hud.getLastStepCount(),
+          bpm: payload.bpm,
+        });
+      } else {
+        sessionState.music.bpm = null;
+      }
     }
 
     if (typeof payload.playlist === 'string') {
