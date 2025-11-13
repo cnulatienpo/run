@@ -153,6 +153,53 @@ function addYouTubeMusicDropdownToHUD() {
   hud.appendChild(row);
 }
 
+function initialiseHudVisibilityToggle() {
+  const hudElement = document.getElementById('hud');
+  if (!hudElement || hudElement.dataset.visibilityToggleInitialised === 'true') {
+    return;
+  }
+
+  hudElement.dataset.visibilityToggleInitialised = 'true';
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.textContent = 'Show HUD';
+  toggleBtn.style.position = 'fixed';
+  toggleBtn.style.top = '10px';
+  toggleBtn.style.left = '10px';
+  toggleBtn.style.padding = '6px 12px';
+  toggleBtn.style.zIndex = '10000';
+  toggleBtn.style.background = '#111';
+  toggleBtn.style.color = '#eee';
+  toggleBtn.style.border = '1px solid #444';
+  toggleBtn.style.borderRadius = '6px';
+  toggleBtn.style.display = 'none';
+  toggleBtn.style.cursor = 'pointer';
+  document.body.appendChild(toggleBtn);
+
+  const hideBtn = document.createElement('button');
+  hideBtn.textContent = 'Hide HUD';
+  hideBtn.style.fontSize = '14px';
+  hideBtn.style.marginLeft = '8px';
+  hideBtn.style.padding = '4px 10px';
+  hideBtn.style.background = '#222';
+  hideBtn.style.color = '#ddd';
+  hideBtn.style.border = '1px solid #333';
+  hideBtn.style.borderRadius = '4px';
+  hideBtn.style.cursor = 'pointer';
+
+  hideBtn.addEventListener('click', () => {
+    hudElement.style.display = 'none';
+    toggleBtn.style.display = 'block';
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    hudElement.style.display = '';
+    toggleBtn.style.display = 'none';
+  });
+
+  hudElement.appendChild(hideBtn);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const versionEl = document.getElementById('version-text');
   const appVersion = window.electronInfo?.version;
@@ -162,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   createMoodSelectorHUD();
   addYouTubeMusicDropdownToHUD();
+  initialiseHudVisibilityToggle();
   startSpawnLoop();
 });
 
