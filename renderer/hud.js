@@ -15,6 +15,25 @@ const STATUS_MESSAGES = {
 const MOOD_STORAGE_KEY = 'selectedMood';
 const userSettings = loadSettings();
 
+const moodOptions = {
+  dreamcore: {
+    name: 'Dreamcore',
+    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_DREAM',
+  },
+  ambient: {
+    name: 'Ambient',
+    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_AMB',
+  },
+  hype: {
+    name: 'Hype',
+    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_HYPE',
+  },
+  rare: {
+    name: 'Rare',
+    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_RARE',
+  },
+};
+
 function readStoredMood() {
   const settingsMood =
     typeof userSettings?.defaultMood === 'string' ? userSettings.defaultMood : null;
@@ -102,6 +121,55 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   const playlistStatusEl = document.getElementById('playlist-status');
   const assetPackContainer = document.getElementById('asset-pack-container');
   const assetPackSelect = document.getElementById('asset-pack');
+  const hudControlsContainer =
+    document.getElementById('hud-controls') || document.querySelector('.hud-controls') || document.body;
+  const backgroundVideo = document.getElementById('background-video');
+
+  let infoHud = document.getElementById('floating-info-hud');
+  if (!infoHud) {
+    infoHud = document.createElement('div');
+    infoHud.id = 'floating-info-hud';
+    infoHud.style.position = 'fixed';
+    infoHud.style.top = '20px';
+    infoHud.style.right = '20px';
+    infoHud.style.padding = '8px 12px';
+    infoHud.style.background = 'rgba(0, 0, 0, 0.6)';
+    infoHud.style.color = '#fff';
+    infoHud.style.borderRadius = '8px';
+    infoHud.style.fontFamily = 'sans-serif';
+    infoHud.style.fontSize = '14px';
+    infoHud.style.zIndex = '9999';
+    document.body.appendChild(infoHud);
+  }
+
+  const autoMuteWrapper = document.createElement('div');
+  autoMuteWrapper.className = 'auto-mute-toggle';
+  autoMuteWrapper.style.display = 'flex';
+  autoMuteWrapper.style.alignItems = 'center';
+  autoMuteWrapper.style.gap = '8px';
+
+  const autoMuteToggle = document.createElement('input');
+  autoMuteToggle.type = 'checkbox';
+  autoMuteToggle.id = 'auto-mute-toggle';
+  autoMuteToggle.checked = true;
+
+  const autoMuteLabel = document.createElement('label');
+  autoMuteLabel.htmlFor = 'auto-mute-toggle';
+  autoMuteLabel.textContent = 'Auto-mute Background Video';
+
+  autoMuteWrapper.appendChild(autoMuteToggle);
+  autoMuteWrapper.appendChild(autoMuteLabel);
+
+  if (playlistButton) {
+    const playlistPanel = playlistButton.closest('.panel');
+    if (playlistPanel) {
+      playlistPanel.appendChild(autoMuteWrapper);
+    } else if (hudControlsContainer) {
+      hudControlsContainer.appendChild(autoMuteWrapper);
+    } else {
+      document.body.appendChild(autoMuteWrapper);
+    }
+  }
 
   let lastStepCount = 0;
   let sessionStartTime;
@@ -121,6 +189,66 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     bpm: bpmSelect?.value || '120',
     playlist: 'Untitled Session',
   };
+
+  let musicPlaying = false;
+
+  function openPlaylistForMood(moodKey) {
+    const playlistUrl = moodOptions[moodKey]?.playlistUrl;
+    if (!playlistUrl) {
+      return;
+    }
+    try {
+      const electronShell = window?.electron?.shell ?? window?.electronAPI?.shell;
+      if (electronShell && typeof electronShell.openExternal === 'function') {
+        electronShell.openExternal(playlistUrl);
+        return;
+      }
+    } catch (error) {
+      console.warn('[hud] Unable to open playlist via Electron shell:', error);
+    }
+    window.open(playlistUrl, '_blank', 'noopener');
+  }
+
+  function updateVideoMute(isPlaying) {
+    if (!backgroundVideo) {
+      return;
+    }
+    if (isPlaying && autoMuteToggle.checked) {
+      backgroundVideo.muted = true;
+      console.log('[hud] Background video muted');
+    } else if (!isPlaying) {
+      backgroundVideo.muted = false;
+      console.log('[hud] Background video unmuted');
+    } else if (!autoMuteToggle.checked) {
+      backgroundVideo.muted = false;
+      console.log('[hud] Auto-mute disabled: background video unmuted');
+    }
+  }
+
+  function getMoodLabelText(moodKey) {
+    return (
+      moodOptions[moodKey]?.name ||
+      effectMap.labels?.[moodKey] ||
+      moodKey ||
+      'None'
+    );
+  }
+
+  function getTagDisplay() {
+    if (selectedTags.size > 0) {
+      return Array.from(selectedTags).join(', ');
+    }
+    return 'None';
+  }
+
+  function updateFloatingHUD() {
+    if (!infoHud) {
+      return;
+    }
+    const moodLabel = getMoodLabelText(currentState.mood);
+    const musicSource = musicPlaying ? currentState.playlist || 'Live Session' : currentState.playlist || 'None';
+    infoHud.textContent = `Tag: ${getTagDisplay()} | Mood: ${moodLabel} | Music: ${musicSource}`;
+  }
 
   if (typeof userSettings?.lastPlaylist === 'string') {
     currentState.playlist = userSettings.lastPlaylist;
@@ -191,7 +319,8 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   }
 
   playlistButton?.addEventListener('click', () => {
-    if (!sessionStartTime) {
+    const isStarting = !sessionStartTime;
+    if (isStarting) {
       sessionStartTime = Date.now();
       ensureTimerRunning();
       playlistButton.textContent = 'Stop';
@@ -207,6 +336,8 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
         steps: lastStepCount,
         playlist: name,
       });
+      musicPlaying = true;
+      updateVideoMute(true);
     } else {
       sessionStartTime = undefined;
       if (timerInterval) {
@@ -219,17 +350,23 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
         steps: lastStepCount,
         playlist: currentState.playlist,
       });
+      musicPlaying = false;
+      updateVideoMute(false);
     }
     updateTimerDisplay();
+    updateFloatingHUD();
   });
 
-  moodSelect?.addEventListener('change', (event) => {
+  moodSelect?.addEventListener('change', () => {
     currentState.mood = moodSelect.value;
     persistMood(currentState.mood);
     const label = moodSelect.options[moodSelect.selectedIndex]?.textContent;
     if (label && moodLabelEl) {
       moodLabelEl.textContent = label;
     }
+    setMood(currentState.mood);
+    openPlaylistForMood(currentState.mood);
+    updateFloatingHUD();
     logEvent('mood-change', {
       steps: lastStepCount,
       mood: currentState.mood,
@@ -243,12 +380,17 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
     }
   }
 
+  if (currentState.mood) {
+    setMood(currentState.mood);
+  }
+
   bpmSelect?.addEventListener('change', () => {
     currentState.bpm = bpmSelect.value;
     logEvent('bpm-change', {
       steps: lastStepCount,
       bpm: Number(currentState.bpm),
     });
+    updateFloatingHUD();
   });
 
   tagButtons.forEach((button) => {
@@ -276,7 +418,20 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
         tag,
         tagAction: action,
       });
+      updateFloatingHUD();
     });
+  });
+
+  autoMuteToggle.addEventListener('change', () => {
+    logEvent('auto-mute-toggle', {
+      enabled: autoMuteToggle.checked,
+      steps: lastStepCount,
+    });
+    if (musicPlaying) {
+      updateVideoMute(true);
+    } else if (!autoMuteToggle.checked) {
+      updateVideoMute(false);
+    }
   });
 
   assetPackSelect?.addEventListener('change', () => {
@@ -314,6 +469,7 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   }
 
   updateTimerDisplay();
+  updateFloatingHUD();
 
   return {
     setStatus,

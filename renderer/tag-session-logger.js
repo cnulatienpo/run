@@ -1,125 +1,146 @@
-const FALLBACK_ID_PREFIX = 'session';
+const SESSION_ID_PREFIX = 'session';
 
-function generateFallbackId() {
-  return `${FALLBACK_ID_PREFIX}-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+let sessionState;
+let sessionLog = [];
+
+function generateSessionId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${SESSION_ID_PREFIX}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function ensureWindow() {
-  if (typeof window === 'undefined') {
-    return null;
+function ensureSessionState() {
+  if (!sessionState) {
+    initialiseSessionLog();
   }
-  return window;
-}
-
-const fallbackStart = Date.now();
-const fallbackSession = {
-  sessionId: generateFallbackId(),
-  startTime: fallbackStart,
-  startedAt: fallbackStart,
-  device: 'fake_stepper',
-  tagSelections: [],
-  events: [],
-  music: {},
-};
-
-function ensureSessionLogStructure(target) {
-  const sessionLog = target.sessionLog;
-  const now = Date.now();
-  if (!sessionLog || typeof sessionLog !== 'object') {
-    target.sessionLog = {
-      sessionId:
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : generateFallbackId(),
-      startTime: now,
-      startedAt: now,
-      device: 'fake_stepper',
-      tagSelections: [],
-      events: [],
-      music: {},
-    };
-    return target.sessionLog;
+  if (!Array.isArray(sessionState.events)) {
+    sessionState.events = sessionLog;
   }
-
-  if (!sessionLog.sessionId) {
-    sessionLog.sessionId =
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : generateFallbackId();
+  if (!Array.isArray(sessionState.tagSelections)) {
+    sessionState.tagSelections = [];
   }
-  if (!sessionLog.startTime) {
-    sessionLog.startTime = now;
+  if (!sessionState.music || typeof sessionState.music !== 'object') {
+    sessionState.music = {};
   }
-  if (!sessionLog.startedAt) {
-    sessionLog.startedAt = sessionLog.startTime || now;
-  }
-  if (!sessionLog.device) {
-    sessionLog.device = 'fake_stepper';
-  }
-  if (!Array.isArray(sessionLog.tagSelections)) {
-    sessionLog.tagSelections = [];
-  }
-  if (!Array.isArray(sessionLog.events)) {
-    sessionLog.events = [];
-  }
-  if (!sessionLog.music || typeof sessionLog.music !== 'object') {
-    sessionLog.music = {};
-  }
-  return sessionLog;
+  return sessionState;
 }
 
 export function initialiseSessionLog() {
-  const target = ensureWindow();
-  if (!target) {
-    return fallbackSession;
-  }
-  return ensureSessionLogStructure(target);
+  const now = Date.now();
+  sessionLog = [];
+  sessionState = {
+    sessionId: generateSessionId(),
+    startTime: now,
+    startedAt: now,
+    device: 'fake_stepper',
+    events: sessionLog,
+    tagSelections: [],
+    music: {},
+  };
+  return sessionState;
 }
 
 export function getSessionLog() {
-  const target = ensureWindow();
-  if (!target) {
-    return fallbackSession;
+  ensureSessionState();
+  return sessionLog;
+}
+
+export function logSessionEvent(type, data = {}) {
+  if (!type) {
+    return null;
   }
-  return ensureSessionLogStructure(target);
+  const state = ensureSessionState();
+  const entry = {
+    type,
+    timestamp: Date.now(),
+    ...data,
+  };
+  state.events.push(entry);
+  return entry;
+}
+
+export function logStepUpdate(stepCount) {
+  return logSessionEvent('step-update', { steps: stepCount });
+}
+
+export function logBpmUpdate(bpm) {
+  return logSessionEvent('bpm-update', { bpm });
+}
+
+export function logTagToggle(tag, action) {
+  const suffix = action === 'deselected' ? 'deselected' : 'selected';
+  return logSessionEvent(`tag-${suffix}`, { tag });
+}
+
+export function logEffectTriggered(effectName, mood, zone) {
+  return logSessionEvent('effect-triggered', {
+    effect: effectName,
+    mood,
+    zone,
+  });
 }
 
 export function logTagSelection(tagName, source = 'HUD', metadata = {}) {
   if (!tagName) {
-    return;
+    return null;
   }
-  const session = getSessionLog();
+  const state = ensureSessionState();
   const entry = {
     tag: tagName,
     source,
     timestamp: Date.now(),
+    ...metadata,
   };
-  if (metadata && typeof metadata === 'object') {
-    Object.assign(entry, metadata);
-  }
-  session.tagSelections.push(entry);
-  const action = metadata?.action ? metadata.action : 'selected';
+  state.tagSelections.push(entry);
+  const action = metadata?.action === 'deselected' ? 'deselected' : 'selected';
+  logTagToggle(tagName, action);
   console.log(`[TAG] ${action === 'deselected' ? 'Deselected' : 'Selected'}: ${tagName} from ${source}`);
   return entry;
 }
 
-export function exportSessionLog(fileName) {
-  const target = ensureWindow();
-  if (!target) {
+function serialiseSessionState() {
+  const state = ensureSessionState();
+  return {
+    ...state,
+    events: [...state.events],
+    tagSelections: [...state.tagSelections],
+  };
+}
+
+export function exportSessionLog() {
+  const state = ensureSessionState();
+  if (!state.events.length && !state.tagSelections.length) {
+    console.warn('No session data to export.');
     return;
   }
-  const session = ensureSessionLogStructure(target);
-  const downloadName =
-    fileName || `session-${session.sessionId || generateFallbackId()}.json`;
-  const blob = new Blob([JSON.stringify(session, null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
+
+  const payload = serialiseSessionState();
+  const json = JSON.stringify(payload, null, 2);
+  const fileName = `session-log-${Date.now()}.json`;
+
+  try {
+    const electronRequire = window?.require ?? (typeof require === 'function' ? require : null);
+    if (electronRequire) {
+      const fs = electronRequire('fs');
+      const path = electronRequire('path');
+      const filePath = path.join(process.cwd(), fileName);
+      fs.writeFileSync(filePath, json);
+      console.log(`[session-log] Saved to ${filePath}`);
+      return filePath;
+    }
+  } catch (error) {
+    console.warn('[session-log] Unable to write file via Node fs:', error);
+  }
+
+  const dataUrl = `data:text/json;charset=utf-8,${encodeURIComponent(json)}`;
   const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = downloadName;
+  anchor.href = dataUrl;
+  anchor.download = fileName;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  console.log('[session-log] Exported via browser download');
+  return null;
 }
