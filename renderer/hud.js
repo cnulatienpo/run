@@ -436,13 +436,17 @@ export function initialiseHud({ sessionLog, logSessionEvent }) {
   }
 
   function updateSteps(stepCount) {
-    lastStepCount = stepCount;
+    const hasNumber = typeof stepCount === 'number' && Number.isFinite(stepCount);
+    if (hasNumber) {
+      lastStepCount = stepCount;
+    }
     if (stepsEl) {
-      stepsEl.textContent = stepCount.toLocaleString();
+      stepsEl.textContent = hasNumber ? stepCount.toLocaleString() : '—';
     }
     if (lastUpdateEl) {
       const now = new Date();
-      lastUpdateEl.textContent = `Last update: ${now.toLocaleTimeString()} (${stepCount} steps)`;
+      const detail = hasNumber ? `${stepCount} steps` : 'No recent data';
+      lastUpdateEl.textContent = `Last update: ${now.toLocaleTimeString()} (${detail})`;
     }
     updateFloatingHUD();
   }
