@@ -24,6 +24,11 @@
         <span id="step-count">0</span>
         <span id="ws-status" style="margin-left: 10px; font-size: 0.8em; opacity: 0.7;">Connecting...</span>
       </div>
+      <div class="sensor-row">
+        <span>Steps: <strong id="hud-steps">0</strong></span>
+        <span>BPM: <strong id="hud-bpm">--</strong></span>
+        <span class="sensor-badge" id="hud-offline-badge" hidden>Offline</span>
+      </div>
       <!-- Add to HUD for manual export button -->
       <div class="row">
         <button onclick="window.downloadSessionLog()">Download Log</button>
@@ -37,6 +42,7 @@
       import { downloadLog } from './sessionLogger.js';
       window.downloadSessionLog = downloadLog;
     </script>
+    <script src="fit-client.js"></script>
     <script src="./renderer.js" type="module"></script>
   </body>
 </html>
