@@ -46,20 +46,24 @@ let playbackRateValueEl = null;
 let autoSyncCheckbox = null;
 let autoSyncStatusEl = null;
 
-// --- Pace to Playback Rate Configuration ---
-const BASELINE_PACE = 100; // steps per minute for 1.0× speed
+// --- Cadence to Playback Rate Configuration ---
+const DEFAULT_PLAYBACK_RATE = 1; // fallback rate when cadence unavailable
+const BASELINE_CADENCE = 100; // steps per minute for 1.0× speed
 const MIN_PLAYBACK_RATE = 0.8;
 const MAX_PLAYBACK_RATE = 1.2;
-const PACE_TO_RATE_FACTOR = 0.5; // map pace delta to playback delta (50%)
+const MIN_CADENCE = 60; // 0.8× speed
+const MAX_CADENCE = 140; // 1.2× speed
+const SMOOTHING_ALPHA = 0.18; // smoothing factor for cadence-driven updates
 const RATE_STEP = 0.025;
 const RATE_STEP_INTERVAL = 180;
 
-let desiredPlaybackRate = 1;
-let pendingPlaybackRate = 1;
+let desiredPlaybackRate = DEFAULT_PLAYBACK_RATE;
+let pendingPlaybackRate = DEFAULT_PLAYBACK_RATE;
 let availablePlaybackRates = [1];
 let playbackRateTweenTimer = null;
 let autoSyncEnabled = true;
-let lastKnownPace = null;
+let lastKnownCadence = null;
+let smoothedPlaybackRate = DEFAULT_PLAYBACK_RATE;
 
 function clampPlaybackRate(rate) {
   return Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, rate));
@@ -97,6 +101,40 @@ function updatePlaybackRateIndicator(rate, { isTarget = false } = {}) {
   }
   const rounded = Number(rate).toFixed(2);
   playbackRateValueEl.textContent = `${rounded}×${isTarget ? ' (target)' : ''}`;
+}
+
+function resetPlaybackSmoothing(targetRate = DEFAULT_PLAYBACK_RATE) {
+  const safeRate = Number.isFinite(targetRate) ? targetRate : DEFAULT_PLAYBACK_RATE;
+  smoothedPlaybackRate = clampPlaybackRate(safeRate);
+}
+
+function smoothPlaybackRate(targetRate) {
+  const clampedTarget = clampPlaybackRate(targetRate);
+  smoothedPlaybackRate += (clampedTarget - smoothedPlaybackRate) * SMOOTHING_ALPHA;
+  return clampPlaybackRate(smoothedPlaybackRate);
+}
+
+function mapCadenceToPlaybackRate(cadence) {
+  if (!Number.isFinite(cadence)) {
+    return DEFAULT_PLAYBACK_RATE;
+  }
+
+  if (Math.abs(cadence - BASELINE_CADENCE) < 0.001) {
+    return DEFAULT_PLAYBACK_RATE;
+  }
+
+  if (cadence <= MIN_CADENCE) {
+    return MIN_PLAYBACK_RATE;
+  }
+
+  if (cadence >= MAX_CADENCE) {
+    return MAX_PLAYBACK_RATE;
+  }
+
+  const cadenceRange = MAX_CADENCE - MIN_CADENCE;
+  const cadenceOffset = cadence - MIN_CADENCE;
+  const rateRange = MAX_PLAYBACK_RATE - MIN_PLAYBACK_RATE;
+  return MIN_PLAYBACK_RATE + (cadenceOffset / cadenceRange) * rateRange;
 }
 
 function tweenPlaybackRate(targetRate) {
@@ -149,30 +187,34 @@ function applyPlaybackRate(targetRate, { immediate = false, isTarget = false } =
   tweenPlaybackRate(supportedRate);
 }
 
-function handlePaceUpdate(pace) {
-  lastKnownPace = Number.isFinite(pace) ? Math.max(0, pace) : null;
-  if (!autoSyncEnabled || lastKnownPace === null) {
+function applyDefaultPlaybackRate() {
+  resetPlaybackSmoothing(DEFAULT_PLAYBACK_RATE);
+  applyPlaybackRate(DEFAULT_PLAYBACK_RATE, {
+    immediate: !isPlaylistPlaying,
+    isTarget: !isPlaylistPlaying,
+  });
+}
+
+function handleCadenceUpdate(cadence) {
+  lastKnownCadence = Number.isFinite(cadence) ? Math.max(0, cadence) : null;
+
+  if (!autoSyncEnabled) {
     return;
   }
 
-  if (lastKnownPace === 0) {
-    applyPlaybackRate(MIN_PLAYBACK_RATE, { isTarget: !isPlaylistPlaying });
+  if (lastKnownCadence === null) {
+    applyDefaultPlaybackRate();
     return;
   }
 
-  const paceRatio = lastKnownPace / BASELINE_PACE;
-  let targetRate = 1;
-  if (paceRatio > 1) {
-    targetRate = 1 + (paceRatio - 1) * PACE_TO_RATE_FACTOR;
-  } else if (paceRatio < 1) {
-    targetRate = 1 - (1 - paceRatio) * PACE_TO_RATE_FACTOR;
-  }
-  targetRate = clampPlaybackRate(targetRate);
+  const targetRate = mapCadenceToPlaybackRate(lastKnownCadence);
+  const smoothedRate = smoothPlaybackRate(targetRate);
 
-  if (Math.abs(targetRate - desiredPlaybackRate) < 0.01) {
+  if (Math.abs(smoothedRate - desiredPlaybackRate) < 0.01) {
     return;
   }
-  applyPlaybackRate(targetRate, { isTarget: !isPlaylistPlaying });
+
+  applyPlaybackRate(smoothedRate, { isTarget: !isPlaylistPlaying });
 }
 
 function updatePlaylistStatus(message) {
@@ -195,11 +237,13 @@ function setAutoSyncEnabled(enabled) {
     autoSyncCheckbox.checked = autoSyncEnabled;
   }
   if (!autoSyncEnabled) {
-    applyPlaybackRate(1, { immediate: true });
-  } else if (Number.isFinite(lastKnownPace)) {
-    handlePaceUpdate(lastKnownPace);
+    applyPlaybackRate(DEFAULT_PLAYBACK_RATE, { immediate: true });
+    resetPlaybackSmoothing(DEFAULT_PLAYBACK_RATE);
+  } else if (Number.isFinite(lastKnownCadence)) {
+    resetPlaybackSmoothing(ytPlayer?.getPlaybackRate?.() ?? desiredPlaybackRate);
+    handleCadenceUpdate(lastKnownCadence);
   } else {
-    applyPlaybackRate(1, { immediate: true });
+    applyDefaultPlaybackRate();
   }
   updateAutoSyncIndicator();
 }
@@ -479,8 +523,8 @@ if (!window.youtubeRunner) {
   window.youtubeRunner = {};
 }
 
-window.youtubeRunner.updatePace = (pace) => {
-  handlePaceUpdate(pace);
+window.youtubeRunner.updatePace = (cadence) => {
+  handleCadenceUpdate(cadence);
 };
 
 window.youtubeRunner.setAutoSyncEnabled = (enabled) => {
@@ -491,9 +535,13 @@ window.youtubeRunner.getState = () => ({
   autoSyncEnabled,
   desiredPlaybackRate,
   pendingPlaybackRate,
-  lastKnownPace,
+  lastKnownPace: lastKnownCadence,
   availablePlaybackRates: Array.isArray(availablePlaybackRates)
     ? [...availablePlaybackRates]
     : [],
 });
+
+window.onCadenceUpdate = (cadence) => {
+  handleCadenceUpdate(cadence);
+};
 
