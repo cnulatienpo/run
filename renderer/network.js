@@ -1,4 +1,4 @@
-const RETRY_DELAY_MS = 4000;
+const RECONNECT_DELAY_MS = 4000;
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -7,6 +7,7 @@ function isNonEmptyString(value) {
 export function createNetworkClient({ url, onStatus, onStepData }) {
   let socket;
   let reconnectTimer;
+  const boundListeners = new Map();
 
   function clearReconnectTimer() {
     if (reconnectTimer) {
@@ -20,7 +21,31 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = undefined;
       connect();
-    }, RETRY_DELAY_MS);
+    }, RECONNECT_DELAY_MS);
+  }
+
+  function removeBoundListeners() {
+    if (!socket || boundListeners.size === 0) {
+      return;
+    }
+
+    boundListeners.forEach((handler, type) => {
+      socket.removeEventListener(type, handler);
+    });
+    boundListeners.clear();
+  }
+
+  function teardownSocket() {
+    removeBoundListeners();
+    socket = undefined;
+  }
+
+  function bindListener(type, handler) {
+    if (!socket) {
+      return;
+    }
+    socket.addEventListener(type, handler);
+    boundListeners.set(type, handler);
   }
 
   function connect() {
@@ -33,7 +58,7 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
     try {
       socket = new WebSocket(targetUrl);
     } catch (error) {
-      console.error('[network] Unable to create WebSocket:', error);
+      console.error('[network] WebSocket creation failed:', error);
       onStatus?.(`Unable to open ${targetUrl}`, 'error');
       scheduleReconnect();
       return;
@@ -41,29 +66,29 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
 
     onStatus?.(`Connecting to ${targetUrl}…`, 'connecting');
 
-    socket.addEventListener('open', () => {
+    bindListener('open', () => {
       onStatus?.(`Connected to ${targetUrl}`, 'connected');
     });
 
-    socket.addEventListener('message', (event) => {
+    bindListener('message', (event) => {
       try {
         const payload = JSON.parse(event.data);
         onStepData?.(payload);
       } catch (error) {
-        console.error('[network] Received malformed payload:', event.data, error);
-        onStatus?.('Received malformed data – waiting for the next update…', 'error');
+        console.error('[network] Malformed WebSocket data:', event.data, error);
+        onStatus?.('Received malformed data – waiting for next update', 'error');
       }
     });
 
-    socket.addEventListener('close', () => {
-      socket = undefined;
-      onStatus?.('Connection closed. Attempting to reconnect…', 'reconnecting');
+    bindListener('close', () => {
+      teardownSocket();
+      onStatus?.('Connection closed. Reconnecting…', 'reconnecting');
       scheduleReconnect();
     });
 
-    socket.addEventListener('error', (event) => {
-      console.error('[network] WebSocket error', event);
-      socket = undefined;
+    bindListener('error', (event) => {
+      console.error('[network] WebSocket error:', event);
+      teardownSocket();
       onStatus?.('Connection error. Retrying…', 'error');
       scheduleReconnect();
     });
@@ -75,7 +100,15 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
     reconnect: connect,
     dispose() {
       clearReconnectTimer();
-      socket?.close();
+      if (socket) {
+        removeBoundListeners();
+        try {
+          socket.close();
+        } catch (error) {
+          console.warn('[network] Error while closing socket:', error);
+        }
+      }
+      socket = undefined;
     },
   };
 }
