@@ -6,7 +6,7 @@ const tagConfig = {
   Urban: { interval: [8000, 16000], effects: [FX.softPulse] },
 };
 
-let canvas = document.getElementById('fx-canvas');
+let canvas = document.getElementById('fx-overlay');
 let active = false;
 let currentTag = 'Dreamcore';
 let timer;
@@ -30,7 +30,7 @@ export function stop() {
 function scheduleNext() {
   if (!active) return;
   if (!canvas || !document.body.contains(canvas)) {
-    canvas = document.getElementById('fx-canvas');
+    canvas = document.getElementById('fx-overlay');
   }
   const { interval, effects } = tagConfig[currentTag] || tagConfig.Dreamcore;
   const delay = rand(interval[0], interval[1]);

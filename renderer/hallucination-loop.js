@@ -20,7 +20,7 @@ function getIntervalForMood(mood) {
 }
 
 function triggerHallucinationEffect() {
-  const canvasEl = document.getElementById('fx-canvas');
+  const canvasEl = document.getElementById('fx-overlay');
   if (!canvasEl) {
     return;
   }

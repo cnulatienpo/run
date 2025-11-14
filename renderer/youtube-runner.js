@@ -46,6 +46,191 @@ let playbackRateValueEl = null;
 let autoSyncCheckbox = null;
 let autoSyncStatusEl = null;
 
+const FX_LAST_RECT_PROP = '__rtwFxLastRect';
+
+function clearOverlayPosition(overlayEl) {
+  if (!overlayEl) {
+    return;
+  }
+  overlayEl.classList.remove('fx-visible');
+  overlayEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
+  overlayEl.style.width = '0px';
+  overlayEl.style.height = '0px';
+  overlayEl[FX_LAST_RECT_PROP] = undefined;
+}
+
+function alignOverlayWithPlayer(overlayEl, playerEl) {
+  if (!overlayEl || !(overlayEl instanceof HTMLElement)) {
+    return;
+  }
+
+  if (!playerEl || typeof playerEl.getBoundingClientRect !== 'function' || !playerEl.isConnected) {
+    clearOverlayPosition(overlayEl);
+    return;
+  }
+
+  const rect = playerEl.getBoundingClientRect();
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
+  if (width <= 0 || height <= 0) {
+    clearOverlayPosition(overlayEl);
+    return;
+  }
+
+  const left = Math.round(rect.left);
+  const top = Math.round(rect.top);
+  const lastRect = overlayEl[FX_LAST_RECT_PROP];
+  if (!lastRect || lastRect.left !== left || lastRect.top !== top || lastRect.width !== width || lastRect.height !== height) {
+    overlayEl.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+    overlayEl.style.width = `${width}px`;
+    overlayEl.style.height = `${height}px`;
+    overlayEl[FX_LAST_RECT_PROP] = { left, top, width, height };
+  }
+
+  overlayEl.classList.add('fx-visible');
+}
+
+if (typeof window !== 'undefined') {
+  window.alignOverlayWithPlayer = alignOverlayWithPlayer;
+}
+
+function createOverlayAlignmentManager({ getOverlayElement, getPlayerElement, getFallbackElement }) {
+  const state = {
+    overlayEl: null,
+    targetEl: null,
+    scheduled: false,
+    resizeObserver: null,
+    mutationObserver: null,
+    pollTimer: null,
+  };
+
+  function ensureOverlayElement() {
+    if (state.overlayEl && state.overlayEl.isConnected) {
+      return state.overlayEl;
+    }
+    const overlayEl = typeof getOverlayElement === 'function' ? getOverlayElement() : null;
+    if (overlayEl && overlayEl instanceof HTMLElement) {
+      state.overlayEl = overlayEl;
+      return overlayEl;
+    }
+    state.overlayEl = null;
+    return null;
+  }
+
+  function scheduleAlignment() {
+    if (state.scheduled) {
+      return;
+    }
+    state.scheduled = true;
+    requestAnimationFrame(() => {
+      state.scheduled = false;
+      const overlayEl = ensureOverlayElement();
+      if (!overlayEl) {
+        return;
+      }
+      if (!state.targetEl) {
+        clearOverlayPosition(overlayEl);
+        return;
+      }
+      alignOverlayWithPlayer(overlayEl, state.targetEl);
+    });
+  }
+
+  function disconnectObservers() {
+    if (state.resizeObserver) {
+      state.resizeObserver.disconnect();
+      state.resizeObserver = null;
+    }
+    if (state.mutationObserver) {
+      state.mutationObserver.disconnect();
+      state.mutationObserver = null;
+    }
+  }
+
+  function setTargetElement(nextTarget) {
+    const validTarget =
+      nextTarget && typeof nextTarget.getBoundingClientRect === 'function' && nextTarget instanceof Element
+        ? nextTarget
+        : null;
+    if (state.targetEl === validTarget) {
+      scheduleAlignment();
+      return;
+    }
+
+    disconnectObservers();
+    state.targetEl = validTarget;
+
+    if (state.targetEl) {
+      if (typeof ResizeObserver !== 'undefined') {
+        state.resizeObserver = new ResizeObserver(scheduleAlignment);
+        state.resizeObserver.observe(state.targetEl);
+      }
+      if (typeof MutationObserver !== 'undefined') {
+        state.mutationObserver = new MutationObserver(scheduleAlignment);
+        state.mutationObserver.observe(state.targetEl, {
+          attributes: true,
+          attributeFilter: ['style', 'class'],
+        });
+      }
+    }
+
+    scheduleAlignment();
+  }
+
+  function refreshTargetFromSources() {
+    const overlayEl = ensureOverlayElement();
+    if (!overlayEl) {
+      return;
+    }
+
+    const iframeEl = typeof getPlayerElement === 'function' ? getPlayerElement() : null;
+    const fallbackEl = typeof getFallbackElement === 'function' ? getFallbackElement() : null;
+
+    if (iframeEl && iframeEl !== state.targetEl) {
+      setTargetElement(iframeEl);
+      return;
+    }
+
+    if (!iframeEl && fallbackEl && fallbackEl !== state.targetEl) {
+      setTargetElement(fallbackEl);
+      return;
+    }
+
+    if (!state.targetEl) {
+      clearOverlayPosition(overlayEl);
+      return;
+    }
+
+    scheduleAlignment();
+  }
+
+  const scheduleHandler = () => scheduleAlignment();
+  window.addEventListener('resize', scheduleHandler, { passive: true });
+  window.addEventListener('scroll', scheduleHandler, { passive: true });
+
+  if (typeof window.matchMedia === 'function') {
+    const orientationQuery = window.matchMedia('(orientation: portrait)');
+    if (orientationQuery) {
+      if (typeof orientationQuery.addEventListener === 'function') {
+        orientationQuery.addEventListener('change', scheduleHandler);
+      } else if (typeof orientationQuery.addListener === 'function') {
+        orientationQuery.addListener(scheduleHandler);
+      }
+    }
+  }
+
+  state.pollTimer = window.setInterval(refreshTargetFromSources, 1000);
+
+  setTargetElement(typeof getFallbackElement === 'function' ? getFallbackElement() : null);
+  requestAnimationFrame(refreshTargetFromSources);
+
+  return {
+    schedule: scheduleAlignment,
+    refreshTarget: refreshTargetFromSources,
+    setTargetElement,
+  };
+}
+
 // --- Cadence to Playback Rate Configuration ---
 const DEFAULT_PLAYBACK_RATE = 1; // fallback rate when cadence unavailable
 const BASELINE_CADENCE = 100; // steps per minute for 1.0× speed
@@ -273,6 +458,21 @@ Object.assign(playerWrap.style, {
 });
 document.body.appendChild(playerWrap);
 
+const overlayAlignment = createOverlayAlignmentManager({
+  getOverlayElement: () => document.getElementById('fx-overlay'),
+  getPlayerElement: () => {
+    if (ytPlayer && typeof ytPlayer.getIframe === 'function') {
+      const iframe = ytPlayer.getIframe();
+      if (iframe && iframe instanceof Element) {
+        return iframe;
+      }
+    }
+    return playerWrap.querySelector('iframe');
+  },
+  getFallbackElement: () => playerWrap,
+});
+overlayAlignment.refreshTarget();
+
 // --- HUD: Playlist Dropdown ---
 let hud = document.getElementById('hud');
 if (!hud) {
@@ -460,6 +660,7 @@ window.onYouTubeIframeAPIReady = () => {
         updatePlaylistStatus(`Playing – ${currentPlaylistLabel}`);
         applyPlaybackRate(desiredPlaybackRate, { immediate: true });
         startRandomJump(currentJumpInterval);
+        overlayAlignment.refreshTarget();
       },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.ENDED) {
@@ -472,15 +673,20 @@ window.onYouTubeIframeAPIReady = () => {
           refreshAvailablePlaybackRates();
           updatePlaylistStatus(`Playing – ${currentPlaylistLabel}`);
           applyPlaybackRate(pendingPlaybackRate, { isTarget: false });
+          overlayAlignment.schedule();
         } else if (e.data === YT.PlayerState.PAUSED) {
           isPlaylistPlaying = false;
           updatePlaylistStatus(`Paused – ${currentPlaylistLabel}`);
+          overlayAlignment.schedule();
         } else if (e.data === YT.PlayerState.BUFFERING) {
           updatePlaylistStatus(`Buffering ${currentPlaylistLabel}…`);
+          overlayAlignment.schedule();
         } else if (e.data === YT.PlayerState.CUED) {
           updatePlaylistStatus(`Ready – ${currentPlaylistLabel}`);
+          overlayAlignment.schedule();
         } else if (e.data === YT.PlayerState.UNSTARTED) {
           updatePlaylistStatus(`Loading ${currentPlaylistLabel}…`);
+          overlayAlignment.schedule();
         }
       },
       onPlaybackRateChange: () => {
@@ -495,6 +701,7 @@ window.onYouTubeIframeAPIReady = () => {
       },
     },
   });
+  overlayAlignment.refreshTarget();
 };
 
 // --- Randomize video position every 10s ---

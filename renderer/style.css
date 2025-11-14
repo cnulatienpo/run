@@ -72,11 +72,23 @@ body {
   background: #273449;
 }
 
-#fx-canvas {
+#fx-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
   pointer-events: none;
   z-index: 9999;
+  mix-blend-mode: screen;
+  transform: translate3d(-9999px, -9999px, 0);
+  will-change: transform, width, height, opacity;
+  transition: opacity 160ms ease-out;
+}
+
+#fx-overlay.fx-visible {
+  opacity: 1;
 }
 
 .app-shell {
