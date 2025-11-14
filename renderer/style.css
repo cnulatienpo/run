@@ -20,20 +20,28 @@ body {
 
 #hud {
   position: fixed;
-  top: 0;
-  width: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12.5vh;
+  background: rgba(0, 0, 0, 0.9);
   color: #fff;
-  padding: 10px;
+  padding: 8px 12px;
   z-index: 10000;
   font-family: system-ui, sans-serif;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 #hud .row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.85em;
+  flex-wrap: wrap;
 }
 
 .sensor-row {
@@ -60,12 +68,14 @@ body {
 }
 
 #hud button {
-  background: #1f2937;
+  background: #1e293b;
+  color: #fff;
   border: 1px solid #334155;
-  color: #e5e7eb;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
   cursor: pointer;
+  font-size: 0.8em;
+  white-space: nowrap;
 }
 
 #hud button:hover {
@@ -80,7 +90,7 @@ body {
   height: 0;
   opacity: 0;
   pointer-events: none;
-  z-index: 9999;
+  z-index: 1;
   mix-blend-mode: screen;
   transform: translate3d(-9999px, -9999px, 0);
   will-change: transform, width, height, opacity;
@@ -115,11 +125,21 @@ body {
   flex-direction: column;
   gap: 20px;
   padding: 28px;
-  background: rgba(15, 23, 42, 0.82);
+  background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 24px;
-  backdrop-filter: blur(16px) saturate(140%);
   z-index: 1;
+}
+
+#youtube-player-container {
+  position: relative;
+  z-index: 10001;
+  background: #000;
+}
+
+#youtube-player {
+  position: relative;
+  z-index: 10002;
 }
 
 .hud-header {
