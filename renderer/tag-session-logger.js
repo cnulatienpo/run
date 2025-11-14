@@ -7,7 +7,9 @@ function generateSessionId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  return `${SESSION_ID_PREFIX}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${SESSION_ID_PREFIX}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
 }
 
 function ensureSessionState() {
@@ -68,9 +70,22 @@ export function logBpmUpdate(bpm) {
   return logSessionEvent('bpm-update', { bpm });
 }
 
+export function logBpmChange(bpm, source = 'hud') {
+  return logSessionEvent('bpm-change', { bpm, source });
+}
+
+export function logMoodChange(mood, source = 'hud') {
+  return logSessionEvent('mood-change', { mood, source });
+}
+
 export function logTagToggle(tag, action) {
   const suffix = action === 'deselected' ? 'deselected' : 'selected';
   return logSessionEvent(`tag-${suffix}`, { tag });
+}
+
+export function logPlaylistState(action, data = {}) {
+  const suffix = typeof action === 'string' ? action : 'update';
+  return logSessionEvent(`playlist-${suffix}`, data);
 }
 
 export function logEffectTriggered(effectName, mood, zone) {
