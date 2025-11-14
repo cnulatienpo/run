@@ -63,7 +63,7 @@ function currentMoodKey() {
 }
 
 function triggerHallucinationEffect() {
-  const canvas = document.getElementById('fx-canvas');
+  const canvas = document.getElementById('fx-overlay');
   if (!canvas) {
     return;
   }

@@ -494,7 +494,7 @@ refreshOverlayElements();
 
 const hud = initialiseHud({ sessionLog, logSessionEvent });
 createMoodSelectorHUD();
-const canvas = document.getElementById('fx-canvas');
+const canvas = document.getElementById('fx-overlay');
 const spawner = createEffectSpawner({
   canvas,
   onEffect(effectName, context) {
@@ -1101,7 +1101,7 @@ async function startTagHallucinationLoop() {
   if (hallucinationLoopStarted) {
     return;
   }
-  const canvasEl = document.getElementById('fx-canvas');
+  const canvasEl = document.getElementById('fx-overlay');
   if (!canvasEl) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', startTagHallucinationLoop, { once: true });
