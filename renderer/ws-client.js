@@ -5,11 +5,13 @@ const RETRY_DELAY_MS = 4000;
 let onStepUpdateCallback;
 let onStatusChangeCallback;
 let onHeartRateUpdateCallback;
+let onCadenceUpdateCallback;
 
-export function connectToStepServer(onStepUpdate, onStatusChange, onHeartRateUpdate) {
+export function connectToStepServer(onStepUpdate, onStatusChange, onHeartRateUpdate, onCadenceUpdate) {
   onStepUpdateCallback = onStepUpdate;
   onStatusChangeCallback = onStatusChange;
   onHeartRateUpdateCallback = onHeartRateUpdate;
+  onCadenceUpdateCallback = onCadenceUpdate;
 
   if (socket && socket.readyState === WebSocket.OPEN) return;
 
@@ -32,8 +34,12 @@ export function connectToStepServer(onStepUpdate, onStatusChange, onHeartRateUpd
   socket.addEventListener('message', (event) => {
     try {
       const payload = JSON.parse(event.data);
+      console.log('[WS] Message received:', payload);
       if (payload.steps !== undefined && onStepUpdateCallback) {
         onStepUpdateCallback(payload.steps);
+      }
+      if (payload.cadence !== undefined && onCadenceUpdateCallback) {
+        onCadenceUpdateCallback(payload.cadence);
       }
       if (payload.bpm !== undefined && onHeartRateUpdateCallback) {
         onHeartRateUpdateCallback(payload.bpm);
@@ -72,6 +78,7 @@ function scheduleReconnect() {
       onStepUpdateCallback,
       onStatusChangeCallback,
       onHeartRateUpdateCallback,
+      onCadenceUpdateCallback,
     );
   }, RETRY_DELAY_MS);
 }
