@@ -6,8 +6,24 @@
     <title>Run the World HUD</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
-  <body>
+  <body data-google-client-id="">
     <div id="hud">
+      <div class="row" id="google-auth-row">
+        <button id="google-sign-in" type="button">Sign in with Google</button>
+        <span id="google-auth-status" style="margin-left: 8px; opacity: 0.7;"></span>
+      </div>
+      <div class="row" id="youtube-playlist-row">
+        <strong style="margin-right: 6px;">Playlist:</strong>
+        <select id="youtube-playlists" disabled style="min-width: 220px;"></select>
+        <button id="youtube-load" type="button" disabled>Load</button>
+        <button id="youtube-prev" type="button" disabled>⏮️</button>
+        <button id="youtube-next" type="button" disabled>⏭️</button>
+        <button id="youtube-shuffle" type="button" disabled>🔀</button>
+        <button id="youtube-refresh" type="button" disabled title="Refresh playlists">↻</button>
+        <label style="margin-left: 8px;">Volume</label>
+        <input id="youtube-volume" type="range" min="0" max="100" step="1" value="50" disabled />
+        <span id="playlist-status" style="margin-left: 10px; font-size: 0.85em; opacity: 0.7;"></span>
+      </div>
       <div class="row">
         <strong>Tag:</strong>
         <button data-tag="Dreamcore">Dreamcore</button>
@@ -29,19 +45,35 @@
         <span>BPM: <strong id="hud-bpm">--</strong></span>
         <span class="sensor-badge" id="hud-offline-badge" hidden>Offline</span>
       </div>
+      <div class="row" id="fit-status-row" style="font-size: 0.85em; opacity: 0.75;">
+        <span id="fit-status">Google Fit inactive</span>
+      </div>
       <!-- Add to HUD for manual export button -->
       <div class="row">
         <button onclick="window.downloadSessionLog()">Download Log</button>
+        <button id="hud-hide-button" type="button" style="margin-left: auto;">Hide HUD</button>
       </div>
     </div>
-    
+
+    <button
+      id="hud-floating-toggle"
+      type="button"
+      title="Show HUD"
+      style="position: fixed; bottom: 16px; left: 16px; z-index: 10001; display: none; padding: 10px 12px; border-radius: 999px; border: none; background: rgba(17, 17, 17, 0.85); color: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); cursor: pointer;"
+    >⚙️</button>
+
+    <div id="youtube-player-container" style="margin-top: 16px;">
+      <div id="youtube-player" style="width: 100%; height: 360px;"></div>
+    </div>
+
     <div id="fx-overlay" aria-hidden="true"></div>
 
-    
+
     <script type="module">
       import { downloadLog } from './sessionLogger.js';
       window.downloadSessionLog = downloadLog;
     </script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="fit-client.js"></script>
     <script src="./youtube-runner.js"></script>
     <script src="./renderer.js" type="module"></script>
