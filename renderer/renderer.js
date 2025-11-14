@@ -30,12 +30,13 @@ const playlistHud = document.createElement('div');
 playlistHud.id = 'playlist-hud';
 playlistHud.style = "position:fixed; top:10px; left:10px; background:#111; color:#fff; padding:10px; z-index:10000; border-radius:8px;";
 playlistHud.innerHTML = `
-  <label style="margin-right:6px;">Music:</label>
+  <label style="margin-right:6px;">Walking Tours:</label>
   <select id="yt-playlist">
-    <option value="jfKfPfyJRdk">Lo-Fi Hip Hop Radio</option>
-    <option value="5qap5aO4i9A">Lofi Study Music</option>
-    <option value="DWcJFNfaw9c">Peaceful Piano</option>
-    <option value="n61ULEU7CO0">Deep Focus Music</option>
+    <option value="PLe4Eo7QChXDSjIgyi85VX5uVEngpw8gUB">City Walking Tours (4K)</option>
+    <option value="PLSOO4vYXpMCe01uTOmj_3_G4C8-Kjy26X">Night City Run</option>
+    <option value="PLbpi6ZahtOH6blw5yrbnIuDrPq3NbS1U2">Nature Trail Runs</option>
+    <option value="PLLqiCLrQ5MTPjK2a3Kz7u9cYVrt2iIjtE">Treadmill Virtual Runs (30-45 min)</option>
+    <option value="PLLqiCLrQ5MTN4Sqcx6BWuKvPl7x7EuG08">Treadmill Virtual Runs (50-60 min)</option>
   </select>
   <button id="load-btn">Load</button>
   <button id="prev-btn">⏮️</button>
@@ -51,20 +52,23 @@ window.onYouTubeIframeAPIReady = function() {
   player = new YT.Player('player', {
     height: '360',
     width: '640',
-    videoId: 'jfKfPfyJRdk', // Default video
     playerVars: {
       autoplay: 1,
       controls: 1, // Enable controls
       modestbranding: 1,
       rel: 0,
-      mute: 1,
-      loop: 1
+      mute: 1
     },
     events: {
       onReady: (event) => {
         console.log('YouTube player ready');
+        // Load the first playlist by default
+        const defaultPlaylistId = 'PLe4Eo7QChXDSjIgyi85VX5uVEngpw8gUB';
+        player.loadPlaylist({
+          list: defaultPlaylistId,
+          index: 0
+        });
         player.setVolume(50);
-        event.target.playVideo();
       },
       onError: (event) => {
         console.error('YouTube player error:', event.data);
@@ -83,48 +87,39 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (loadBtn) {
     loadBtn.onclick = () => {
-      const videoId = document.getElementById('yt-playlist').value;
-      if (player && player.loadVideoById) {
-        player.loadVideoById(videoId);
-        console.log('Loading video:', videoId);
+      const playlistId = document.getElementById('yt-playlist').value;
+      if (player && player.loadPlaylist) {
+        player.loadPlaylist({
+          list: playlistId,
+          index: 0
+        });
+        console.log('Loading playlist:', playlistId);
       }
     };
   }
   
-  const videos = ['jfKfPfyJRdk', '5qap5aO4i9A', 'DWcJFNfaw9c', 'n61ULEU7CO0'];
-  let currentVideoIndex = 0;
-  
   if (prevBtn) {
     prevBtn.onclick = () => {
-      currentVideoIndex = (currentVideoIndex - 1 + videos.length) % videos.length;
-      const videoId = videos[currentVideoIndex];
-      if (player && player.loadVideoById) {
-        player.loadVideoById(videoId);
-        document.getElementById('yt-playlist').value = videoId;
-        console.log('Previous video:', videoId);
+      if (player && player.previousVideo) {
+        player.previousVideo();
+        console.log('Previous video in playlist');
       }
     };
   }
   
   if (nextBtn) {
     nextBtn.onclick = () => {
-      currentVideoIndex = (currentVideoIndex + 1) % videos.length;
-      const videoId = videos[currentVideoIndex];
-      if (player && player.loadVideoById) {
-        player.loadVideoById(videoId);
-        document.getElementById('yt-playlist').value = videoId;
-        console.log('Next video:', videoId);
+      if (player && player.nextVideo) {
+        player.nextVideo();
+        console.log('Next video in playlist');
       }
     };
   }
   if (shuffleBtn) {
     shuffleBtn.onclick = () => {
-      currentVideoIndex = Math.floor(Math.random() * videos.length);
-      const videoId = videos[currentVideoIndex];
-      if (player && player.loadVideoById) {
-        player.loadVideoById(videoId);
-        document.getElementById('yt-playlist').value = videoId;
-        console.log('Shuffled to video:', videoId);
+      if (player && player.setShuffle) {
+        player.setShuffle(true);
+        console.log('Playlist shuffle enabled');
       }
     };
   }
