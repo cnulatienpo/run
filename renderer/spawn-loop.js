@@ -1,6 +1,11 @@
+// Hallucination spawn loop: tag -> interval range -> scheduled effect.
+// Timing lives here; visual application stays in filters.js.
 import * as filters from '../effects/filters.js';
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
-import { logEffectTriggered as logEffectTriggeredEvent } from './tag-session-logger.js';
+import {
+  logEffectTriggered as logEffectTriggeredEvent,
+  logSessionEvent,
+} from './tag-session-logger.js';
 
 const DEFAULT_INTERVAL_RANGE = [10000, 15000];
 
@@ -63,14 +68,16 @@ function currentMoodKey() {
 }
 
 function triggerHallucinationEffect() {
-  const canvas = document.getElementById('fx-overlay');
+  const canvas = document.getElementById('fx-canvas');
   if (!canvas) {
     return;
   }
 
   const moodKey = currentMoodKey();
-  const availableEffects = effectMap?.moods?.[moodKey] ?? effectMap?.moods?.[effectMap?.defaultMood] ?? [];
-  const availableZones = effectMap?.zones?.[moodKey] ?? effectMap?.zones?.[effectMap?.defaultMood] ?? [];
+  const availableEffects =
+    effectMap?.moods?.[moodKey] ?? effectMap?.moods?.[effectMap?.defaultMood] ?? [];
+  const availableZones =
+    effectMap?.zones?.[moodKey] ?? effectMap?.zones?.[effectMap?.defaultMood] ?? [];
   const effectName = pickRandom(availableEffects);
   const zoneName = pickRandom(availableZones);
 
@@ -85,6 +92,7 @@ function triggerHallucinationEffect() {
     return;
   }
 
+  canvas.classList.add('fx-visible');
   const releaseClip = withZoneClip(canvas, zoneName);
   try {
     handler(canvas);
@@ -92,6 +100,7 @@ function triggerHallucinationEffect() {
     window.setTimeout(() => {
       try {
         releaseClip();
+        canvas.classList.remove('fx-visible');
       } catch (error) {
         console.warn('[spawn-loop] Failed to release clip region:', error);
       }
@@ -99,6 +108,7 @@ function triggerHallucinationEffect() {
   }
 
   logEffectTriggeredEvent?.(effectName, moodKey, zoneName);
+  logSessionEvent?.('effect-spawned', { effect: effectName, mood: moodKey, zone: zoneName });
 }
 
 function scheduleNextHallucination() {

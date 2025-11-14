@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Run The World HUD</title>
+    <title>Run Overlay</title>
     <style>
       :root {
         color-scheme: dark;
         font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background-color: #050816;
+        background-color: #030712;
         color: #e2e8f0;
       }
 
@@ -22,47 +22,42 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.25), transparent 60%),
-          radial-gradient(circle at 80% 0%, rgba(147, 51, 234, 0.18), transparent 60%),
-          #050816;
+        background: rgba(2, 6, 23, 0.95);
       }
 
-      #app {
-        position: relative;
-        width: min(1280px, calc(100% - 48px));
-        padding: 32px;
-        border-radius: 28px;
-        overflow: hidden;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        box-shadow: 0 40px 80px rgba(15, 23, 42, 0.65);
-        backdrop-filter: blur(14px) saturate(140%);
-      }
-
-      #fx-overlay {
+      #background-video {
         position: fixed;
         top: 0;
         left: 0;
-        width: 0;
-        height: 0;
-        opacity: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -2;
+        filter: saturate(120%);
+      }
+
+      #fx-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
         pointer-events: none;
-        z-index: 1;
+        z-index: -1;
         mix-blend-mode: screen;
-        transform: translate3d(-9999px, -9999px, 0);
-        will-change: transform, width, height, opacity;
+        opacity: 0;
         transition: opacity 160ms ease-out;
       }
 
-      #fx-overlay.fx-visible {
+      #fx-canvas.fx-visible {
         opacity: 1;
       }
 
-      #fx-overlay.fx-softPulse {
+      #fx-canvas.fx-softPulse {
         animation: fx-softPulse 2.2s ease-out;
       }
 
-      #fx-overlay.fx-scanline {
+      #fx-canvas.fx-scanline {
         background: repeating-linear-gradient(
           to bottom,
           rgba(148, 163, 184, 0.2) 0px,
@@ -96,23 +91,27 @@
         }
       }
 
-      main {
+      #app {
         position: relative;
-        z-index: 1;
-        display: grid;
-        gap: 24px;
+        width: min(960px, calc(100% - 48px));
+        padding: 32px;
+        border-radius: 24px;
+        background: rgba(15, 23, 42, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.6);
       }
 
       header.hud-header {
         display: flex;
+        align-items: baseline;
         justify-content: space-between;
-        align-items: flex-start;
-        gap: 24px;
+        gap: 16px;
       }
 
       .hud-title {
-        margin: 0 0 8px;
-        font-size: clamp(1.75rem, 2.2vw, 2.6rem);
+        margin: 0 0 6px;
+        font-size: clamp(1.8rem, 2.4vw, 2.8rem);
         letter-spacing: 0.04em;
       }
 
@@ -120,11 +119,11 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 14px;
+        padding: 6px 14px;
         border-radius: 999px;
         font-size: 0.95rem;
-        background: rgba(15, 118, 110, 0.15);
-        color: #5eead4;
+        background: rgba(51, 65, 85, 0.25);
+        color: #94a3b8;
       }
 
       .status::before {
@@ -137,113 +136,88 @@
 
       .status--connecting,
       .status--reconnecting {
-        background: rgba(37, 99, 235, 0.2);
-        color: #93c5fd;
+        background: rgba(59, 130, 246, 0.2);
+        color: #bfdbfe;
+      }
+
+      .status--connected {
+        background: rgba(34, 197, 94, 0.2);
+        color: #bbf7d0;
       }
 
       .status--error,
       .status--disconnected {
         background: rgba(248, 113, 113, 0.2);
-        color: #fca5a5;
+        color: #fecaca;
       }
 
-      .version-grid {
+      .metrics {
+        margin-top: 24px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 12px;
-        width: 100%;
-        max-width: 320px;
-      }
-
-      .version-card {
-        padding: 14px;
-        border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.28);
-        background: rgba(30, 41, 59, 0.8);
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .version-card span {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: rgba(148, 163, 184, 0.85);
-      }
-
-      .hud-metrics {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 18px;
       }
 
       .metric-card {
         padding: 18px;
-        border-radius: 18px;
+        border-radius: 16px;
         border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(15, 23, 42, 0.75);
+        background: rgba(15, 23, 42, 0.78);
         display: flex;
         flex-direction: column;
         gap: 6px;
       }
 
-      .metric-card strong {
-        font-size: 0.75rem;
+      .metric-card h2 {
+        margin: 0;
+        font-size: 0.9rem;
         text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: rgba(148, 163, 184, 0.75);
+        letter-spacing: 0.1em;
+        color: rgba(148, 163, 184, 0.8);
       }
 
       .metric-card span {
-        font-size: 2.6rem;
+        font-size: 2.4rem;
         font-variant-numeric: tabular-nums;
       }
 
-      .subtext {
-        margin: 0;
+      .metric-card small {
         font-size: 0.85rem;
-        color: rgba(226, 232, 240, 0.72);
+        color: rgba(148, 163, 184, 0.75);
       }
 
       .hud-controls {
+        margin-top: 32px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 24px;
-      }
-
-      .panel {
-        padding: 24px;
-        border-radius: 20px;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(15, 23, 42, 0.78);
-        display: flex;
-        flex-direction: column;
         gap: 16px;
       }
 
-      .panel h2 {
-        margin: 0;
-        font-size: 1rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #93c5fd;
+      .control-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
       }
 
-      label {
+      .control-row label {
         font-size: 0.9rem;
         color: rgba(226, 232, 240, 0.85);
       }
 
       select,
-      input[type='text'] {
-        width: 100%;
+      button,
+      input[type='text'],
+      input[type='number'] {
         padding: 10px 12px;
         border-radius: 12px;
         border: 1px solid rgba(148, 163, 184, 0.3);
         background: rgba(30, 41, 59, 0.85);
         color: inherit;
         font-size: 0.95rem;
+      }
+
+      button {
+        cursor: pointer;
       }
 
       .tag-buttons {
@@ -253,13 +227,11 @@
       }
 
       .tag-buttons button {
-        padding: 8px 12px;
         border-radius: 999px;
         border: 1px solid rgba(148, 163, 184, 0.28);
-        background: rgba(30, 41, 59, 0.8);
-        color: inherit;
+        background: rgba(30, 41, 59, 0.82);
+        padding: 8px 14px;
         font-size: 0.85rem;
-        cursor: pointer;
         transition: background 0.2s ease, border-color 0.2s ease;
       }
 
@@ -268,219 +240,67 @@
         background: rgba(59, 130, 246, 0.35);
       }
 
-      .playlist-meta {
+      .version-strip {
+        margin-top: 32px;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .playlist-meta span {
+        gap: 18px;
         font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
         color: rgba(148, 163, 184, 0.75);
       }
 
-      .ytmusic-player {
-        margin-top: 18px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+      .version-strip code {
+        color: #e2e8f0;
       }
 
-      .ytmusic-player iframe {
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        border-radius: 12px;
-        background: rgba(15, 23, 42, 0.6);
-      }
-
-      .ytmusic-player-controls {
-        display: flex;
-        justify-content: flex-end;
-      }
-
-      #playlist-next {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(59, 130, 246, 0.2);
-        color: rgba(191, 219, 254, 0.95);
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: background 0.2s ease, transform 0.15s ease;
-      }
-
-      #playlist-next:hover:not(:disabled) {
-        background: rgba(59, 130, 246, 0.32);
-        transform: translateY(-1px);
-      }
-
-      #playlist-next:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-        transform: none;
-      }
-
-      button.primary {
-        align-self: flex-start;
-        padding: 10px 18px;
-        border-radius: 999px;
-        border: none;
-        font-size: 0.95rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        background: linear-gradient(135deg, #38bdf8, #a855f7);
-        color: #0f172a;
-        cursor: pointer;
-        transition: transform 0.15s ease;
-      }
-
-      button.primary:hover {
-        transform: translateY(-1px);
-      }
-
-      .timer-display {
-        font-size: 2.2rem;
-        font-variant-numeric: tabular-nums;
-      }
-
-      @media (max-width: 840px) {
+      @media (max-width: 720px) {
+        #app {
+          padding: 24px;
+        }
         header.hud-header {
           flex-direction: column;
-        }
-
-        .version-grid {
-          max-width: none;
+          align-items: flex-start;
         }
       }
     </style>
-    <script>
-      globalThis.RTW_WS_URL = 'ws://localhost:6789';
-    </script>
   </head>
   <body>
+    <video id="background-video" autoplay muted loop playsinline></video>
+    <canvas id="fx-canvas" width="1920" height="1080"></canvas>
     <div id="app">
-      <div id="fx-overlay" aria-hidden="true"></div>
-      <main>
+      <div id="hud">
         <header class="hud-header">
           <div>
-            <h1 class="hud-title">Run The World Overlay</h1>
-            <div id="version-text" style="opacity: 0.6; font-size: 0.8rem;"></div>
-            <p class="status status--disconnected" id="status">Waiting for step stream…</p>
-          </div>
-          <div class="version-grid">
-            <div class="version-card">
-              <span>Electron</span>
-              <code id="version-electron">(loading)</code>
-            </div>
-            <div class="version-card">
-              <span>Node.js</span>
-              <code id="version-node">(loading)</code>
-            </div>
-            <div class="version-card">
-              <span>Chromium</span>
-              <code id="version-chromium">(loading)</code>
-            </div>
+            <h1 class="hud-title">Run Session HUD</h1>
+            <p id="hud-status" class="status status--disconnected">Waiting for bridge…</p>
           </div>
         </header>
 
-        <section class="hud-metrics">
+        <section class="metrics">
           <article class="metric-card">
-            <strong>Total steps</strong>
-            <span id="steps">0</span>
-            <p class="subtext" id="last-update">No data received yet.</p>
+            <h2>Steps</h2>
+            <span id="steps-value">0</span>
+            <small id="last-update">No data yet.</small>
           </article>
           <article class="metric-card">
-            <strong>Heart rate</strong>
-            <span id="heart-rate">--</span>
-            <p class="subtext" id="heart-rate-status">Waiting for heart rate data…</p>
+            <h2>Heart Rate</h2>
+            <span id="bpm-value">--</span>
+            <small>Beats per minute</small>
           </article>
           <article class="metric-card">
-            <strong>Session Timer</strong>
-            <span class="timer-display" id="session-timer">00:00:00</span>
-            <p class="subtext">Tracks time since the playlist started.</p>
-          </article>
-          <article class="metric-card">
-            <strong>Mood</strong>
-            <span id="mood-label">Live mixer</span>
-            <p class="subtext">Curate the vibe and BPM pairings.</p>
+            <h2>Playlist</h2>
+            <span id="playlist-status">Stopped</span>
+            <small id="playlist-source">None</small>
           </article>
         </section>
 
-        <section class="hud-controls">
-          <article class="panel" aria-label="mood selector">
-            <h2>Mood &amp; BPM</h2>
-            <div>
-              <label for="mood-select">Mood preset</label>
-              <select id="mood-select" name="mood">
-                <option value="dreamcore">Dreamcore</option>
-                <option value="ambient">Ambient</option>
-                <option value="hype">Hype</option>
-                <option value="rare">Rare Drop</option>
-              </select>
-            </div>
-            <div>
-              <label for="bpm-select">Target BPM</label>
-              <select id="bpm-select" name="bpm">
-                <option value="90">90 BPM</option>
-                <option value="110">110 BPM</option>
-                <option value="128" selected>128 BPM</option>
-                <option value="140">140 BPM</option>
-                <option value="160">160 BPM</option>
-              </select>
-            </div>
-            <div>
-              <p class="subtext">Tags</p>
-              <div class="tag-buttons">
-                <button type="button" data-tag="Dreamcore">Dreamcore</button>
-                <button type="button" data-tag="Ambient">Ambient</button>
-                <button type="button" data-tag="Hype">Hype</button>
-                <button type="button" data-tag="Rare Drop">Rare Drop</button>
-              </div>
-            </div>
-            <div id="asset-pack-container" hidden>
-              <label for="asset-pack">Asset pack</label>
-              <select id="asset-pack" name="asset-pack"></select>
-            </div>
-          </article>
+        <section id="hud-controls" class="hud-controls"></section>
 
-          <article class="panel" aria-label="playlist controls">
-            <h2>Playlist control</h2>
-            <div class="playlist-meta">
-              <div>
-                <span>Status</span>
-                <p id="playlist-status">Idle</p>
-              </div>
-              <div>
-                <span>Current playlist</span>
-                <p id="playlist-name">Untitled Session</p>
-              </div>
-            </div>
-            <div>
-              <label for="playlist-input">Playlist name</label>
-              <input id="playlist-input" type="text" placeholder="Enter playlist name" />
-            </div>
-            <button type="button" class="primary" id="playlist-start">Start</button>
-            <div class="ytmusic-player">
-              <iframe
-                id="ytmusic-frame"
-                title="YouTube Music player"
-                loading="lazy"
-                allow="autoplay; encrypted-media"
-              ></iframe>
-              <div class="ytmusic-player-controls">
-                <button type="button" id="playlist-next">Next track</button>
-              </div>
-            </div>
-          </article>
-        </section>
-      </main>
+        <footer class="version-strip">
+          <span>Electron <code id="version-electron">(loading)</code></span>
+          <span>Node <code id="version-node">(loading)</code></span>
+          <span>Chromium <code id="version-chromium">(loading)</code></span>
+        </footer>
+      </div>
     </div>
 
     <script type="module" src="./renderer.js"></script>

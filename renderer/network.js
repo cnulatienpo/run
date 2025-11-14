@@ -1,13 +1,24 @@
-const RECONNECT_DELAY_MS = 4000;
+// Centralised WebSocket client used across the renderer.
+// Handles reconnection/backoff and notifies consumers via the supplied callbacks.
+export const RECONNECT_DELAY_MS = 4000;
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-export function createNetworkClient({ url, onStatus, onStepData }) {
+export function createNetworkClient({ url, onStatus, onStepData } = {}) {
   let socket;
   let reconnectTimer;
+  let disposed = false;
   const boundListeners = new Map();
+
+  const targetUrl = isNonEmptyString(url) ? url.trim() : 'ws://localhost:6789';
+
+  function notifyStatus(message, state) {
+    if (typeof onStatus === 'function') {
+      onStatus(message, state);
+    }
+  }
 
   function clearReconnectTimer() {
     if (reconnectTimer) {
@@ -16,19 +27,10 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
     }
   }
 
-  function scheduleReconnect() {
-    clearReconnectTimer();
-    reconnectTimer = window.setTimeout(() => {
-      reconnectTimer = undefined;
-      connect();
-    }, RECONNECT_DELAY_MS);
-  }
-
   function removeBoundListeners() {
     if (!socket || boundListeners.size === 0) {
       return;
     }
-
     boundListeners.forEach((handler, type) => {
       socket.removeEventListener(type, handler);
     });
@@ -40,6 +42,17 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
     socket = undefined;
   }
 
+  function scheduleReconnect() {
+    if (disposed) {
+      return;
+    }
+    clearReconnectTimer();
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = undefined;
+      connect();
+    }, RECONNECT_DELAY_MS);
+  }
+
   function bindListener(type, handler) {
     if (!socket) {
       return;
@@ -49,47 +62,54 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
   }
 
   function connect() {
-    if (socket && socket.readyState === WebSocket.OPEN) {
+    if (disposed) {
       return;
     }
 
-    const targetUrl = isNonEmptyString(url) ? url : 'ws://localhost:6789';
+    if (
+      socket &&
+      (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
 
     try {
       socket = new WebSocket(targetUrl);
     } catch (error) {
       console.error('[network] WebSocket creation failed:', error);
-      onStatus?.(`Unable to open ${targetUrl}`, 'error');
+      notifyStatus(`Unable to open ${targetUrl}`, 'error');
       scheduleReconnect();
       return;
     }
 
-    onStatus?.(`Connecting to ${targetUrl}…`, 'connecting');
+    notifyStatus(`Connecting to ${targetUrl}…`, 'connecting');
 
     bindListener('open', () => {
-      onStatus?.(`Connected to ${targetUrl}`, 'connected');
+      notifyStatus(`Connected to ${targetUrl}`, 'connected');
     });
 
     bindListener('message', (event) => {
       try {
         const payload = JSON.parse(event.data);
-        onStepData?.(payload);
+        if (typeof onStepData === 'function') {
+          onStepData(payload);
+        }
       } catch (error) {
         console.error('[network] Malformed WebSocket data:', event.data, error);
-        onStatus?.('Received malformed data – waiting for next update', 'error');
+        notifyStatus('Received malformed data – waiting for next update', 'error');
       }
     });
 
     bindListener('close', () => {
       teardownSocket();
-      onStatus?.('Connection closed. Reconnecting…', 'reconnecting');
+      notifyStatus('Connection closed. Reconnecting…', 'reconnecting');
       scheduleReconnect();
     });
 
     bindListener('error', (event) => {
       console.error('[network] WebSocket error:', event);
       teardownSocket();
-      onStatus?.('Connection error. Retrying…', 'error');
+      notifyStatus('Connection error. Retrying…', 'error');
       scheduleReconnect();
     });
   }
@@ -97,8 +117,13 @@ export function createNetworkClient({ url, onStatus, onStepData }) {
   connect();
 
   return {
-    reconnect: connect,
-    dispose() {
+    reconnect: () => {
+      if (!disposed) {
+        connect();
+      }
+    },
+    dispose: () => {
+      disposed = true;
       clearReconnectTimer();
       if (socket) {
         removeBoundListeners();
