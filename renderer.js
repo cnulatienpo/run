@@ -18,7 +18,13 @@ import {
 } from './renderer/tag-session-logger.js';
 import { initDebugControls as initEffectDebugControls } from './effects/debug-controls.js';
 import './effects/session-replay.js';
-import { notifyStep, startStillnessWatcher, switchEffectPack } from './mood/session-pacing.js';
+import {
+  notifyStep,
+  startStillnessWatcher,
+  switchEffectPack,
+  monitorEnvironment,
+  getCurrentVideoTitle,
+} from './mood/session-pacing.js';
 
 const WS_URL = window.preloadConfig?.WS_URL || window.RTW_WS_URL || 'ws://localhost:6789';
 
@@ -211,6 +217,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('keydown', handleLogExport);
   window.addEventListener('keydown', handleDebugShortcut);
   startStillnessWatcher();
+  monitorEnvironment(getCurrentVideoTitle);
 
   if (shouldAutoEnableDebugPanel()) {
     ensureDebugControls();
