@@ -61,6 +61,26 @@ const zoneRegistry = new Map([
 
 const canvasEffects = new Map();
 
+function resolveNumericIntensity(value, fallback = 1) {
+  if (Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    switch (value.toLowerCase()) {
+      case 'low':
+        return 0.6;
+      case 'medium':
+      case 'base':
+        return 1;
+      case 'high':
+        return 1.6;
+      default:
+        break;
+    }
+  }
+  return fallback;
+}
+
 function clamp01(value, fallback = 0) {
   if (!Number.isFinite(value)) {
     return fallback;
@@ -384,7 +404,7 @@ function registerBuiltInEffects() {
   if (!canvasEffects.has('wave')) {
     registerCanvasEffect('wave', (context, state) => {
       const { canvas: currentCanvas, elapsed, progress, zoneMetrics, options = {} } = state;
-      const intensity = typeof options.intensity === 'number' ? options.intensity : 0.45;
+      const intensity = resolveNumericIntensity(options.intensity, 0.45);
       const width = currentCanvas.width;
       const height = currentCanvas.height;
 
@@ -468,6 +488,104 @@ function registerBuiltInEffects() {
       }
 
       context.globalCompositeOperation = 'source-over';
+    });
+  }
+
+  if (!canvasEffects.has('ripple')) {
+    registerCanvasEffect('ripple', (context, state) => {
+      const { canvas: currentCanvas, elapsed, duration, zoneMetrics, options = {} } = state;
+      const width = currentCanvas.width;
+      const height = currentCanvas.height;
+      const numericIntensity = resolveNumericIntensity(options.intensity, 1);
+
+      const centerX =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.centerX
+          : (zoneMetrics?.x ?? 0) + (zoneMetrics?.width ?? width) / 2;
+      const centerY =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.centerY
+          : (zoneMetrics?.y ?? 0) + (zoneMetrics?.height ?? height) / 2;
+      const maxRadius =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.radius
+          : Math.min(zoneMetrics?.width ?? width, zoneMetrics?.height ?? height) / 2;
+
+      const waveCount = Math.max(1, Math.round(2 * numericIntensity));
+      const rippleProgress = (elapsed % 1200) / 1200;
+      const fade = Math.max(0, 1 - elapsed / duration);
+
+      context.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < waveCount; i += 1) {
+        const offset = i / waveCount;
+        const progress = (rippleProgress + offset) % 1;
+        const radius = Math.max(4, maxRadius * progress * numericIntensity);
+        const alpha = (0.18 - 0.08 * progress) * fade;
+        if (alpha <= 0) {
+          continue;
+        }
+        context.beginPath();
+        context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        context.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
+        context.fill();
+      }
+      context.globalCompositeOperation = 'source-over';
+    });
+  }
+
+  if (!canvasEffects.has('melt')) {
+    registerCanvasEffect('melt', (context, state) => {
+      const { canvas: currentCanvas, elapsed, zoneMetrics, options = {} } = state;
+      const width = currentCanvas.width;
+      const height = currentCanvas.height;
+      const numericIntensity = resolveNumericIntensity(options.intensity, 1);
+
+      const offsetAmplitude = 18 * numericIntensity;
+      const offset = Math.sin(elapsed / 420) * offsetAmplitude;
+
+      const gradient = context.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, 'rgba(200, 80, 180, 0.25)');
+      gradient.addColorStop(1, 'rgba(120, 220, 255, 0.18)');
+
+      context.globalAlpha = 0.22 + 0.12 * numericIntensity;
+      context.fillStyle = gradient;
+
+      const zoneWidth =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.radius * 2
+          : zoneMetrics?.width ?? width;
+      const zoneHeight =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.radius * 2
+          : zoneMetrics?.height ?? height;
+      const zoneX =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.centerX - zoneMetrics.radius
+          : zoneMetrics?.x ?? 0;
+      const zoneY =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.centerY - zoneMetrics.radius
+          : zoneMetrics?.y ?? 0;
+
+      context.fillRect(zoneX, zoneY + offset, zoneWidth, zoneHeight + offsetAmplitude);
+      context.globalAlpha = 1;
+    });
+  }
+
+  if (!canvasEffects.has('hueshift')) {
+    registerCanvasEffect('hueshift', (context, state) => {
+      const { canvas: currentCanvas, elapsed, options = {} } = state;
+      const width = currentCanvas.width;
+      const height = currentCanvas.height;
+      const numericIntensity = resolveNumericIntensity(options.intensity, 1);
+
+      const hue = (elapsed / (6 / Math.max(numericIntensity, 0.25))) % 360;
+      const alpha = 0.18 + 0.12 * numericIntensity;
+
+      context.globalAlpha = alpha;
+      context.fillStyle = `hsl(${hue.toFixed(1)}, 100%, 70%)`;
+      context.fillRect(0, 0, width, height);
+      context.globalAlpha = 1;
     });
   }
 
