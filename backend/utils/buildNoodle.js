@@ -29,6 +29,8 @@ function normalizeEvents(events = []) {
 }
 
 export function buildNoodle(rawData = {}) {
+  const schemaVersion = rawData.schema_version || rawData.schemaVersion;
+
   const noodle = {
     version: rawData.version ?? 1,
     sessionId: rawData.sessionId ?? uuidv4(),
@@ -37,6 +39,10 @@ export function buildNoodle(rawData = {}) {
     events: normalizeEvents(rawData.events),
     synthetic: Boolean(rawData.synthetic),
   };
+
+  if (schemaVersion) {
+    noodle.schema_version = schemaVersion;
+  }
 
   if (!noodle.data || Object.keys(noodle.data).length === 0) {
     throw new Error('Noodle data block cannot be empty.');

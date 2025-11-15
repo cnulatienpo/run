@@ -15,20 +15,58 @@ const schemaRegistry = new Map([
 
 const compiledValidators = new Map();
 
+function normaliseVersionTag(versionTag) {
+  if (typeof versionTag !== 'string' || versionTag.length === 0) {
+    return versionTag;
+  }
+  if (schemaRegistry.has(versionTag)) {
+    return versionTag;
+  }
+  const prefixed = versionTag.startsWith('v') ? versionTag : `v${versionTag}`;
+  if (schemaRegistry.has(prefixed)) {
+    return prefixed;
+  }
+  return versionTag;
+}
+
+export function resolveSchemaVersion(payload, fallback = 'v1.0.0') {
+  if (payload && typeof payload === 'object') {
+    if (typeof payload.schema_version === 'string' && payload.schema_version.length > 0) {
+      return normaliseVersionTag(payload.schema_version);
+    }
+    if (typeof payload.schemaVersion === 'string' && payload.schemaVersion.length > 0) {
+      return normaliseVersionTag(payload.schemaVersion);
+    }
+  }
+  return normaliseVersionTag(fallback);
+}
+
 export function loadSchema(versionTag = 'v1.0.0') {
-  const schema = schemaRegistry.get(versionTag);
+  const normalised = normaliseVersionTag(versionTag);
+  const schema = schemaRegistry.get(normalised);
   if (!schema) {
     throw new Error(`Unsupported noodle schema version: ${versionTag}`);
   }
   return schema;
 }
 
-export function getValidator(versionTag = 'v1.0.0') {
-  if (!compiledValidators.has(versionTag)) {
-    const schema = loadSchema(versionTag);
-    compiledValidators.set(versionTag, ajv.compile(schema));
+export function assertSchemaVersion(versionTag = 'v1.0.0') {
+  const normalised = normaliseVersionTag(versionTag);
+  if (!schemaRegistry.has(normalised)) {
+    const error = new Error(`Unsupported noodle schema version: ${versionTag}`);
+    error.code = 'UNSUPPORTED_SCHEMA_VERSION';
+    throw error;
   }
-  return compiledValidators.get(versionTag);
+  return normalised;
+}
+
+export function getValidator(versionTag = 'v1.0.0') {
+  const normalised = assertSchemaVersion(versionTag);
+  if (!compiledValidators.has(normalised)) {
+    const schema = loadSchema(normalised);
+    compiledValidators.set(normalised, ajv.compile(schema));
+  }
+  return compiledValidators.get(normalised);
 }
 
 export function validateNoodle(payload, versionTag = 'v1.0.0') {
@@ -48,4 +86,9 @@ export function validateNoodle(payload, versionTag = 'v1.0.0') {
 
 export function listSupportedVersions() {
   return Array.from(schemaRegistry.keys());
+}
+
+export function isSupportedVersion(versionTag) {
+  const normalised = normaliseVersionTag(versionTag);
+  return schemaRegistry.has(normalised);
 }

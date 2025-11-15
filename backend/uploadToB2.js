@@ -3,16 +3,14 @@ import B2 from 'backblaze-b2';
 
 import { logDebug, logInfo, logWarn } from './log.js';
 
-const {
-  B2_APPLICATION_KEY_ID,
-  B2_APPLICATION_KEY,
-  B2_BUCKET_ID,
-  B2_BUCKET_NAME,
-  B2_DOWNLOAD_URL,
-} = process.env;
+const KEY_ID = process.env.B2_KEY_ID || process.env.B2_APPLICATION_KEY_ID;
+const APP_KEY = process.env.B2_APP_KEY || process.env.B2_APPLICATION_KEY;
+const BUCKET_ID = process.env.B2_BUCKET_ID || null;
+const BUCKET_NAME = process.env.B2_BUCKET_NAME || null;
+const DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL || null;
 
 let client;
-let cachedBucketId = B2_BUCKET_ID || null;
+let cachedBucketId = BUCKET_ID || null;
 let lastAuth = 0;
 const AUTH_TTL_MS = 1000 * 60 * 60 * 23; // 23 hours
 
@@ -21,13 +19,13 @@ function ensureClient() {
     return client;
   }
 
-  if (!B2_APPLICATION_KEY_ID || !B2_APPLICATION_KEY) {
-    throw new Error('Missing Backblaze B2 credentials. Set B2_APPLICATION_KEY_ID and B2_APPLICATION_KEY.');
+  if (!KEY_ID || !APP_KEY) {
+    throw new Error('Missing Backblaze B2 credentials. Set B2_KEY_ID and B2_APP_KEY in your environment.');
   }
 
   client = new B2({
-    applicationKeyId: B2_APPLICATION_KEY_ID,
-    applicationKey: B2_APPLICATION_KEY,
+    applicationKeyId: KEY_ID,
+    applicationKey: APP_KEY,
   });
   return client;
 }
@@ -46,14 +44,14 @@ async function resolveBucketId(clientInstance) {
     return cachedBucketId;
   }
 
-  if (!B2_BUCKET_NAME) {
+  if (!BUCKET_NAME) {
     throw new Error('Provide either B2_BUCKET_ID or B2_BUCKET_NAME environment variables.');
   }
 
-  const response = await clientInstance.getBucket({ bucketName: B2_BUCKET_NAME });
+  const response = await clientInstance.getBucket({ bucketName: BUCKET_NAME });
   const bucketId = response?.data?.bucketId || response?.data?.buckets?.[0]?.bucketId;
   if (!bucketId) {
-    throw new Error(`Unable to resolve bucket id for ${B2_BUCKET_NAME}.`);
+    throw new Error(`Unable to resolve bucket id for ${BUCKET_NAME}.`);
   }
   cachedBucketId = bucketId;
   return cachedBucketId;
@@ -71,10 +69,10 @@ function deriveUploadPath(noodle, syntheticFlag) {
 }
 
 function deriveFileUrl(fileName) {
-  if (!B2_DOWNLOAD_URL) {
+  if (!DOWNLOAD_URL) {
     return null;
   }
-  return `${B2_DOWNLOAD_URL.replace(/\/$/, '')}/${fileName}`;
+  return `${DOWNLOAD_URL.replace(/\/$/, '')}/${fileName}`;
 }
 
 export async function uploadToB2(noodle, options = {}) {
@@ -100,6 +98,7 @@ export async function uploadToB2(noodle, options = {}) {
     info: {
       synthetic: syntheticFlag ? 'true' : 'false',
       version: String(noodle.version ?? '1.0.0'),
+      schema_version: noodle.schema_version ?? 'v1.0.0',
     },
   });
 
@@ -119,7 +118,7 @@ export async function uploadToB2(noodle, options = {}) {
 }
 
 export function resetUploadCache() {
-  cachedBucketId = B2_BUCKET_ID || null;
+  cachedBucketId = BUCKET_ID || null;
   lastAuth = 0;
   client = undefined;
   logWarn('UPLOAD', 'Upload cache cleared.');

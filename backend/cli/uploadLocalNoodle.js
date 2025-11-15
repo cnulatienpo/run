@@ -7,7 +7,7 @@ import { logError, logInfo } from '../log.js';
 import { buildNoodle } from '../utils/buildNoodle.js';
 import { syntheticPass } from '../syntheticPass.js';
 import { uploadToB2 } from '../uploadToB2.js';
-import { validateNoodle } from '../schemas/index.js';
+import { resolveSchemaVersion, validateNoodle, assertSchemaVersion } from '../schemas/index.js';
 
 async function loadSample(relativePath) {
   const absolutePath = path.isAbsolute(relativePath)
@@ -27,13 +27,23 @@ async function run() {
 
   try {
     const rawPayload = await loadSample(filePath);
-    const noodle = buildNoodle({ ...rawPayload, synthetic: false });
-    validateNoodle(noodle);
-    logInfo('CLI', 'Validated local noodle payload', { sessionId: noodle.sessionId });
+    const schemaVersion = resolveSchemaVersion(rawPayload, 'v1.0.0');
+    const safeVersion = assertSchemaVersion(schemaVersion);
+
+    const noodle = buildNoodle({ ...rawPayload, synthetic: false, schema_version: safeVersion });
+    validateNoodle(noodle, safeVersion);
+    logInfo('CLI', 'Validated local noodle payload', {
+      sessionId: noodle.sessionId,
+      schemaVersion: safeVersion,
+    });
 
     const synthetic = syntheticPass(noodle);
-    validateNoodle(synthetic);
-    logInfo('CLI', 'Validated synthetic noodle payload', { sessionId: synthetic.sessionId });
+    synthetic.schema_version = safeVersion;
+    validateNoodle(synthetic, safeVersion);
+    logInfo('CLI', 'Validated synthetic noodle payload', {
+      sessionId: synthetic.sessionId,
+      schemaVersion: safeVersion,
+    });
 
     const realResult = await uploadToB2(noodle, { synthetic: false });
     const syntheticResult = await uploadToB2(synthetic, { synthetic: true });
