@@ -16,12 +16,14 @@ import {
   logPlaylistState,
   exportSessionLog,
 } from './renderer/tag-session-logger.js';
+import { initDebugControls as initEffectDebugControls } from './effects/debug-controls.js';
 
 const WS_URL = window.preloadConfig?.WS_URL || window.RTW_WS_URL || 'ws://localhost:6789';
 
 let networkClient;
 let sessionActive = false;
 let hudApi;
+let debugPanel;
 
 function updateVersionBadges() {
   const versions = window.electronInfo?.versions;
@@ -156,6 +158,40 @@ function handleLogExport(event) {
   }
 }
 
+function ensureDebugControls() {
+  if (!debugPanel) {
+    debugPanel = initEffectDebugControls();
+  }
+  return debugPanel;
+}
+
+function shouldAutoEnableDebugPanel() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('effectDebug') === '1') {
+      return true;
+    }
+  } catch (error) {
+    console.warn('[renderer] Failed to read URL parameters for debug panel:', error);
+  }
+
+  try {
+    if (window.localStorage?.getItem('rtwEffectDebug') === '1') {
+      return true;
+    }
+  } catch (error) {
+    console.warn('[renderer] Failed to read localStorage for debug panel:', error);
+  }
+
+  return false;
+}
+
+function handleDebugShortcut(event) {
+  if (event.key === 'F8') {
+    ensureDebugControls();
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   hudApi = initHUD({
     onMoodChange: handleMoodChange,
@@ -168,8 +204,17 @@ window.addEventListener('DOMContentLoaded', () => {
   updateVersionBadges();
   setupNetworkLayer();
   window.addEventListener('keydown', handleLogExport);
+  window.addEventListener('keydown', handleDebugShortcut);
+
+  if (shouldAutoEnableDebugPanel()) {
+    ensureDebugControls();
+  }
 });
 
 window.addEventListener('beforeunload', () => {
   networkClient?.dispose();
 });
+
+if (typeof window !== 'undefined') {
+  window.enableEffectDebugPanel = ensureDebugControls;
+}
