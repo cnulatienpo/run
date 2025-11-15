@@ -1,0 +1,9 @@
+[
+  {
+    "id": "homie-devlab",
+    "display_name": "homie devlab",
+    "contact": "homie@example.org",
+    "default_license": "CC-BY-NC-4.0",
+    "upload_root": "homie"
+  }
+]
