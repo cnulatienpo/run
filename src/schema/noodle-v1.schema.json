@@ -65,8 +65,51 @@
     },
     "notes": {
       "type": "string"
+    },
+    "privacy_ledger": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "string" },
+        "input_type": { "type": "string" },
+        "synthetic_profile": { "type": ["string", "null"] },
+        "biometrics_source": { "type": "string" },
+        "movement_source": { "type": "string" },
+        "sensitive_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "export_approved": { "type": "boolean" }
+      },
+      "required": [
+        "schema_version",
+        "input_type",
+        "synthetic_profile",
+        "biometrics_source",
+        "movement_source",
+        "sensitive_fields",
+        "export_approved"
+      ],
+      "additionalProperties": false
+    },
+    "training_labels": {
+      "type": "object",
+      "properties": {
+        "mood": { "type": "string" },
+        "intent": { "type": "string" },
+        "motion_quality": { "type": "string" },
+        "confidence_scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mutation_id": {
+      "type": "string"
     }
   },
-  "required": ["version", "sessionId", "timestamp", "data"],
+  "required": ["version", "sessionId", "timestamp", "data", "privacy_ledger"],
   "additionalProperties": false
 }

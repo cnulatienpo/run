@@ -1,4 +1,6 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
+
+const { ensurePrivacyLedger } = require('./privacyLedger');
 
 function normalizeTimestamp(input) {
   if (!input) {
@@ -58,9 +60,39 @@ function buildDataBlock(rawData = {}) {
   return {};
 }
 
+function buildTrainingLabels(rawData = {}) {
+  const labels = rawData.training_labels || rawData.trainingLabels;
+  if (!labels || typeof labels !== 'object') {
+    return undefined;
+  }
+
+  const normalized = {};
+  ['mood', 'intent', 'motion_quality'].forEach((key) => {
+    if (labels[key] != null) {
+      normalized[key] = String(labels[key]);
+    }
+  });
+
+  if (labels.confidence_scores && typeof labels.confidence_scores === 'object') {
+    const confidence = Object.entries(labels.confidence_scores).reduce((acc, [key, value]) => {
+      const numericValue = Number(value);
+      if (!Number.isNaN(numericValue)) {
+        acc[key] = numericValue;
+      }
+      return acc;
+    }, {});
+
+    if (Object.keys(confidence).length > 0) {
+      normalized.confidence_scores = confidence;
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function buildNoodle(rawData = {}) {
   const version = 1;
-  const sessionId = rawData.sessionId || uuidv4();
+  const sessionId = rawData.sessionId || randomUUID();
   const timestamp = normalizeTimestamp(rawData.timestamp || rawData.startTime);
 
   const noodle = {
@@ -72,12 +104,27 @@ function buildNoodle(rawData = {}) {
     synthetic: Boolean(rawData.synthetic),
   };
 
+  const privacyOptions = {
+    inputType: rawData.synthetic ? 'synthetic' : 'real',
+    syntheticProfile: rawData.syntheticProfile || rawData.synthetic_profile || null,
+    biometricsSource: rawData.biometricsSource || rawData.biometrics_source || (rawData.synthetic ? 'transformed' : 'real'),
+    movementSource: rawData.movementSource || rawData.movement_source || 'user_recorded',
+    sensitiveFields: rawData.sensitiveFields || rawData.sensitive_fields || [],
+    exportApproved: rawData.exportApproved ?? rawData.export_approved ?? false,
+  };
+  ensurePrivacyLedger(noodle, privacyOptions);
+
   if (rawData.userId) {
     noodle.userId = String(rawData.userId);
   }
 
   if (rawData.notes) {
     noodle.notes = String(rawData.notes);
+  }
+
+  const labels = buildTrainingLabels(rawData);
+  if (labels) {
+    noodle.training_labels = labels;
   }
 
   if (Object.keys(noodle.data).length === 0) {

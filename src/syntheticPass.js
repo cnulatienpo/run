@@ -1,4 +1,6 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
+
+const { ensurePrivacyLedger } = require('./privacyLedger');
 
 function jitterTimestamp(isoString, jitterMinutes) {
   if (!isoString) {
@@ -90,7 +92,7 @@ function syntheticPass(noodleObject, options = {}) {
   const synthetic = JSON.parse(JSON.stringify(noodleObject));
 
   synthetic.synthetic = true;
-  synthetic.sessionId = `${noodleObject.sessionId || uuidv4()}-syn-${uuidv4().slice(0, 8)}`;
+  synthetic.sessionId = `${noodleObject.sessionId || randomUUID()}-syn-${randomUUID().slice(0, 8)}`;
   synthetic.timestamp = jitterTimestamp(noodleObject.timestamp, jitterMinutes);
   synthetic.data = perturbDataBlock(noodleObject.data, noisePercentage);
 
@@ -107,6 +109,16 @@ function syntheticPass(noodleObject, options = {}) {
   if (noodleObject.userId) {
     synthetic.userId = preserveUserId ? noodleObject.userId : scrubUserId(noodleObject.userId);
   }
+
+  const baseLedger = noodleObject.privacy_ledger || {};
+  ensurePrivacyLedger(synthetic, {
+    inputType: 'synthetic',
+    syntheticProfile: options.syntheticProfile || 'strong_jitter_v2',
+    biometricsSource: baseLedger.biometrics_source === 'real' ? 'transformed' : baseLedger.biometrics_source || 'transformed',
+    movementSource: options.movementSource || 'synthetic_overlay',
+    sensitiveFields: baseLedger.sensitive_fields || [],
+    exportApproved: false,
+  });
 
   return synthetic;
 }

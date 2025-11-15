@@ -19,6 +19,17 @@ async function run() {
         { time: '2025-11-15T08:30:00Z', eventType: 'milestone', value: 1000 },
       ],
       notes: 'Sample noodle session used for testing uploads.',
+      sensitiveFields: ['heartRate'],
+      exportApproved: false,
+      trainingLabels: {
+        mood: 'focused',
+        intent: 'easy_run',
+        motion_quality: 'flow',
+        confidence_scores: {
+          mood: 0.6,
+          intent: 0.8,
+        },
+      },
     };
 
     const noodle = buildNoodle(rawData);
