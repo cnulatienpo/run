@@ -1,0 +1,11 @@
+{
+  "name": "noodle-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend services for managing noodle JSON files.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "upload:local": "node cli/uploadLocalNoodle.js"
+  }
+}

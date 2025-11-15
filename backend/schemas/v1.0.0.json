@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Noodle Schema v1.0.0",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": ["integer", "string"],
+      "enum": [1, "1"]
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "heartRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "steps": {
+          "type": ["integer", "number"],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eventType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": ["number", "string", "integer", "boolean", "null"]
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": ["time", "eventType"],
+        "additionalProperties": true
+      },
+      "default": []
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "synthetic_flag": {
+      "type": "boolean"
+    },
+    "anonymization_profile": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": ["version", "sessionId", "timestamp", "data"],
+  "additionalProperties": false
+}
