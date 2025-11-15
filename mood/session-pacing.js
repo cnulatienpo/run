@@ -8,7 +8,40 @@ const SESSION_DURATION_MS = 45 * 60 * 1000; // 45 minutes
 const DEFAULT_MOOD = typeof effectConfig?.defaultMood === 'string' ? effectConfig.defaultMood : 'ambient';
 
 const { moodLibrary: EFFECT_LIBRARY } = buildEffectLibrary(effectConfig);
+const EFFECT_MAP = buildEffectMap(EFFECT_LIBRARY);
 registerConfiguredZones(effectConfig?.zones ?? {});
+
+const EFFECT_PACKS = {
+  default: cloneEffectPack(EFFECT_MAP),
+  fog: {
+    ambient: [
+      ...(EFFECT_MAP.ambient ?? []),
+      {
+        type: 'canvas',
+        effect: 'hueshift',
+        intensity: 'low',
+        zone: { shape: 'rect', x: 0, y: 0.4, w: 1, h: 0.6 },
+        duration: 5000,
+        tag: 'fog',
+      },
+    ],
+    rare: [
+      ...(EFFECT_MAP.rare ?? []),
+      {
+        type: 'canvas',
+        effect: 'ripple',
+        intensity: 'medium',
+        zone: { shape: 'circle', x: 0.4, y: 0.7, r: 0.15 },
+        duration: 4000,
+        tag: 'fog',
+      },
+    ],
+    glide: [...(EFFECT_MAP.glide ?? [])],
+    dreamcore: [...(EFFECT_MAP.dreamcore ?? [])],
+  },
+};
+
+let activeEffectPack = 'default';
 
 const MOOD_CURVE = [
   { t: 0.0, mood: 'ambient' },
@@ -23,6 +56,11 @@ let lastSpawn = 0;
 
 const EFFECT_INTERVAL = 4000; // minimum ms between effects
 const RARE_CHANCE = 0.02; // 2% chance for rare override
+
+let lastStepTime = Date.now();
+let stillnessCheckInterval = 5000;
+let stillnessIntervalId = null;
+const STILLNESS_THRESHOLD = 15000; // 15 sec
 
 export function spawnLoop(stepRate, bpm) {
   const now = Date.now();
@@ -52,6 +90,56 @@ export function spawnLoop(stepRate, bpm) {
 export function resetSessionClock() {
   sessionStart = Date.now();
   lastSpawn = 0;
+}
+
+export function notifyStep() {
+  lastStepTime = Date.now();
+}
+
+export function startStillnessWatcher(intervalMs = stillnessCheckInterval) {
+  const host = typeof window !== 'undefined' ? window : globalThis;
+  if (!host || typeof host.setInterval !== 'function') {
+    console.warn('[session-pacing] Timer APIs unavailable for stillness watcher.');
+    return null;
+  }
+
+  const normalizedInterval =
+    Number.isFinite(intervalMs) && intervalMs > 0 ? Math.floor(intervalMs) : stillnessCheckInterval;
+  stillnessCheckInterval = normalizedInterval;
+
+  if (stillnessIntervalId) {
+    host.clearInterval(stillnessIntervalId);
+    stillnessIntervalId = null;
+  }
+
+  const checkStillness = () => {
+    const now = Date.now();
+    if (now - lastStepTime > STILLNESS_THRESHOLD) {
+      applyEffect({
+        type: 'canvas',
+        effect: 'melt',
+        zone: { shape: 'circle', x: 0.5, y: 0.5, r: 0.3 },
+        duration: 4000,
+        intensity: 'low',
+        tag: 'still',
+      });
+      lastStepTime = now;
+    }
+  };
+
+  stillnessIntervalId = host.setInterval(checkStillness, stillnessCheckInterval);
+  return stillnessIntervalId;
+}
+
+export function switchEffectPack(name) {
+  if (typeof name !== 'string' || !name.trim()) {
+    return activeEffectPack;
+  }
+  const normalized = name.trim();
+  if (EFFECT_PACKS[normalized]) {
+    activeEffectPack = normalized;
+  }
+  return activeEffectPack;
 }
 
 function registerConfiguredZones(zones) {
@@ -133,15 +221,13 @@ function applyVibeToMood(mood, vibe) {
 }
 
 function chooseEffect(mood, tags) {
-  const activeMoodKey = EFFECT_LIBRARY[mood] ? mood : DEFAULT_MOOD;
-  const fallbackMood = EFFECT_LIBRARY[DEFAULT_MOOD] ? DEFAULT_MOOD : null;
-  const moodEntry = EFFECT_LIBRARY[activeMoodKey] || (fallbackMood ? EFFECT_LIBRARY[fallbackMood] : null);
-  if (!moodEntry?.effects?.length) {
+  const effectPool = getEffectPoolForMood(mood);
+  if (!effectPool.length) {
     return null;
   }
 
   const tagList = Array.isArray(tags) ? tags : [];
-  const weighted = moodEntry.effects.map((effect) => ({
+  const weighted = effectPool.map((effect) => ({
     effect,
     weight: 1 + (effect.tag && tagList.includes(effect.tag) ? 2 : 0),
   }));
@@ -151,10 +237,12 @@ function chooseEffect(mood, tags) {
     return null;
   }
 
-  const selectedZone = pickRandomZone(moodEntry.zones) || pickRandomZone(EFFECT_LIBRARY[DEFAULT_MOOD]?.zones);
   const event = { ...selectedEffect };
-  if (selectedZone) {
-    event.zone = selectedZone;
+  if (!event.zone) {
+    const selectedZone = pickRandomZoneForMood(mood) || pickRandomZoneForMood(DEFAULT_MOOD);
+    if (selectedZone) {
+      event.zone = selectedZone;
+    }
   }
   return event;
 }
@@ -190,4 +278,38 @@ function pickRandomZone(zones) {
     return { ...zone };
   }
   return null;
+}
+
+function buildEffectMap(library) {
+  return Object.entries(library).reduce((map, [moodKey, entry]) => {
+    map[moodKey] = Array.isArray(entry?.effects)
+      ? entry.effects.map((effect) => ({ ...effect }))
+      : [];
+    return map;
+  }, {});
+}
+
+function cloneEffectPack(map) {
+  return Object.entries(map).reduce((pack, [moodKey, effects]) => {
+    pack[moodKey] = Array.isArray(effects) ? effects.map((effect) => ({ ...effect })) : [];
+    return pack;
+  }, {});
+}
+
+function getEffectPoolForMood(mood) {
+  const activePack = EFFECT_PACKS[activeEffectPack] || EFFECT_PACKS.default;
+  const fallbackPack = EFFECT_PACKS.default;
+
+  if (Array.isArray(activePack[mood]) && activePack[mood].length > 0) {
+    return activePack[mood];
+  }
+  if (Array.isArray(fallbackPack[mood]) && fallbackPack[mood].length > 0) {
+    return fallbackPack[mood];
+  }
+  return fallbackPack[DEFAULT_MOOD] ?? [];
+}
+
+function pickRandomZoneForMood(mood) {
+  const zoneSource = EFFECT_LIBRARY[mood]?.zones ?? EFFECT_LIBRARY[DEFAULT_MOOD]?.zones;
+  return pickRandomZone(zoneSource);
 }
