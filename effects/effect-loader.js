@@ -7,11 +7,44 @@ import {
   getRegisteredZones,
   cancelActiveEffect,
 } from './canvas-engine.js';
+import { logEffectEvent } from './effect-session-log.js';
 
 const DEFAULT_DURATION = 2400;
 const DEFAULT_INTERVAL = [9000, 14000];
 
 const effectTypeHandlers = new Map();
+const pluginRegistry = new Map();
+
+function createPluginApi(name) {
+  return Object.freeze({
+    registerCanvasEffect,
+    registerEffectType,
+    registerZone,
+    getRegisteredZones,
+    cancelActiveEffect,
+    log: (type, data) => logEffectEvent(`plugin:${name}:${type}`, data),
+  });
+}
+
+async function resolvePluginModule(loader) {
+  if (typeof loader === 'function') {
+    return loader();
+  }
+  if (typeof loader === 'string') {
+    return import(/* @vite-ignore */ loader);
+  }
+  throw new Error('[effect-loader] Plugin loader must be a string path or function returning a module');
+}
+
+function normalisePluginRecord(name, plugin, cleanup) {
+  const record = {
+    name,
+    plugin,
+    cleanup: typeof cleanup === 'function' ? cleanup : null,
+  };
+  pluginRegistry.set(name, record);
+  return record;
+}
 
 function sanitizeDuration(value, fallback = DEFAULT_DURATION) {
   if (!Number.isFinite(value) || value <= 0) {
@@ -164,16 +197,33 @@ export function unregisterEffectType(type) {
 export function applyEffect(event) {
   if (!event || typeof event !== 'object') {
     console.warn('[effect-loader] Invalid effect event payload');
+    logEffectEvent('effect-invalid', { event });
     return () => {};
   }
 
+  const logEntry = logEffectEvent('effect-apply', event);
   const handler = effectTypeHandlers.get(event.type);
   if (typeof handler !== 'function') {
     console.warn(`[effect-loader] No handler registered for effect type "${event.type}"`);
+    logEffectEvent('effect-missing-handler', { event });
     return () => {};
   }
 
-  return handler(event);
+  const result = handler(event);
+  if (typeof result === 'function') {
+    return () => {
+      try {
+        result();
+      } finally {
+        logEffectEvent('effect-cleanup', {
+          reference: logEntry?.time,
+          type: event.type,
+          effect: event.effect,
+        });
+      }
+    };
+  }
+  return result;
 }
 
 if (!effectTypeHandlers.has('css')) {
@@ -182,6 +232,75 @@ if (!effectTypeHandlers.has('css')) {
 
 if (!effectTypeHandlers.has('canvas')) {
   registerEffectType('canvas', canvasEffectHandler);
+}
+
+export async function registerEffectPlugin(name, loader, options = {}) {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error('[effect-loader] Plugin name must be a non-empty string');
+  }
+
+  const pluginName = name.trim();
+  if (pluginRegistry.has(pluginName)) {
+    return pluginRegistry.get(pluginName);
+  }
+
+  try {
+    const module = await resolvePluginModule(loader);
+    const plugin = module?.default ?? module;
+    if (!plugin) {
+      console.warn(`[effect-loader] Plugin "${pluginName}" did not export a usable value`);
+      logEffectEvent('plugin-empty', { name: pluginName });
+      return null;
+    }
+
+    const api = createPluginApi(pluginName);
+    let cleanup = null;
+
+    if (typeof plugin === 'function') {
+      cleanup = await plugin(api, options) ?? null;
+    } else if (plugin && typeof plugin.register === 'function') {
+      cleanup = await plugin.register(api, options) ?? null;
+    } else if (plugin && typeof plugin.canvasEffect === 'function') {
+      registerCanvasEffect(pluginName, plugin.canvasEffect);
+    } else if (plugin && typeof plugin.effect === 'function') {
+      registerCanvasEffect(pluginName, plugin.effect);
+    } else {
+      console.warn(`[effect-loader] Plugin "${pluginName}" did not expose a registerable effect`);
+      logEffectEvent('plugin-invalid', { name: pluginName, keys: Object.keys(plugin) });
+      return null;
+    }
+
+    const record = normalisePluginRecord(pluginName, plugin, cleanup);
+    logEffectEvent('plugin-registered', { name: pluginName });
+    return record;
+  } catch (error) {
+    console.warn(`[effect-loader] Failed to load plugin "${pluginName}"`, error);
+    logEffectEvent('plugin-error', { name: pluginName, message: error?.message ?? String(error) });
+    return null;
+  }
+}
+
+export function unregisterEffectPlugin(name) {
+  if (typeof name !== 'string' || !name.trim()) {
+    return false;
+  }
+  const pluginName = name.trim();
+  const record = pluginRegistry.get(pluginName);
+  if (!record) {
+    return false;
+  }
+  try {
+    record.cleanup?.();
+  } catch (error) {
+    console.warn(`[effect-loader] Failed to cleanup plugin "${pluginName}"`, error);
+  }
+  pluginRegistry.delete(pluginName);
+  logEffectEvent('plugin-unregistered', { name: pluginName });
+  return true;
+}
+
+export function getRegisteredEffectPlugins() {
+  return new Map(pluginRegistry);
 }
 
 function resolveIntervalForMood(moodKey, config) {
