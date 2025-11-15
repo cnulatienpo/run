@@ -1,5 +1,5 @@
 {
-  "defaultMood": "dreamcore",
+  "defaultMood": "ambient",
   "defaultDuration": 2400,
   "interval": [9000, 14000],
   "pacePresets": {
@@ -14,30 +14,19 @@
     "bottom": { "shape": "rect", "x": 0.15, "y": 0.65, "w": 0.7, "h": 0.3 }
   },
   "moods": {
-    "dreamcore": {
-      "pace": "fast",
-      "zones": ["center", "full"],
-      "effects": [
-        { "type": "css", "effect": "fx-softPulse", "duration": 2200 },
-        { "type": "canvas", "effect": "wave", "duration": 3800 },
-        { "type": "canvas", "effect": "bloom", "duration": 5200 }
-      ]
-    },
     "ambient": {
       "pace": "slow",
       "zones": ["full", "bottom"],
       "effects": [
-        { "type": "canvas", "effect": "wave", "duration": 5200, "options": { "intensity": 0.35 } }
-      ]
-    },
-    "glide": {
-      "pace": "fast",
-      "zones": [
-        "center",
-        { "shape": "rect", "x": 0.1, "y": 0.2, "w": 0.8, "h": 0.5 }
-      ],
-      "effects": [
-        { "type": "canvas", "effect": "drift", "duration": 4800 }
+        { "type": "css", "effect": "fx-softPulse", "duration": 3000, "intensity": "low", "tag": "haze" },
+        {
+          "type": "canvas",
+          "effect": "hueshift",
+          "zone": { "shape": "rect", "x": 0.2, "y": 0.6, "w": 0.3, "h": 0.2 },
+          "duration": 4000,
+          "intensity": "low",
+          "tag": "ambient"
+        }
       ]
     },
     "rare": {
@@ -46,7 +35,47 @@
         { "shape": "circle", "x": 0.5, "y": 0.4, "r": 0.2 }
       ],
       "effects": [
-        { "type": "canvas", "effect": "wave", "duration": 4200 }
+        {
+          "type": "canvas",
+          "effect": "ripple",
+          "zone": { "shape": "circle", "x": 0.5, "y": 0.4, "r": 0.2 },
+          "duration": 4000,
+          "intensity": "medium",
+          "tag": "glide"
+        }
+      ]
+    },
+    "glide": {
+      "pace": "fast",
+      "zones": [
+        "center",
+        { "shape": "rect", "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4 }
+      ],
+      "effects": [
+        {
+          "type": "canvas",
+          "effect": "melt",
+          "zone": { "shape": "rect", "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4 },
+          "duration": 5000,
+          "intensity": "high",
+          "tag": "vapor"
+        }
+      ]
+    },
+    "dreamcore": {
+      "pace": "fast",
+      "zones": ["center", "full"],
+      "effects": [
+        { "type": "css", "effect": "fx-softPulse", "duration": 2200, "intensity": "medium", "tag": "haze" },
+        {
+          "type": "canvas",
+          "effect": "wave",
+          "zone": { "shape": "circle", "x": 0.4, "y": 0.6, "r": 0.3 },
+          "duration": 6000,
+          "intensity": "high",
+          "tag": "rare"
+        },
+        { "type": "canvas", "effect": "bloom", "duration": 5200, "intensity": "medium", "tag": "ambient" }
       ]
     }
   }

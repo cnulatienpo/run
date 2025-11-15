@@ -60,24 +60,36 @@ function resolveElement(target) {
 }
 
 function cssEffectHandler(event) {
-  const { effect, className, duration, target } = event;
-  const cssClass = (className || effect || '').trim();
-  if (!cssClass) {
+  const { effect, className, duration, target, intensity } = event;
+  const baseClass = (className || effect || '').trim();
+  if (!baseClass) {
     console.warn('[effect-loader] Missing CSS class name for css effect event.');
     return () => {};
   }
 
   const element = resolveElement(target);
   const timeoutDuration = sanitizeDuration(duration);
+  const normalizedIntensity = typeof intensity === 'string' ? intensity.trim() : '';
 
-  element.classList.add(cssClass);
+  const classes = new Set();
+  baseClass
+    .split(/\s+/)
+    .filter(Boolean)
+    .forEach((cls) => classes.add(cls));
+
+  if (!className && normalizedIntensity && !baseClass.includes(' ')) {
+    classes.add(`${baseClass}-${normalizedIntensity}`);
+  }
+
+  const classList = Array.from(classes);
+  element.classList.add(...classList);
   const timeoutId = window.setTimeout(() => {
-    element.classList.remove(cssClass);
+    classList.forEach((cls) => element.classList.remove(cls));
   }, timeoutDuration);
 
   return () => {
     window.clearTimeout(timeoutId);
-    element.classList.remove(cssClass);
+    classList.forEach((cls) => element.classList.remove(cls));
   };
 }
 
@@ -88,8 +100,22 @@ function canvasEffectHandler(event) {
     return () => {};
   }
 
-  initCanvas(options?.canvasOptions);
-  return triggerCanvasEffect(effect, zone, sanitizeDuration(duration, DEFAULT_DURATION), options);
+  const normalizedOptions =
+    options && typeof options === 'object'
+      ? { ...options }
+      : {};
+
+  if (event.intensity !== undefined && normalizedOptions.intensity === undefined) {
+    normalizedOptions.intensity = event.intensity;
+  }
+
+  initCanvas(normalizedOptions?.canvasOptions);
+  return triggerCanvasEffect(
+    effect,
+    zone,
+    sanitizeDuration(duration, DEFAULT_DURATION),
+    normalizedOptions,
+  );
 }
 
 function applyRegisteredZones(configZones = {}) {

@@ -19,23 +19,39 @@ const MOOD_CURVE = [
 ];
 
 let sessionStart = Date.now();
+let lastSpawn = 0;
+
+const EFFECT_INTERVAL = 4000; // minimum ms between effects
+const RARE_CHANCE = 0.02; // 2% chance for rare override
 
 export function spawnLoop(stepRate, bpm) {
   const now = Date.now();
+  if (now - lastSpawn < EFFECT_INTERVAL) {
+    return;
+  }
+
   const t = (now - sessionStart) / SESSION_DURATION_MS;
   const curveMood = getMoodFromCurve(t);
   const vibeBoost = getVibeBoost(stepRate, bpm);
   const selectedMood = applyVibeToMood(curveMood, vibeBoost);
   const tagInfluence = getRecentTags();
 
-  const hallucination = chooseEffect(selectedMood, tagInfluence);
+  let hallucination = null;
+  if (Math.random() < RARE_CHANCE && EFFECT_LIBRARY.rare) {
+    hallucination = chooseEffect('rare', tagInfluence);
+  }
+  if (!hallucination) {
+    hallucination = chooseEffect(selectedMood, tagInfluence);
+  }
   if (hallucination) {
     applyEffect(hallucination);
+    lastSpawn = now;
   }
 }
 
 export function resetSessionClock() {
   sessionStart = Date.now();
+  lastSpawn = 0;
 }
 
 function registerConfiguredZones(zones) {
