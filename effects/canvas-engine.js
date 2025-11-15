@@ -381,46 +381,126 @@ export function triggerCanvasEffect(effectName, zoneSpec, duration, options = {}
 }
 
 function registerBuiltInEffects() {
-  if (canvasEffects.has('wave')) {
-    return;
+  if (!canvasEffects.has('wave')) {
+    registerCanvasEffect('wave', (context, state) => {
+      const { canvas: currentCanvas, elapsed, progress, zoneMetrics, options = {} } = state;
+      const intensity = typeof options.intensity === 'number' ? options.intensity : 0.45;
+      const width = currentCanvas.width;
+      const height = currentCanvas.height;
+
+      const hue = (elapsed / 15) % 360;
+      const alpha = 0.25 + 0.4 * Math.sin(progress * Math.PI);
+
+      context.fillStyle = `hsla(${hue.toFixed(2)}, 80%, 60%, ${alpha.toFixed(3)})`;
+      context.fillRect(0, 0, width, height);
+
+      context.globalCompositeOperation = 'lighter';
+      context.lineWidth = Math.max(1.5, intensity * 6);
+      context.strokeStyle = `hsla(${(hue + 60) % 360}, 90%, 70%, ${Math.max(0.15, alpha)})`;
+      context.beginPath();
+
+      const effectiveHeight = zoneMetrics?.shape === 'circle' ? zoneMetrics.radius : zoneMetrics?.height ?? height;
+      const effectiveWidth = zoneMetrics?.shape === 'circle' ? zoneMetrics.radius * 2 : zoneMetrics?.width ?? width;
+      const waveHeight = Math.max(12, effectiveHeight * intensity);
+      const wavelength = Math.max(40, effectiveWidth / 6);
+
+      for (let x = 0; x <= width; x += 12) {
+        const normalizedX = x / width;
+        const offset = Math.sin(normalizedX * Math.PI * 4 + elapsed / 180) * waveHeight;
+        const y = height / 2 + offset * Math.sin(progress * Math.PI * 2 + x / wavelength);
+        if (x === 0) {
+          context.moveTo(x, y);
+        } else {
+          context.lineTo(x, y);
+        }
+      }
+
+      context.stroke();
+      context.globalCompositeOperation = 'source-over';
+    });
   }
 
-  registerCanvasEffect('wave', (context, state) => {
-    const { canvas: currentCanvas, elapsed, progress, zoneMetrics, options = {} } = state;
-    const intensity = typeof options.intensity === 'number' ? options.intensity : 0.45;
-    const width = currentCanvas.width;
-    const height = currentCanvas.height;
+  if (!canvasEffects.has('drift')) {
+    registerCanvasEffect('drift', (context, state) => {
+      const { canvas: currentCanvas, elapsed, progress, zoneMetrics } = state;
+      const width = currentCanvas.width;
+      const height = currentCanvas.height;
+      const layers = 4;
+      const baseHue = (elapsed / 28) % 360;
+      const zoneWidth = zoneMetrics?.width ?? (zoneMetrics?.shape === 'circle' ? zoneMetrics.radius * 2 : width);
+      const zoneHeight = zoneMetrics?.height ?? (zoneMetrics?.shape === 'circle' ? zoneMetrics.radius * 2 : height);
+      const zoneCenterX =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.centerX
+          : (zoneMetrics?.x ?? 0) + zoneWidth / 2;
+      const zoneCenterY =
+        zoneMetrics?.shape === 'circle'
+          ? zoneMetrics.centerY
+          : (zoneMetrics?.y ?? 0) + zoneHeight / 2;
 
-    const hue = (elapsed / 15) % 360;
-    const alpha = 0.25 + 0.4 * Math.sin(progress * Math.PI);
+      context.globalCompositeOperation = 'lighter';
 
-    context.fillStyle = `hsla(${hue.toFixed(2)}, 80%, 60%, ${alpha.toFixed(3)})`;
-    context.fillRect(0, 0, width, height);
+      for (let i = 0; i < layers; i += 1) {
+        const layerProgress = (progress + i * 0.15) % 1;
+        const hue = (baseHue + i * 24) % 360;
+        const alpha = 0.12 + 0.15 * Math.sin(elapsed / 320 + i);
+        const offsetX = Math.sin(elapsed / 900 + i * 1.6) * zoneWidth * 0.15;
+        const offsetY = Math.cos(elapsed / 700 + i * 1.2) * zoneHeight * 0.12;
 
-    context.globalCompositeOperation = 'lighter';
-    context.lineWidth = Math.max(1.5, intensity * 6);
-    context.strokeStyle = `hsla(${(hue + 60) % 360}, 90%, 70%, ${Math.max(0.15, alpha)})`;
-    context.beginPath();
+        const gradient = context.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, `hsla(${(hue + 15) % 360}, 80%, 72%, ${alpha.toFixed(3)})`);
+        gradient.addColorStop(1, `hsla(${(hue + 120) % 360}, 85%, 58%, ${(alpha * 0.8).toFixed(3)})`);
 
-    const effectiveHeight = zoneMetrics?.shape === 'circle' ? zoneMetrics.radius : zoneMetrics?.height ?? height;
-    const effectiveWidth = zoneMetrics?.shape === 'circle' ? zoneMetrics.radius * 2 : zoneMetrics?.width ?? width;
-    const waveHeight = Math.max(12, effectiveHeight * intensity);
-    const wavelength = Math.max(40, effectiveWidth / 6);
+        context.fillStyle = gradient;
+        const sizeMultiplier = 0.45 + layerProgress * 0.6;
+        const rectWidth = zoneWidth * sizeMultiplier;
+        const rectHeight = zoneHeight * sizeMultiplier;
+        const centerX = zoneCenterX + offsetX;
+        const centerY = zoneCenterY + offsetY;
 
-    for (let x = 0; x <= width; x += 12) {
-      const normalizedX = x / width;
-      const offset = Math.sin(normalizedX * Math.PI * 4 + elapsed / 180) * waveHeight;
-      const y = height / 2 + offset * Math.sin(progress * Math.PI * 2 + x / wavelength);
-      if (x === 0) {
-        context.moveTo(x, y);
-      } else {
-        context.lineTo(x, y);
+        context.save();
+        context.translate(centerX, centerY);
+        context.rotate(Math.sin(elapsed / 1200 + i) * 0.4);
+        context.translate(-rectWidth / 2, -rectHeight / 2);
+        context.globalAlpha = Math.max(0.08, alpha);
+        context.fillRect(0, 0, rectWidth, rectHeight);
+        context.restore();
       }
-    }
 
-    context.stroke();
-    context.globalCompositeOperation = 'source-over';
-  });
+      context.globalCompositeOperation = 'source-over';
+    });
+  }
+
+  if (!canvasEffects.has('bloom')) {
+    registerCanvasEffect('bloom', (context, state) => {
+      const { canvas: currentCanvas, elapsed, progress, zoneMetrics } = state;
+      const width = currentCanvas.width;
+      const height = currentCanvas.height;
+      const centerX = zoneMetrics?.shape === 'circle'
+        ? zoneMetrics.centerX
+        : (zoneMetrics?.x ?? 0) + (zoneMetrics?.width ?? width) / 2;
+      const centerY = zoneMetrics?.shape === 'circle'
+        ? zoneMetrics.centerY
+        : (zoneMetrics?.y ?? 0) + (zoneMetrics?.height ?? height) / 2;
+      const radius = zoneMetrics?.shape === 'circle'
+        ? zoneMetrics.radius
+        : Math.max((zoneMetrics?.width ?? width), (zoneMetrics?.height ?? height)) / 2;
+
+      const pulse = 0.4 + 0.35 * Math.sin(progress * Math.PI * 2 + elapsed / 220);
+      const gradientRadius = Math.max(radius * (0.8 + pulse), Math.min(width, height) * 0.3);
+      const gradient = context.createRadialGradient(centerX, centerY, radius * 0.1, centerX, centerY, gradientRadius);
+
+      const hue = (elapsed / 20) % 360;
+      gradient.addColorStop(0, `hsla(${hue.toFixed(1)}, 95%, 85%, 0.9)`);
+      gradient.addColorStop(0.35, `hsla(${(hue + 40) % 360}, 88%, 70%, 0.55)`);
+      gradient.addColorStop(1, `hsla(${(hue + 120) % 360}, 80%, 50%, 0)`);
+
+      context.globalCompositeOperation = 'screen';
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+      context.globalCompositeOperation = 'source-over';
+    });
+  }
 }
 
 registerBuiltInEffects();
