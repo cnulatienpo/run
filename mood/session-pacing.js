@@ -13,6 +13,7 @@ registerConfiguredZones(effectConfig?.zones ?? {});
 
 const EFFECT_PACKS = {
   default: cloneEffectPack(EFFECT_MAP),
+  dreamcore: cloneEffectPack(EFFECT_MAP),
   fog: {
     ambient: [
       ...(EFFECT_MAP.ambient ?? []),
@@ -54,8 +55,14 @@ const MOOD_CURVE = [
 let sessionStart = Date.now();
 let lastSpawn = 0;
 
-const EFFECT_INTERVAL = 4000; // minimum ms between effects
+let effectInterval = 4000; // minimum ms between effects
+const MIN_EFFECT_INTERVAL = 1000;
 const RARE_CHANCE = 0.02; // 2% chance for rare override
+
+let bpmSmooth = 100;
+const ENV_CHECK_INTERVAL = 10000; // 10 sec
+let lastEnvCheck = 0;
+let envMonitorId = null;
 
 let lastStepTime = Date.now();
 let stillnessCheckInterval = 5000;
@@ -63,8 +70,12 @@ let stillnessIntervalId = null;
 const STILLNESS_THRESHOLD = 15000; // 15 sec
 
 export function spawnLoop(stepRate, bpm) {
+  if (Number.isFinite(bpm)) {
+    updateBPM(bpm);
+  }
+
   const now = Date.now();
-  if (now - lastSpawn < EFFECT_INTERVAL) {
+  if (now - lastSpawn < effectInterval) {
     return;
   }
 
@@ -74,8 +85,11 @@ export function spawnLoop(stepRate, bpm) {
   const selectedMood = applyVibeToMood(curveMood, vibeBoost);
   const tagInfluence = getRecentTags();
 
+  const activePack = EFFECT_PACKS[activeEffectPack] || EFFECT_PACKS.default;
+  const hasRare = Array.isArray(activePack?.rare) && activePack.rare.length > 0;
+
   let hallucination = null;
-  if (Math.random() < RARE_CHANCE && EFFECT_LIBRARY.rare) {
+  if (Math.random() < RARE_CHANCE && hasRare) {
     hallucination = chooseEffect('rare', tagInfluence);
   }
   if (!hallucination) {
@@ -85,6 +99,76 @@ export function spawnLoop(stepRate, bpm) {
     applyEffect(hallucination);
     lastSpawn = now;
   }
+}
+
+export function updateBPM(newBPM) {
+  const numericBpm = Number(newBPM);
+  if (!Number.isFinite(numericBpm) || numericBpm <= 0) {
+    return bpmSmooth;
+  }
+
+  bpmSmooth = bpmSmooth * 0.9 + numericBpm * 0.1;
+
+  const normalizedBpm = Math.max(bpmSmooth, 1);
+  effectInterval = Math.max(MIN_EFFECT_INTERVAL, Math.round(60000 / normalizedBpm));
+  return bpmSmooth;
+}
+
+export function monitorEnvironment(videoMetaFn, systemTimeFn = () => new Date()) {
+  const host = typeof window !== 'undefined' ? window : globalThis;
+  if (!host?.setInterval) {
+    console.warn('[session-pacing] Unable to monitor environment without timer APIs.');
+    return null;
+  }
+
+  const getVideoTitle = typeof videoMetaFn === 'function' ? videoMetaFn : () => '';
+  const getTime = typeof systemTimeFn === 'function' ? systemTimeFn : () => new Date();
+
+  const evaluateEnvironment = () => {
+    const now = Date.now();
+    if (now - lastEnvCheck < ENV_CHECK_INTERVAL) {
+      return;
+    }
+    lastEnvCheck = now;
+
+    let title = '';
+    try {
+      title = getVideoTitle() ?? '';
+    } catch (error) {
+      console.warn('[session-pacing] Failed to read video metadata:', error);
+    }
+
+    let hour = null;
+    try {
+      const currentTime = getTime();
+      if (currentTime && typeof currentTime.getHours === 'function') {
+        hour = currentTime.getHours();
+      }
+    } catch (error) {
+      console.warn('[session-pacing] Failed to read system time:', error);
+    }
+
+    const normalizedHour = Number.isFinite(hour) ? hour : new Date().getHours();
+    const normalizedTitle = typeof title === 'string' ? title : '';
+
+    let nextPack = 'default';
+    if (/sewer|underground|metro/i.test(normalizedTitle)) {
+      nextPack = 'fog';
+    } else if (/forest|park/i.test(normalizedTitle)) {
+      nextPack = 'default';
+    } else if (normalizedHour >= 21 || normalizedHour < 5) {
+      nextPack = 'dreamcore';
+    }
+
+    switchEffectPack(nextPack);
+  };
+
+  evaluateEnvironment();
+  if (envMonitorId) {
+    host.clearInterval(envMonitorId);
+  }
+  envMonitorId = host.setInterval(evaluateEnvironment, ENV_CHECK_INTERVAL);
+  return envMonitorId;
 }
 
 export function resetSessionClock() {
@@ -140,6 +224,22 @@ export function switchEffectPack(name) {
     activeEffectPack = normalized;
   }
   return activeEffectPack;
+}
+
+export function getCurrentVideoTitle() {
+  if (typeof document === 'undefined') {
+    return '';
+  }
+  const iframe = document.querySelector('iframe');
+  if (!iframe || !iframe.contentWindow) {
+    return '';
+  }
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    return doc?.title || '';
+  } catch (error) {
+    return '';
+  }
 }
 
 function registerConfiguredZones(zones) {
