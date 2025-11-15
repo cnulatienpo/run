@@ -12,6 +12,12 @@ import { fileURLToPath } from 'url';
 import { loadEnv } from './config/loadEnv.js';
 import { isSessionBlocked } from './config/noFlyList.js';
 import { recordMediaSession } from './db/mediaIndex.js';
+import {
+  ensureTrack,
+  getTrack,
+  expandTrackMetadata,
+  extractTrackMetadataFromNoodle,
+} from './db/mediaTracks.js';
 import { appendSessionEntry } from './db/sessionRegistry.js';
 import { logDebug, logError, logInfo, logWarn } from './log.js';
 import { syntheticPass } from './syntheticPass.js';
@@ -142,6 +148,29 @@ app.get('/rooms/active', (req, res) => {
   res.json(getActiveRooms());
 });
 
+app.get('/media/:track_id', async (req, res) => {
+  const trackId = req.params.track_id;
+  if (!trackId) {
+    return res.status(400).json({ status: 'error', message: 'track_id is required' });
+  }
+  try {
+    const track = await getTrack(trackId);
+    if (!track) {
+      return res.status(404).json({ status: 'not_found', message: `Track ${trackId} not found` });
+    }
+    const expandFlag = typeof req.query.expand === 'string'
+      ? req.query.expand.toLowerCase() === 'true'
+      : Array.isArray(req.query.expand)
+        ? req.query.expand.some((value) => String(value).toLowerCase() === 'true')
+        : false;
+    const payload = expandFlag ? expandTrackMetadata(track) : track;
+    return res.json(payload);
+  } catch (error) {
+    logError('MEDIA', 'Failed to resolve track metadata', { message: error.message, trackId });
+    return res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
 app.post('/upload', async (req, res) => {
   const rawNoodle = req.body?.noodle ?? req.body ?? {};
 
@@ -230,6 +259,8 @@ app.post('/upload', async (req, res) => {
 
     const mediaStats = extractMediaStats(realNoodle);
     if (mediaStats.trackId) {
+      const trackMetadata = extractTrackMetadataFromNoodle(realNoodle);
+      await ensureTrack(mediaStats.trackId, trackMetadata);
       await recordMediaSession(mediaStats);
     }
 
@@ -420,6 +451,8 @@ async function finaliseStreamBuffer(sessionId, buffer) {
   if (buffer.mediaTrackId) {
     const stats = extractMediaStats(outputNoodle);
     if (stats.trackId) {
+      const trackMetadata = extractTrackMetadataFromNoodle(outputNoodle);
+      await ensureTrack(stats.trackId, trackMetadata);
       await recordMediaSession(stats);
     }
   }
