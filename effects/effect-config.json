@@ -1,0 +1,42 @@
+{
+  "defaultMood": "dreamcore",
+  "defaultDuration": 2400,
+  "interval": [9000, 14000],
+  "pacePresets": {
+    "fast": [5000, 8000],
+    "slow": [15000, 22000],
+    "rare": [26000, 42000]
+  },
+  "zones": {
+    "full": { "shape": "rect", "x": 0, "y": 0, "w": 1, "h": 1 },
+    "center": { "shape": "circle", "x": 0.5, "y": 0.45, "r": 0.28 },
+    "topLeft": { "shape": "rect", "x": 0.05, "y": 0.05, "w": 0.35, "h": 0.35 },
+    "bottom": { "shape": "rect", "x": 0.15, "y": 0.65, "w": 0.7, "h": 0.3 }
+  },
+  "moods": {
+    "dreamcore": {
+      "pace": "fast",
+      "zones": ["center", "full"],
+      "effects": [
+        { "type": "css", "effect": "fx-softPulse", "duration": 2200 },
+        { "type": "canvas", "effect": "wave", "duration": 3800 }
+      ]
+    },
+    "ambient": {
+      "pace": "slow",
+      "zones": ["full", "bottom"],
+      "effects": [
+        { "type": "canvas", "effect": "wave", "duration": 5200, "options": { "intensity": 0.35 } }
+      ]
+    },
+    "rare": {
+      "pace": "rare",
+      "zones": [
+        { "shape": "circle", "x": 0.5, "y": 0.4, "r": 0.2 }
+      ],
+      "effects": [
+        { "type": "canvas", "effect": "wave", "duration": 4200 }
+      ]
+    }
+  }
+}
