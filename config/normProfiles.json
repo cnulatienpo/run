@@ -1,0 +1,7 @@
+{
+  "cadence": { "mean": 1.2, "std": 0.3 },
+  "bpm": { "mean": 110, "std": 20 },
+  "avg_speed": { "mean": 1.4, "std": 0.4 },
+  "sync_ratio": { "mean": 0.8, "std": 0.1 },
+  "cadence_stability": { "mean": 0.9, "std": 0.05 }
+}

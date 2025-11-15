@@ -8,6 +8,8 @@ const {
   B2_BUCKET_NAME,
 } = process.env;
 
+const { ensurePrivacyLedger } = require('./privacyLedger');
+
 let b2Client;
 let cachedBucketId = B2_BUCKET_ID || null;
 let lastAuthorization = 0;
@@ -84,6 +86,8 @@ async function uploadToB2(noodleObject, options = {}) {
   if (!noodleObject || typeof noodleObject !== 'object') {
     throw new Error('A noodle object must be provided for upload.');
   }
+
+  ensurePrivacyLedger(noodleObject);
 
   const client = ensureClient();
   await authorizeIfNeeded(client);
