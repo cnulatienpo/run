@@ -7,6 +7,8 @@ import crypto from 'crypto';
 
 import { logDebug } from './log.js';
 import { resolveAnonymizationProfile } from './config/loadAnonymizationProfiles.js';
+import { isSessionBlocked } from './config/noFlyList.js';
+import { logAudit } from './utils/auditLogger.js';
 
 /**
  * Clones a plain data structure by JSON serialisation, ensuring we
@@ -129,6 +131,10 @@ export async function syntheticPass(noodle, options = {}) {
     throw new Error('A noodle object must be provided to synthesise.');
   }
 
+  if (await isSessionBlocked(noodle.sessionId)) {
+    throw new Error(`Session ${noodle.sessionId} is restricted and cannot be synthesised.`);
+  }
+
   const { anonymizationProfile } = options;
   const { name: resolvedProfileName, definition: profileDefinition } = await resolveAnonymizationProfile(
     anonymizationProfile,
@@ -166,6 +172,8 @@ export async function syntheticPass(noodle, options = {}) {
     anonymization_profile: synthetic.anonymization_profile,
     anonymization_profile_tag: synthetic.anonymization_profile_tag,
   });
+
+  await logAudit('GENERATION', `synthetic profile used: '${synthetic.anonymization_profile}'`);
 
   return synthetic;
 }

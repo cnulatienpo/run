@@ -86,5 +86,41 @@ export function buildNoodle(rawData = {}) {
     noodle.media_track_id = String(rawData.media_track_id ?? rawData.mediaTrackId);
   }
 
+  if (Array.isArray(rawData.event_notes)) {
+    const notes = rawData.event_notes
+      .filter((note) => note && Number.isFinite(Number(note.t_ms)))
+      .map((note) => ({
+        t_ms: Number(note.t_ms),
+        note: typeof note.note === 'string' ? note.note : String(note.note ?? ''),
+      }))
+      .filter((note) => note.note.length > 0);
+    if (notes.length > 0) {
+      noodle.event_notes = notes;
+    }
+  }
+
+  if (rawData.playback_profile && typeof rawData.playback_profile === 'object') {
+    const profile = rawData.playback_profile;
+    const normalised = {};
+    if (typeof profile.loop === 'boolean') {
+      normalised.loop = profile.loop;
+    }
+    if (Number.isFinite(Number(profile.speed))) {
+      const speedValue = Number(profile.speed);
+      if (speedValue > 0) {
+        normalised.speed = speedValue;
+      }
+    }
+    if (typeof profile.style === 'string' && profile.style.length > 0) {
+      normalised.style = profile.style;
+    }
+    if (typeof profile.audio_track_id === 'string' && profile.audio_track_id.length > 0) {
+      normalised.audio_track_id = profile.audio_track_id;
+    }
+    if (Object.keys(normalised).length > 0) {
+      noodle.playback_profile = normalised;
+    }
+  }
+
   return noodle;
 }

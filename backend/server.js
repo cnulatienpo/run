@@ -3,12 +3,14 @@
  * health monitoring endpoints.
  */
 
+import http from 'http';
 import express from 'express';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { loadEnv } from './config/loadEnv.js';
+import { isSessionBlocked } from './config/noFlyList.js';
 import { recordMediaSession } from './db/mediaIndex.js';
 import { appendSessionEntry } from './db/sessionRegistry.js';
 import { logDebug, logError, logInfo, logWarn } from './log.js';
@@ -21,6 +23,10 @@ import {
   validateNoodle,
 } from './schemas/index.js';
 import { buildNoodle } from './utils/buildNoodle.js';
+import { logAudit } from './utils/auditLogger.js';
+import { saveSnapshot, loadSnapshot } from './utils/snapshots.js';
+import { getActiveRooms, startRelayServer } from './realtime/relay.js';
+import { TimelinePlayer } from './replay/timelinePlayer.js';
 
 loadEnv();
 
@@ -132,6 +138,10 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/rooms/active', (req, res) => {
+  res.json(getActiveRooms());
+});
+
 app.post('/upload', async (req, res) => {
   const rawNoodle = req.body?.noodle ?? req.body ?? {};
 
@@ -180,6 +190,10 @@ app.post('/upload', async (req, res) => {
       schema_version: safeVersionTag,
       notes: combinedNotes,
     });
+
+    if (await isSessionBlocked(realNoodle.sessionId)) {
+      throw new Error(`Session ${realNoodle.sessionId} is flagged and cannot be uploaded.`);
+    }
     validateNoodle(realNoodle, safeVersionTag);
     if (streamMode) {
       streamWrite(res, '[VALIDATE] Success');
@@ -199,7 +213,11 @@ app.post('/upload', async (req, res) => {
     }
 
     const realResult = await uploadToB2(realNoodle, { synthetic: false });
+    await saveSnapshot(realNoodle.sessionId, safeVersionTag, realNoodle, { synthetic: false });
+    await logAudit('UPLOAD', `session:${realNoodle.sessionId} schema:${safeVersionTag} synthetic:false`);
     const syntheticResult = await uploadToB2(syntheticNoodle, { synthetic: true });
+    await saveSnapshot(syntheticNoodle.sessionId, safeVersionTag, syntheticNoodle, { synthetic: true });
+    await logAudit('UPLOAD', `session:${syntheticNoodle.sessionId} schema:${safeVersionTag} synthetic:true`);
 
     const sessionRecord = await appendSessionEntry({
       session_id: realNoodle.sessionId,
@@ -460,7 +478,53 @@ app.post('/stream', (req, res) => {
   }
 });
 
+app.get('/play/:session_id', async (req, res) => {
+  const sessionId = req.params.session_id;
+  if (!sessionId) {
+    return res.status(400).json({ status: 'error', message: 'session_id is required' });
+  }
+
+  try {
+    const syntheticFlag = req.query.synthetic === 'true' ? true : req.query.synthetic === 'false' ? false : undefined;
+    const snapshot = await loadSnapshot(sessionId, { synthetic: syntheticFlag });
+    const noodle = snapshot?.body ?? snapshot;
+    const requestedSpeed = Number(req.query.speed);
+    const speed = Number.isFinite(requestedSpeed) && requestedSpeed > 0
+      ? requestedSpeed
+      : undefined;
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const player = new TimelinePlayer(noodle, { speed });
+    player.onStep((event) => {
+      res.write(`data: ${JSON.stringify({ type: 'event', data: event })}\n\n`);
+    });
+    player.onNote((note) => {
+      res.write(`data: ${JSON.stringify({ type: 'note', data: note })}\n\n`);
+    });
+    player.onEnd(() => {
+      res.write(`data: ${JSON.stringify({ type: 'end' })}\n\n`);
+      res.end();
+    });
+
+    req.on('close', () => {
+      player.stop();
+    });
+
+    player.play();
+  } catch (error) {
+    logWarn('PLAYBACK', 'Failed to initiate playback', { sessionId, message: error.message });
+    res.status(404).json({ status: 'error', message: error.message });
+  }
+  return undefined;
+});
+
 const port = Number(process.env.PORT) || 4000;
-app.listen(port, () => {
+const httpServer = http.createServer(app);
+startRelayServer(httpServer);
+
+httpServer.listen(port, () => {
   logInfo('SERVER', `Noodle backend listening on port ${port}`);
 });
