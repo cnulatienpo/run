@@ -21,6 +21,13 @@ let cachedBucketId = BUCKET_ID || null;
 let lastAuth = 0;
 const AUTH_TTL_MS = 1000 * 60 * 60 * 23; // 23 hours
 
+async function ensureClientContext() {
+  const clientInstance = ensureClient();
+  await authorise(clientInstance);
+  const bucketId = await resolveBucketId(clientInstance);
+  return { clientInstance, bucketId };
+}
+
 /**
  * Ensures the Backblaze client is instantiated with the configured
  * credentials.
@@ -130,20 +137,13 @@ export async function uploadToB2(noodle, options = {}) {
   }
 
   const syntheticFlag = options.synthetic ?? noodle.synthetic === true;
-  const clientInstance = ensureClient();
-  await authorise(clientInstance);
-  const bucketId = await resolveBucketId(clientInstance);
-
   const fileName = deriveUploadPath(noodle, syntheticFlag);
   const fileBuffer = Buffer.from(JSON.stringify(noodle, null, 2));
 
-  const { data: uploadData } = await clientInstance.getUploadUrl({ bucketId });
-  const uploadResponse = await clientInstance.uploadFile({
-    uploadUrl: uploadData.uploadUrl,
-    uploadAuthToken: uploadData.authorizationToken,
+  const uploadResponse = await uploadBufferToB2({
+    buffer: fileBuffer,
     fileName,
-    data: fileBuffer,
-    mime: 'application/json',
+    contentType: 'application/json',
     info: {
       synthetic: syntheticFlag ? 'true' : 'false',
       version: String(noodle.version ?? '1.0.0'),
@@ -151,19 +151,44 @@ export async function uploadToB2(noodle, options = {}) {
     },
   });
 
-  const publicUrl = deriveFileUrl(fileName);
   const result = {
     fileName,
     synthetic: syntheticFlag,
     version: noodle.version ?? '1.0.0',
-    fileId: uploadResponse?.data?.fileId,
-    url: publicUrl,
+    fileId: uploadResponse?.fileId,
+    url: uploadResponse?.url,
   };
 
   logInfo('UPLOAD', 'Uploaded noodle to Backblaze B2', result);
-  logDebug('UPLOAD', 'Raw upload response', uploadResponse?.data);
+  logDebug('UPLOAD', 'Raw upload response', uploadResponse?.raw);
 
   return result;
+}
+
+export async function uploadBufferToB2({ buffer, fileName, contentType = 'application/octet-stream', info = {} }) {
+  if (!Buffer.isBuffer(buffer)) {
+    throw new Error('uploadBufferToB2 expects a Buffer payload.');
+  }
+
+  const { clientInstance, bucketId } = await ensureClientContext();
+  const { data: uploadData } = await clientInstance.getUploadUrl({ bucketId });
+  const uploadResponse = await clientInstance.uploadFile({
+    uploadUrl: uploadData.uploadUrl,
+    uploadAuthToken: uploadData.authorizationToken,
+    fileName,
+    data: buffer,
+    mime: contentType,
+    info,
+  });
+
+  const publicUrl = deriveFileUrl(fileName);
+
+  return {
+    fileName,
+    fileId: uploadResponse?.data?.fileId,
+    url: publicUrl,
+    raw: uploadResponse?.data,
+  };
 }
 
 /**
