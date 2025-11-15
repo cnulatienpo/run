@@ -19,7 +19,8 @@
       "zones": ["center", "full"],
       "effects": [
         { "type": "css", "effect": "fx-softPulse", "duration": 2200 },
-        { "type": "canvas", "effect": "wave", "duration": 3800 }
+        { "type": "canvas", "effect": "wave", "duration": 3800 },
+        { "type": "canvas", "effect": "bloom", "duration": 5200 }
       ]
     },
     "ambient": {
@@ -27,6 +28,16 @@
       "zones": ["full", "bottom"],
       "effects": [
         { "type": "canvas", "effect": "wave", "duration": 5200, "options": { "intensity": 0.35 } }
+      ]
+    },
+    "glide": {
+      "pace": "fast",
+      "zones": [
+        "center",
+        { "shape": "rect", "x": 0.1, "y": 0.2, "w": 0.8, "h": 0.5 }
+      ],
+      "effects": [
+        { "type": "canvas", "effect": "drift", "duration": 4800 }
       ]
     },
     "rare": {
