@@ -1,14 +1,26 @@
 #!/usr/bin/env node
-import 'dotenv/config';
+/**
+ * CLI helper to validate and upload a noodle JSON file to Backblaze.
+ */
+
 import { readFile } from 'fs/promises';
 import path from 'path';
 
+import { loadEnv } from '../config/loadEnv.js';
 import { logError, logInfo } from '../log.js';
 import { buildNoodle } from '../utils/buildNoodle.js';
 import { syntheticPass } from '../syntheticPass.js';
 import { uploadToB2 } from '../uploadToB2.js';
 import { resolveSchemaVersion, validateNoodle, assertSchemaVersion } from '../schemas/index.js';
 
+loadEnv();
+
+/**
+ * Reads and parses a noodle JSON sample from disk.
+ *
+ * @param {string} relativePath Path to the noodle JSON file.
+ * @returns {Promise<any>} Parsed JSON payload.
+ */
 async function loadSample(relativePath) {
   const absolutePath = path.isAbsolute(relativePath)
     ? relativePath
@@ -17,6 +29,9 @@ async function loadSample(relativePath) {
   return JSON.parse(raw);
 }
 
+/**
+ * Main entry point for the upload utility.
+ */
 async function run() {
   const [, , filePath] = process.argv;
   if (!filePath) {
@@ -37,7 +52,7 @@ async function run() {
       schemaVersion: safeVersion,
     });
 
-    const synthetic = syntheticPass(noodle);
+    const synthetic = await syntheticPass(noodle);
     synthetic.schema_version = safeVersion;
     validateNoodle(synthetic, safeVersion);
     logInfo('CLI', 'Validated synthetic noodle payload', {

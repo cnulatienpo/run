@@ -76,6 +76,17 @@
     "anonymization_profile": {
       "type": "string"
     },
+    "anonymization_profile_tag": {
+      "type": "string"
+    },
+    "_synthetic_hash": {
+      "type": "string",
+      "minLength": 8
+    },
+    "media_track_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "notes": {
       "type": "string"
     }
