@@ -1,5 +1,6 @@
-const MAX_HISTORY = 20;
-const tagHistory = [];
+const MAX_HISTORY = 100;
+const tagQueue = [];
+const tagFrequency = new Map();
 
 function normalizeTag(tag) {
   if (typeof tag !== 'string') {
@@ -15,9 +16,19 @@ export function recordTag(tag) {
     return;
   }
 
-  tagHistory.push(normalized);
-  if (tagHistory.length > MAX_HISTORY) {
-    tagHistory.splice(0, tagHistory.length - MAX_HISTORY);
+  tagQueue.push(normalized);
+  tagFrequency.set(normalized, (tagFrequency.get(normalized) || 0) + 1);
+
+  if (tagQueue.length > MAX_HISTORY) {
+    const removed = tagQueue.shift();
+    const current = tagFrequency.get(removed);
+    if (typeof current === 'number') {
+      if (current > 1) {
+        tagFrequency.set(removed, current - 1);
+      } else {
+        tagFrequency.delete(removed);
+      }
+    }
   }
 }
 
@@ -28,15 +39,19 @@ export function recordTags(tags) {
   tags.forEach((tag) => recordTag(tag));
 }
 
-export function getRecentTags(limit = MAX_HISTORY) {
-  const bounded = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : MAX_HISTORY;
-  return tagHistory.slice(-bounded);
+export function getRecentTags(limit = 5) {
+  const bounded = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 5;
+  return Array.from(tagFrequency.entries())
+    .sort(([, countA], [, countB]) => countB - countA)
+    .slice(0, bounded)
+    .map(([tag]) => tag);
 }
 
 export function clearTagHistory() {
-  tagHistory.length = 0;
+  tagQueue.length = 0;
+  tagFrequency.clear();
 }
 
 export function getTagHistorySize() {
-  return tagHistory.length;
+  return tagQueue.length;
 }
