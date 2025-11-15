@@ -1,5 +1,16 @@
-import { v4 as uuidv4 } from 'uuid';
+/**
+ * Helper utilities for normalising noodle payloads before validation.
+ */
 
+import { randomUUID } from 'crypto';
+
+/**
+ * Normalises the timestamp used in noodle payloads, applying sensible
+ * defaults when the provided value is missing or invalid.
+ *
+ * @param {string|undefined} value Original timestamp string.
+ * @returns {string} ISO timestamp string.
+ */
 function normalizeTimestamp(value) {
   if (!value) {
     return new Date().toISOString();
@@ -11,6 +22,13 @@ function normalizeTimestamp(value) {
   return parsed.toISOString();
 }
 
+/**
+ * Normalises noodle event collections ensuring timestamps and event
+ * metadata align with schema expectations.
+ *
+ * @param {Array<Record<string, any>>} events Original event list.
+ * @returns {Array<Record<string, any>>} Sanitised event list.
+ */
 function normalizeEvents(events = []) {
   if (!Array.isArray(events)) {
     return [];
@@ -28,12 +46,20 @@ function normalizeEvents(events = []) {
     });
 }
 
+/**
+ * Constructs a noodle payload using sane defaults, derived metadata, and
+ * schema-aligned property names. This function is used by HTTP handlers
+ * and CLI utilities to ensure consistent noodle structures.
+ *
+ * @param {Record<string, any>} rawData Untrusted noodle-like input.
+ * @returns {Record<string, any>} Normalised noodle payload.
+ */
 export function buildNoodle(rawData = {}) {
   const schemaVersion = rawData.schema_version || rawData.schemaVersion;
 
   const noodle = {
     version: rawData.version ?? 1,
-    sessionId: rawData.sessionId ?? uuidv4(),
+    sessionId: rawData.sessionId ?? randomUUID(),
     timestamp: normalizeTimestamp(rawData.timestamp ?? rawData.startTime),
     data: { ...(rawData.data ?? rawData.metrics ?? {}) },
     events: normalizeEvents(rawData.events),
@@ -54,6 +80,10 @@ export function buildNoodle(rawData = {}) {
 
   if (rawData.notes) {
     noodle.notes = String(rawData.notes);
+  }
+
+  if (rawData.media_track_id || rawData.mediaTrackId) {
+    noodle.media_track_id = String(rawData.media_track_id ?? rawData.mediaTrackId);
   }
 
   return noodle;

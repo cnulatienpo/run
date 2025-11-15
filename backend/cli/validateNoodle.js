@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+/**
+ * CLI tool for validating noodle JSON payloads against the supported schema.
+ */
+
 import { readFile } from 'fs/promises';
 import path from 'path';
 
@@ -6,12 +10,21 @@ import { logError, logInfo } from '../log.js';
 import { resolveSchemaVersion, validateNoodle, assertSchemaVersion } from '../schemas/index.js';
 import { buildNoodle } from '../utils/buildNoodle.js';
 
+/**
+ * Reads a JSON file from disk and parses it into a JavaScript object.
+ *
+ * @param {string} filePath Path to the JSON file.
+ * @returns {Promise<any>} Parsed JSON payload.
+ */
 async function loadJson(filePath) {
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
   const raw = await readFile(absolute, 'utf8');
   return JSON.parse(raw);
 }
 
+/**
+ * Main entry point for the validation CLI.
+ */
 async function run() {
   const [, , filePath] = process.argv;
   if (!filePath) {

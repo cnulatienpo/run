@@ -8,14 +8,16 @@
     "start": "node server.js",
     "upload:local": "node cli/uploadLocalNoodle.js",
     "validate": "node cli/validateNoodle.js",
-    "synthesize": "node cli/synthesize.js"
+    "synthesize": "node cli/synthesize.js",
+    "generate": "node cli/genNoodleFromSchema.js",
+    "sandbox": "node ../dev/sandbox.js",
+    "test": "node test/runTests.js"
   },
   "dependencies": {
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "backblaze-b2": "^2.3.1",
     "dotenv": "^16.4.5",
-    "express": "^4.18.2",
-    "uuid": "^9.0.1"
+    "express": "^4.18.2"
   }
 }

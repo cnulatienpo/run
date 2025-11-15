@@ -1,0 +1,42 @@
+{
+  "default": {
+    "tag": "standard_v1",
+    "time_jitter_ms": {
+      "min": 300,
+      "max": 700
+    },
+    "biometric_noise_percent": {
+      "heartRate": 0.03,
+      "temperature": 0.01,
+      "steps": 0.05
+    }
+  },
+  "standard_v1": {
+    "tag": "standard_v1",
+    "extends": "default"
+  },
+  "strong": {
+    "tag": "stronghold_v1",
+    "time_jitter_ms": {
+      "min": 600,
+      "max": 1600
+    },
+    "biometric_noise_percent": {
+      "heartRate": 0.08,
+      "temperature": 0.02,
+      "steps": 0.12
+    }
+  },
+  "loose": {
+    "tag": "loosefit_v1",
+    "time_jitter_ms": {
+      "min": 150,
+      "max": 400
+    },
+    "biometric_noise_percent": {
+      "heartRate": 0.015,
+      "temperature": 0.005,
+      "steps": 0.02
+    }
+  }
+}

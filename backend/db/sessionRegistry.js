@@ -1,3 +1,7 @@
+/**
+ * File-backed session registry utilities.
+ */
+
 import { access, readFile, writeFile, mkdir } from 'fs/promises';
 import { constants } from 'fs';
 import path from 'path';
@@ -9,6 +13,9 @@ const fileUrl = new URL('./sessions.json', import.meta.url);
 const filePath = fileURLToPath(fileUrl);
 const directoryPath = path.dirname(filePath);
 
+/**
+ * Ensures the session registry store exists on disk.
+ */
 async function ensureStore() {
   await mkdir(directoryPath, { recursive: true });
   try {
@@ -19,6 +26,11 @@ async function ensureStore() {
   }
 }
 
+/**
+ * Reads and parses the session registry store.
+ *
+ * @returns {Promise<any[]>} Stored session entries.
+ */
 async function loadSessionsInternal() {
   await ensureStore();
   const raw = await readFile(filePath, 'utf8');
@@ -37,10 +49,21 @@ async function loadSessionsInternal() {
   return [];
 }
 
+/**
+ * Public helper to load all sessions from disk.
+ *
+ * @returns {Promise<any[]>} Session entries.
+ */
 export async function loadSessions() {
   return loadSessionsInternal();
 }
 
+/**
+ * Appends a session entry to the registry.
+ *
+ * @param {Record<string, any>} entry Session metadata entry.
+ * @returns {Promise<Record<string, any>>} Persisted entry.
+ */
 export async function appendSessionEntry(entry) {
   if (!entry || typeof entry !== 'object') {
     throw new Error('Session registry entry must be an object.');
@@ -56,6 +79,11 @@ export async function appendSessionEntry(entry) {
   return entry;
 }
 
+/**
+ * Returns the absolute path to the session registry store.
+ *
+ * @returns {string} Session registry file path.
+ */
 export function getSessionsFilePath() {
   return filePath;
 }
