@@ -17,6 +17,8 @@ import {
   exportSessionLog,
 } from './renderer/tag-session-logger.js';
 import { initDebugControls as initEffectDebugControls } from './effects/debug-controls.js';
+import './effects/session-replay.js';
+import { notifyStep, startStillnessWatcher, switchEffectPack } from './mood/session-pacing.js';
 
 const WS_URL = window.preloadConfig?.WS_URL || window.RTW_WS_URL || 'ws://localhost:6789';
 
@@ -127,6 +129,9 @@ function handleStepPayload(payload = {}) {
     hudApi.updateBpm(bpm);
     logBpmUpdate(bpm);
   }
+  if (Number.isFinite(steps) || Number.isFinite(bpm)) {
+    notifyStep();
+  }
   hudApi.updateLastUpdate(Date.now());
 }
 
@@ -205,6 +210,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupNetworkLayer();
   window.addEventListener('keydown', handleLogExport);
   window.addEventListener('keydown', handleDebugShortcut);
+  startStillnessWatcher();
 
   if (shouldAutoEnableDebugPanel()) {
     ensureDebugControls();
@@ -217,4 +223,5 @@ window.addEventListener('beforeunload', () => {
 
 if (typeof window !== 'undefined') {
   window.enableEffectDebugPanel = ensureDebugControls;
+  window.switchHallucinationPack = switchEffectPack;
 }
