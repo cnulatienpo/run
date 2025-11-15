@@ -203,6 +203,53 @@ function handleDebugShortcut(event) {
   }
 }
 
+function focusWithoutScroll(element) {
+  if (!element) {
+    return;
+  }
+  try {
+    element.focus({ preventScroll: true });
+  } catch (_error) {
+    element.focus();
+  }
+}
+
+function initHudVisibilityControls() {
+  const hudEl = document.getElementById('hud');
+  const hideButton = document.getElementById('hud-hide-button');
+  const toggleButton = document.getElementById('hud-floating-toggle');
+  const hiddenClass = 'hud--hidden';
+
+  if (!hudEl || !hideButton || !toggleButton) {
+    return;
+  }
+
+  const showHud = () => {
+    hudEl.classList.remove(hiddenClass);
+    toggleButton.hidden = true;
+    toggleButton.setAttribute('aria-expanded', 'true');
+    focusWithoutScroll(hideButton);
+  };
+
+  const hideHud = () => {
+    hudEl.classList.add(hiddenClass);
+    toggleButton.hidden = false;
+    toggleButton.setAttribute('aria-expanded', 'false');
+    focusWithoutScroll(toggleButton);
+  };
+
+  hideButton.addEventListener('click', hideHud);
+  toggleButton.addEventListener('click', showHud);
+
+  if (hudEl.classList.contains(hiddenClass)) {
+    toggleButton.hidden = false;
+    toggleButton.setAttribute('aria-expanded', 'false');
+  } else {
+    toggleButton.hidden = true;
+    toggleButton.setAttribute('aria-expanded', 'true');
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   hudApi = initHUD({
     onMoodChange: handleMoodChange,
@@ -218,6 +265,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('keydown', handleDebugShortcut);
   startStillnessWatcher();
   monitorEnvironment(getCurrentVideoTitle);
+  initHudVisibilityControls();
 
   if (shouldAutoEnableDebugPanel()) {
     ensureDebugControls();

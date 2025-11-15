@@ -23,16 +23,25 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 12.5vh;
+  padding: 12px 16px;
+  max-height: min(70vh, calc(100vh - 24px));
   background: rgba(0, 0, 0, 0.9);
   color: #fff;
-  padding: 8px 12px;
   z-index: 10000;
   font-family: system-ui, sans-serif;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+#hud.hud--hidden {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
 }
 
 #hud .row {
@@ -99,6 +108,37 @@ body {
 
 #fx-overlay.fx-visible {
   opacity: 1;
+}
+
+#hud-floating-toggle {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 10001;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(2, 6, 23, 0.92);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#hud-floating-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+}
+
+#hud-floating-toggle[hidden] {
+  display: none;
 }
 
 .app-shell {
