@@ -53,10 +53,12 @@ const MOOD_CURVE = [
 ];
 
 let sessionStart = Date.now();
-let lastSpawn = 0;
 
-let effectInterval = 4000; // minimum ms between effects
-const MIN_EFFECT_INTERVAL = 1000;
+let lastBeatTime = Date.now();
+let beatInterval = 600; // ~100 BPM default
+let beatCounter = 0;
+const beatGrid = 4; // fire on every 4th beat
+
 const RARE_CHANCE = 0.02; // 2% chance for rare override
 
 let bpmSmooth = 100;
@@ -69,35 +71,34 @@ let stillnessCheckInterval = 5000;
 let stillnessIntervalId = null;
 const STILLNESS_THRESHOLD = 15000; // 15 sec
 
+let currentGenre = null;
+
 export function spawnLoop(stepRate, bpm) {
-  if (Number.isFinite(bpm)) {
-    updateBPM(bpm);
-  }
+  updateBPM(bpm);
 
   const now = Date.now();
-  if (now - lastSpawn < effectInterval) {
+  if (!tickBeatGrid(now)) {
     return;
   }
 
   const t = (now - sessionStart) / SESSION_DURATION_MS;
-  const curveMood = getMoodFromCurve(t);
-  const vibeBoost = getVibeBoost(stepRate, bpm);
-  const selectedMood = applyVibeToMood(curveMood, vibeBoost);
-  const tagInfluence = getRecentTags();
+  const baseMood = getMoodFromCurve(t);
+  const vibe = getVibeProfile(bpm, stepRate);
+  const mood = applyVibeToMood(baseMood, vibe);
+  const tags = getRecentTags();
 
   const activePack = EFFECT_PACKS[activeEffectPack] || EFFECT_PACKS.default;
   const hasRare = Array.isArray(activePack?.rare) && activePack.rare.length > 0;
 
   let hallucination = null;
   if (Math.random() < RARE_CHANCE && hasRare) {
-    hallucination = chooseEffect('rare', tagInfluence);
+    hallucination = chooseEffect('rare', tags);
   }
   if (!hallucination) {
-    hallucination = chooseEffect(selectedMood, tagInfluence);
+    hallucination = chooseEffect(mood, tags);
   }
   if (hallucination) {
-    applyEffect(hallucination);
-    lastSpawn = now;
+    applyEffect(decorateEffectWithBeat(hallucination));
   }
 }
 
@@ -108,9 +109,8 @@ export function updateBPM(newBPM) {
   }
 
   bpmSmooth = bpmSmooth * 0.9 + numericBpm * 0.1;
-
-  const normalizedBpm = Math.max(bpmSmooth, 1);
-  effectInterval = Math.max(MIN_EFFECT_INTERVAL, Math.round(60000 / normalizedBpm));
+  const normalized = Math.max(bpmSmooth, 1);
+  beatInterval = 60000 / normalized;
   return bpmSmooth;
 }
 
@@ -173,7 +173,8 @@ export function monitorEnvironment(videoMetaFn, systemTimeFn = () => new Date())
 
 export function resetSessionClock() {
   sessionStart = Date.now();
-  lastSpawn = 0;
+  beatCounter = 0;
+  lastBeatTime = sessionStart;
 }
 
 export function notifyStep() {
@@ -304,20 +305,64 @@ function getMoodFromCurve(t) {
   return DEFAULT_MOOD;
 }
 
-function getVibeBoost(stepRate, bpm) {
-  if (stepRate > 140 || bpm > 130) return 'surge';
-  if (stepRate > 100 || bpm > 110) return 'medium';
-  return 'low';
+export function getVibeProfile(bpm, stepRate) {
+  const numericBpm = Number(bpm);
+  const numericSteps = Number(stepRate);
+  if (numericBpm > 130 || numericSteps > 140) return 'frenzy';
+  if (numericBpm > 110 || numericSteps > 100) return 'dance';
+  if (numericBpm > 90 || numericSteps > 80) return 'glide';
+  return 'fog';
 }
 
-function applyVibeToMood(mood, vibe) {
-  const moodMatrix = {
-    ambient: { low: 'ambient', medium: 'rare', surge: 'glide' },
-    rare: { low: 'rare', medium: 'glide', surge: 'dreamcore' },
-    glide: { low: 'rare', medium: 'dreamcore', surge: 'dreamcore' },
-    dreamcore: { low: 'glide', medium: 'dreamcore', surge: 'dreamcore' },
+function applyVibeToMood(baseMood, vibe) {
+  const vibeMap = {
+    fog: { ambient: 'ambient', rare: 'ambient', glide: 'ambient', dreamcore: 'rare' },
+    glide: { ambient: 'rare', rare: 'glide', glide: 'glide', dreamcore: 'glide' },
+    dance: { ambient: 'glide', rare: 'dreamcore', glide: 'dreamcore', dreamcore: 'dreamcore' },
+    frenzy: { ambient: 'dreamcore', rare: 'dreamcore', glide: 'dreamcore', dreamcore: 'dreamcore' },
   };
-  return moodMatrix[mood]?.[vibe] || mood || DEFAULT_MOOD;
+  return vibeMap[vibe]?.[baseMood] || baseMood || DEFAULT_MOOD;
+}
+
+export function setPlaylistTag(tag) {
+  if (typeof tag !== 'string') {
+    currentGenre = null;
+    return;
+  }
+  const normalized = tag.trim();
+  currentGenre = normalized || null;
+}
+
+function genreBias(tag) {
+  if (!currentGenre) return 0;
+  const normalizedTag = typeof tag === 'string' ? tag : '';
+  if (!normalizedTag) return 0;
+  if (normalizedTag === currentGenre) return 2;
+  if (normalizedTag.includes(currentGenre) || currentGenre.includes(normalizedTag)) return 1;
+  return 0;
+}
+
+function tickBeatGrid(now) {
+  if (!Number.isFinite(beatInterval) || beatInterval <= 0) {
+    return true;
+  }
+  if (now - lastBeatTime >= beatInterval) {
+    lastBeatTime = now;
+    beatCounter += 1;
+    return beatCounter % beatGrid === 0;
+  }
+  return false;
+}
+
+function decorateEffectWithBeat(effect) {
+  if (!effect || typeof effect !== 'object') {
+    return effect;
+  }
+  const decorated = { ...effect };
+  if (decorated.type === 'css') {
+    decorated.animationDuration = `${Math.round(Math.max(beatInterval, 16))}ms`;
+  }
+  return decorated;
 }
 
 function chooseEffect(mood, tags) {
@@ -327,10 +372,12 @@ function chooseEffect(mood, tags) {
   }
 
   const tagList = Array.isArray(tags) ? tags : [];
-  const weighted = effectPool.map((effect) => ({
-    effect,
-    weight: 1 + (effect.tag && tagList.includes(effect.tag) ? 2 : 0),
-  }));
+  const weighted = effectPool.map((effect) => {
+    const effectTag = typeof effect.tag === 'string' ? effect.tag : '';
+    const tagWeight = effectTag && tagList.includes(effectTag) ? 2 : 0;
+    const weight = 1 + tagWeight + genreBias(effectTag);
+    return { effect, weight };
+  });
 
   const selectedEffect = pickWeightedEffect(weighted);
   if (!selectedEffect) {
