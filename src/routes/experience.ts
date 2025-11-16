@@ -7,7 +7,9 @@ import {
   ClipMetadata,
   selectClipsForSession,
 } from "../services/clipSelectionService";
-import { validateExperienceSettings } from "../utils/validation";
+import { ExperienceSettings } from "../models/experience";
+import { formatAjvErrors, validateRequestBody } from "../validation/middleware";
+import { validateExperienceSettings } from "../validation/schemas";
 
 const router = express.Router();
 
@@ -33,20 +35,20 @@ router.get("/", async (req, res, next) => {
  * PUT /api/experience
  * Saves a new ExperienceSettings payload for the current user.
  */
-router.put("/", async (req, res, next) => {
-  try {
-    const userId = getUserId(req);
-    const validation = validateExperienceSettings(req.body);
-    if (!validation.valid || !validation.data) {
-      return res.status(400).json({ error: validation.errors?.join(", ") });
+router.put(
+  "/",
+  validateRequestBody(validateExperienceSettings),
+  async (req, res, next) => {
+    try {
+      const userId = getUserId(req);
+      const settings = req.body as ExperienceSettings;
+      const saved = await saveExperienceSettings(userId, settings);
+      res.json(saved);
+    } catch (err) {
+      next(err);
     }
-
-    const saved = await saveExperienceSettings(userId, validation.data);
-    res.json(saved);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * POST /api/experience/select-clips
@@ -63,11 +65,12 @@ router.post("/select-clips", async (req, res, next) => {
 
     let settings = await getExperienceSettings(userId);
     if (body.settings) {
-      const validation = validateExperienceSettings(body.settings);
-      if (!validation.valid || !validation.data) {
-        return res.status(400).json({ error: validation.errors?.join(", ") });
+      if (!validateExperienceSettings(body.settings)) {
+        return res
+          .status(400)
+          .json({ error: formatAjvErrors(validateExperienceSettings.errors) });
       }
-      settings = validation.data;
+      settings = body.settings as ExperienceSettings;
     }
 
     const selected = selectClipsForSession(clips, settings);

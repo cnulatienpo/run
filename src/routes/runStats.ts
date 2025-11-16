@@ -6,7 +6,9 @@ import {
   startSession,
   updateSessionTelemetry,
 } from "../services/runStatsService";
-import { validateTelemetryPayload } from "../utils/validation";
+import { validateRequestBody } from "../validation/middleware";
+import type { RunStartPayload, RunTelemetryPayload } from "../validation/schemas";
+import { validateRunStartPayload, validateRunTelemetryPayload } from "../validation/schemas";
 
 const router = express.Router();
 
@@ -18,42 +20,40 @@ function getUserId(req: express.Request): string {
  * POST /api/run/start
  * Starts a new telemetry session for the current user.
  */
-router.post("/start", async (req, res, next) => {
-  try {
-    const userId = getUserId(req);
-    const { trainingType, goalName } = req.body ?? {};
-    if (trainingType !== undefined && typeof trainingType !== "string") {
-      return res.status(400).json({ error: "trainingType must be a string" });
+router.post(
+  "/start",
+  validateRequestBody(validateRunStartPayload),
+  async (req, res, next) => {
+    try {
+      const userId = getUserId(req);
+      const { trainingType, goalName } = req.body as RunStartPayload;
+      await startSession(userId, trainingType, goalName);
+      res.status(201).json({ status: "started" });
+    } catch (err) {
+      next(err);
     }
-    if (goalName !== undefined && typeof goalName !== "string") {
-      return res.status(400).json({ error: "goalName must be a string" });
-    }
-
-    await startSession(userId, trainingType, goalName);
-    res.status(201).json({ status: "started" });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * POST /api/run/telemetry
  * Ingests live telemetry and returns current RunStats snapshot.
  */
-router.post("/telemetry", async (req, res) => {
-  const userId = getUserId(req);
-  const validation = validateTelemetryPayload(req.body);
-  if (!validation.valid || !validation.data) {
-    return res.status(400).json({ error: validation.errors?.join(", ") });
-  }
+router.post(
+  "/telemetry",
+  validateRequestBody(validateRunTelemetryPayload),
+  async (req, res) => {
+    const userId = getUserId(req);
+    const payload = req.body as RunTelemetryPayload;
 
-  try {
-    const stats = await updateSessionTelemetry(userId, validation.data);
-    res.json(stats);
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
+    try {
+      const stats = await updateSessionTelemetry(userId, payload);
+      res.json(stats);
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
   }
-});
+);
 
 /**
  * POST /api/run/end
