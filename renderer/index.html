@@ -51,6 +51,7 @@
       <!-- Add to HUD for manual export button -->
       <div class="row">
         <button onclick="window.downloadSessionLog()">Download Log</button>
+        <button id="passport-button" type="button">Passport 📖</button>
         <button id="hud-hide-button" type="button" style="margin-left: auto;">Hide HUD</button>
       </div>
     </div>
@@ -66,6 +67,7 @@
 
     <div id="youtube-player-container">
       <div id="youtube-player"></div>
+      <div style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 5px; z-index: 99999;">v7-FIXED</div>
     </div>
 
     <div id="fx-overlay" aria-hidden="true"></div>
@@ -76,8 +78,7 @@
       window.downloadSessionLog = downloadLog;
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="fit-client.js"></script>
-    <script src="./youtube-runner.js"></script>
-    <script src="./renderer.js" type="module"></script>
+    <script src="./passport.js?v=7" type="module"></script>
+    <script src="./renderer.js?v=7" type="module"></script>
   </body>
 </html>

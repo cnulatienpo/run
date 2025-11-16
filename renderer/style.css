@@ -11,10 +11,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.12), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(129, 140, 248, 0.14), transparent 60%),
-    radial-gradient(circle at 50% 90%, rgba(45, 212, 191, 0.08), transparent 65%),
-    #020617;
+  background: #020617;
   color: #e2e8f0;
 }
 
@@ -26,7 +23,7 @@ body {
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.92);
   color: #fff;
-  z-index: 10000;
+  z-index: 50000;
   font-family: system-ui, sans-serif;
   display: flex;
   flex-direction: row;
@@ -91,18 +88,8 @@ body {
 }
 
 #fx-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 1;
-  mix-blend-mode: screen;
-  transform: translate3d(-9999px, -9999px, 0);
-  will-change: transform, width, height, opacity;
-  transition: opacity 160ms ease-out;
+  display: none !important;
+  visibility: hidden !important;
 }
 
 #fx-overlay.fx-visible {
@@ -113,7 +100,7 @@ body {
   position: fixed;
   bottom: 18px;
   right: 18px;
-  z-index: 10001;
+  z-index: 50001;
   width: 38px;
   height: 38px;
   border-radius: 999px;
@@ -141,23 +128,15 @@ body {
 }
 
 .app-shell {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 32px;
+  display: none !important;
 }
 
 .fx-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: 32px;
-  overflow: hidden;
+  display: none !important;
 }
 
 .hud {
+  display: none !important;
   position: relative;
   width: min(420px, 100%);
   display: flex;
@@ -171,22 +150,29 @@ body {
 }
 
 #youtube-player-container {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 100px;
   box-sizing: border-box;
-  position: relative;
-  z-index: 100;
+  z-index: 1000;
+  background: transparent;
+  pointer-events: none;
 }
 
 #youtube-player {
-  width: 100%;
-  height: 720px;
-  max-height: 80vh;
-  position: relative;
-  z-index: 100;
-  background: #000;
+  width: 90%;
+  max-width: 1280px;
+  height: 80vh;
+  background: transparent;
+  z-index: 1000;
+  pointer-events: auto;
+  border: 2px solid lime;
 }
 
 .hud-header {

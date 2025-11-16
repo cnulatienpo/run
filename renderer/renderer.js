@@ -2,7 +2,8 @@ import { start } from './spawnLoop.js';
 import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';
 import { setTag } from './spawnLoop.js';
-import { connectToStepServer } from './ws-client.js';
+import { createNetworkClient } from './network.js';
+import { getPassportStamps, computePassportStats } from './passport.js';
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/fitness.activity.read',
@@ -31,7 +32,7 @@ const elements = {};
 
 initTags(setTag);
 startTimer();
-start();
+// start(); // Disabled effects temporarily
 
 document.addEventListener('DOMContentLoaded', () => {
   cacheDom();
@@ -41,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeYouTubePlayer();
   initializeGoogleAuth();
   connectStepServerFallback();
+  populateHardcodedPlaylists();
 });
 
 function cacheDom() {
@@ -152,6 +154,10 @@ function setupEventListeners() {
       }
     }
   });
+
+  document.getElementById('passport-button')?.addEventListener('click', () => {
+    window.open('passport-page.html', '_blank');
+  });
 }
 
 function initializeYouTubePlayer() {
@@ -182,6 +188,8 @@ function createYouTubePlayer() {
       modestbranding: 1,
       rel: 0,
       mute: 0,
+      listType: 'playlist',
+      list: 'PLFgquLnL59alW3xmYiWRaoz0oM3H17Lth', // City 4K Walk Tour
     },
     events: {
       onReady: onYouTubePlayerReady,
@@ -476,6 +484,22 @@ function populatePlaylistDropdown(playlists) {
   }
 }
 
+function populateHardcodedPlaylists() {
+  const hardcodedPlaylists = [
+    { id: 'PLe4Eo7QChXDSjIgyi85VX5uVEngpw8gUB', title: 'City Walking Tours (4K)' },
+    { id: 'PLSOO4vYXpMCe01uTOmj_3_G4C8-Kjy26X', title: 'Night City Run' },
+    { id: 'PLbpi6ZahtOH6blw5yrbnIuDrPq3NbS1U2', title: 'Nature Trail Runs' },
+    { id: 'PLLqiCLrQ5MTPjK2a3Kz7u9cYVrt2iIjtE', title: 'Treadmill Virtual Runs (30-45 min)' },
+    { id: 'PLLqiCLrQ5MTN4Sqcx6BWuKvPl7x7EuG08', title: 'Treadmill Virtual Runs (50-60 min)' },
+  ];
+  
+  if (elements.playlistSelect) {
+    populatePlaylistDropdown(hardcodedPlaylists);
+    setPlaylistControlsEnabled(true);
+    setPlaylistStatus('Select a playlist', '#ccc');
+  }
+}
+
 function setPlaylistControlsEnabled(enabled) {
   const controls = [
     elements.playlistSelect,
@@ -666,36 +690,30 @@ function handleGoogleAuthExpiry(message) {
 }
 
 function connectStepServerFallback() {
-  if (typeof connectToStepServer !== 'function') {
-    return;
-  }
-
-  connectToStepServer(
-    (steps) => {
-      if (!Number.isFinite(latestSteps)) {
-        updateStepDisplays(steps);
-      }
-    },
-    (statusText, color) => {
+  const networkClient = createNetworkClient({
+    url: 'wss://redesigned-cod-g95ww76g4g5fvqxj-6789.app.github.dev',
+    onStatus: (statusText, state) => {
+      const color = state === 'connected' ? '#4CAF50' : state === 'error' ? '#f66' : '#ccc';
       if (elements.wsStatus) {
         elements.wsStatus.textContent = statusText;
         elements.wsStatus.style.color = color;
       }
       if (elements.hudOfflineBadge) {
-        elements.hudOfflineBadge.hidden = statusText === 'Connected';
+        elements.hudOfflineBadge.hidden = state === 'connected';
       }
     },
-    (bpm) => {
-      if (elements.hudBpm) {
-        elements.hudBpm.textContent = Number.isFinite(bpm) ? Math.round(bpm) : '--';
+    onStepData: (data) => {
+      if (Number.isFinite(data.steps) && !Number.isFinite(latestSteps)) {
+        updateStepDisplays(data.steps);
       }
-    },
-    (cadence) => {
-      if (!Number.isFinite(latestCadence)) {
-        applyCadenceToPlayer(cadence);
+      if (Number.isFinite(data.bpm) && elements.hudBpm) {
+        elements.hudBpm.textContent = Math.round(data.bpm);
       }
-    },
-  );
+      if (Number.isFinite(data.cadence) && !Number.isFinite(latestCadence)) {
+        applyCadenceToPlayer(data.cadence);
+      }
+    }
+  });
 }
 
 function safeReadLocalStorage(key) {

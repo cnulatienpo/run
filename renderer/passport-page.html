@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Run the World - Passport</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+        color: #fff;
+      }
+
+      .passport-container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .passport-header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .passport-header h1 {
+        font-size: 3rem;
+        margin-bottom: 10px;
+      }
+
+      .passport-header .subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 30px;
+        text-align: center;
+        transition: transform 0.2s;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      .stat-card .stat-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.8;
+        margin-bottom: 10px;
+      }
+
+      .stat-card .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+      }
+
+      .stamps-section {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 30px;
+        margin-bottom: 20px;
+      }
+
+      .stamps-section h2 {
+        font-size: 2rem;
+        margin-bottom: 20px;
+      }
+
+      .stamps-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+      }
+
+      .stamp-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.2s;
+      }
+
+      .stamp-card:hover {
+        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-3px);
+      }
+
+      .stamp-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+      }
+
+      .stamp-date {
+        font-size: 1.1rem;
+        font-weight: bold;
+      }
+
+      .stamp-emojis {
+        font-size: 1.2rem;
+      }
+
+      .stamp-route {
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+        color: #ffd700;
+      }
+
+      .stamp-details {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+      }
+
+      .stamp-detail {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .stamp-detail-label {
+        opacity: 0.7;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .stamp-detail-value {
+        font-weight: bold;
+        margin-top: 3px;
+      }
+
+      .stamp-note {
+        margin-top: 15px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        font-style: italic;
+        font-size: 0.9rem;
+      }
+
+      .stamp-note.auto-note {
+        opacity: 0.7;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        opacity: 0.7;
+      }
+
+      .empty-state h3 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+      }
+
+      .actions {
+        text-align: center;
+        margin-top: 30px;
+      }
+
+      .btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        margin: 0 10px;
+        transition: all 0.2s;
+      }
+
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+
+      .btn-danger {
+        background: rgba(220, 38, 38, 0.3);
+        border-color: rgba(220, 38, 38, 0.5);
+      }
+
+      .btn-danger:hover {
+        background: rgba(220, 38, 38, 0.5);
+      }
+
+      .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: white;
+        text-decoration: none;
+        font-size: 1.1rem;
+        opacity: 0.9;
+      }
+
+      .back-link:hover {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="passport-container">
+      <a href="index.html" class="back-link">← Back to HUD</a>
+      
+      <div class="passport-header">
+        <h1>📖 Your Passport</h1>
+        <p class="subtitle">Journey through your running adventures</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Sessions</div>
+          <div class="stat-value" id="total-sessions">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Miles</div>
+          <div class="stat-value" id="total-miles">0.0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Favorite Pack</div>
+          <div class="stat-value" id="favorite-pack">—</div>
+        </div>
+      </div>
+
+      <div class="stamps-section">
+        <h2>Your Stamps</h2>
+        <div id="stamps-container" class="stamps-grid">
+          <div class="empty-state">
+            <h3>No stamps yet</h3>
+            <p>Complete your first session to earn a stamp!</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" onclick="exportPassport()">📥 Export Passport</button>
+        <button class="btn" onclick="importPassport()">📤 Import Passport</button>
+        <button class="btn btn-danger" onclick="clearPassport()">🗑️ Clear All Stamps</button>
+      </div>
+    </div>
+
+    <script type="module">
+      import {
+        getPassportStamps,
+        computePassportStats,
+        clearPassportStore,
+        savePassportStore,
+        loadPassportStore
+      } from './passport.js';
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      }
+
+      function formatTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+      }
+
+      function formatDuration(startedAt, endedAt) {
+        const start = new Date(startedAt);
+        const end = new Date(endedAt);
+        const diffMs = end - start;
+        const minutes = Math.floor(diffMs / 60000);
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        
+        if (hours > 0) {
+          return `${hours}h ${mins}m`;
+        }
+        return `${mins}m`;
+      }
+
+      function renderStamps() {
+        const stamps = getPassportStamps();
+        const stats = computePassportStats(stamps);
+        
+        // Update stats
+        document.getElementById('total-sessions').textContent = stats.totalSessions;
+        document.getElementById('total-miles').textContent = stats.totalMiles.toFixed(2);
+        document.getElementById('favorite-pack').textContent = stats.favoritePack || '—';
+
+        // Render stamps
+        const container = document.getElementById('stamps-container');
+        
+        if (stamps.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h3>No stamps yet</h3>
+              <p>Complete your first session to earn a stamp!</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Sort stamps by date (newest first)
+        const sortedStamps = [...stamps].sort((a, b) => 
+          new Date(b.startedAt) - new Date(a.startedAt)
+        );
+
+        container.innerHTML = sortedStamps.map(stamp => `
+          <div class="stamp-card" ${stamp.swatchColor ? `style="border-left: 4px solid ${stamp.swatchColor}"` : ''}>
+            <div class="stamp-header">
+              <div class="stamp-date">${formatDate(stamp.date)}</div>
+              ${stamp.emojis.length > 0 ? `<div class="stamp-emojis">${stamp.emojis.join(' ')}</div>` : ''}
+            </div>
+            
+            <div class="stamp-route">${stamp.routeLabel || 'Unknown Route'}</div>
+            
+            <div class="stamp-details">
+              <div class="stamp-detail">
+                <span class="stamp-detail-label">Distance</span>
+                <span class="stamp-detail-value">${stamp.miles.toFixed(2)} mi</span>
+              </div>
+              <div class="stamp-detail">
+                <span class="stamp-detail-label">Duration</span>
+                <span class="stamp-detail-value">${formatDuration(stamp.startedAt, stamp.endedAt)}</span>
+              </div>
+              <div class="stamp-detail">
+                <span class="stamp-detail-label">Mood</span>
+                <span class="stamp-detail-value">${stamp.mood || '—'}</span>
+              </div>
+              <div class="stamp-detail">
+                <span class="stamp-detail-label">Pack</span>
+                <span class="stamp-detail-value">${stamp.pack || '—'}</span>
+              </div>
+            </div>
+            
+            ${stamp.note ? `
+              <div class="stamp-note ${stamp.noteSource === 'auto' ? 'auto-note' : ''}">
+                ${stamp.note}
+              </div>
+            ` : ''}
+            
+            <div style="margin-top: 10px; font-size: 0.75rem; opacity: 0.5;">
+              ${formatTime(stamp.startedAt)} - ${formatTime(stamp.endedAt)}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      window.exportPassport = function() {
+        const store = loadPassportStore();
+        const dataStr = JSON.stringify(store, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `passport-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      window.importPassport = function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const imported = JSON.parse(event.target.result);
+              if (imported.version === 1 && Array.isArray(imported.stamps)) {
+                savePassportStore(imported);
+                renderStamps();
+                alert(`Successfully imported ${imported.stamps.length} stamps!`);
+              } else {
+                alert('Invalid passport file format.');
+              }
+            } catch (error) {
+              alert('Failed to import passport: ' + error.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      };
+
+      window.clearPassport = function() {
+        if (confirm('Are you sure you want to clear all stamps? This cannot be undone!')) {
+          if (confirm('Really sure? This will delete all your journey history!')) {
+            clearPassportStore();
+            renderStamps();
+            alert('Passport cleared.');
+          }
+        }
+      };
+
+      // Initial render
+      renderStamps();
+    </script>
+  </body>
+</html>
