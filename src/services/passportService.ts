@@ -280,6 +280,13 @@ export async function getPassportSummary(
   userId: string
 ): Promise<PassportSummary> {
   const history = await getHistory(userId);
+  return recomputePassportForUser(userId, history);
+}
+
+export function recomputePassportForUser(
+  userId: string,
+  history: RunHistoryEntry[]
+): PassportSummary {
   let totalDurationSeconds = 0;
   let totalTimeInZoneSeconds = 0;
   let lastSessionAt: string | undefined;
