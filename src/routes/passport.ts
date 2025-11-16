@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("/summary", async (req, res, next) => {
   try {
-    const userId = req.userId ?? "demo-user";
+    const userId = req.userId;
     const summary = await getPassportSummary(userId);
     res.json(summary);
   } catch (err) {

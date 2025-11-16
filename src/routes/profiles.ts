@@ -18,17 +18,13 @@ import {
 
 const router = express.Router();
 
-function getUserId(req: express.Request): string {
-  return req.userId ?? "demo-user";
-}
-
 /**
  * GET /api/profiles
  * Lists all saved Experience profiles for the current user.
  */
 router.get("/", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const profiles = await listProfiles(userId);
     res.json(profiles);
   } catch (err) {
@@ -42,7 +38,7 @@ router.get("/", async (req, res, next) => {
  */
 router.get("/:id", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const profile = await getProfile(userId, req.params.id);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
@@ -62,7 +58,7 @@ router.post(
   validateRequestBody(validateCreateProfilePayload),
   async (req, res, next) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.userId;
       const payload = req.body as CreateProfilePayload;
       const profile = await createProfile(
         userId,
@@ -85,7 +81,7 @@ router.put(
   validateRequestBody(validateUpdateProfilePayload),
   async (req, res, next) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.userId;
       const payload = req.body as UpdateProfilePayload;
       const updated = await updateProfile(userId, req.params.id, {
         name: payload.name ? payload.name.trim() : undefined,
@@ -109,7 +105,7 @@ router.put(
  */
 router.delete("/:id", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const deleted = await deleteProfile(userId, req.params.id);
     if (!deleted) {
       return res.status(404).json({ error: "Profile not found" });

@@ -168,7 +168,7 @@ router.post(
     const { experienceSettings } = req.body as ClipSelectPayload;
     try {
       const selected = await selectClipsForUserSession(
-        req.userId ?? "demo-user",
+        req.userId,
         experienceSettings
       );
       res.json(selected);
