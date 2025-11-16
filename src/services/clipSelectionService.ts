@@ -1,21 +1,12 @@
 import { ExperienceSettings } from "../models/experience";
+import { ClipMetadata } from "../models/clip";
+import { ClipQuery, listClips } from "./clipLibraryService";
 import {
   CTA_BRAND_KEYWORDS,
   CTA_FILTER_ENABLED,
   CTA_SOCIAL_KEYWORDS,
   CTA_TEXT_PATTERNS,
 } from "../config/ctaFilter";
-
-export interface ClipMetadata {
-  id: string;
-  url: string;
-  durationSeconds: number;
-  sourceType: string; // "YOUTUBE", "LOCAL", etc.
-  transcript?: string;
-  ocrText?: string;
-  tags?: string[];
-  hasSponsor?: boolean;
-}
 
 export interface SelectedClip {
   id: string;
@@ -28,9 +19,34 @@ export function filterClipsByExperience(
   clips: ClipMetadata[],
   settings: ExperienceSettings
 ): ClipMetadata[] {
-  // TODO: filter by location, people density, cameraMovement, allowedSources, etc.
-  // For now, just return the input array.
-  return clips;
+  return clips.filter((clip) => {
+    if (
+      settings.locationEnvironment === "INDOOR" &&
+      clip.environment === "OUTDOOR"
+    ) {
+      return false;
+    }
+    if (
+      settings.locationEnvironment === "OUTDOOR" &&
+      clip.environment === "INDOOR"
+    ) {
+      return false;
+    }
+    if (
+      settings.urbanity !== "MIXED" &&
+      clip.urbanity &&
+      clip.urbanity !== settings.urbanity
+    ) {
+      return false;
+    }
+    if (
+      clip.peopleDensity &&
+      clip.peopleDensity !== settings.peopleDensity
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function removeCtaAndSponsorClips(
@@ -39,6 +55,9 @@ export function removeCtaAndSponsorClips(
   if (!CTA_FILTER_ENABLED) return clips;
 
   return clips.filter((clip) => {
+    if (clip.hasCtaOrSponsor) {
+      return false;
+    }
     const haystack = (
       (clip.transcript || "") +
       " " +
@@ -59,7 +78,6 @@ export function removeCtaAndSponsorClips(
       haystack.includes(pattern.toLowerCase())
     );
 
-    if (clip.hasSponsor) return false;
     if (hitText || hitBrand || hitSocial) return false;
 
     return true;
@@ -73,12 +91,60 @@ export function selectClipsForSession(
   const filteredByExperience = filterClipsByExperience(availableClips, settings);
   const filteredNoCta = removeCtaAndSponsorClips(filteredByExperience);
 
-  // TODO: sort or pick a sequence based on HR, clipDurationPreference, etc.
-  // For now, just map all remaining clips into SelectedClip with full duration.
   return filteredNoCta.map((clip) => ({
     id: clip.id,
-    url: clip.url,
+    url: clip.urlOrPath,
     startSeconds: 0,
-    endSeconds: clip.durationSeconds,
+    endSeconds: clip.durationSeconds ?? 300,
   }));
+}
+
+function buildQueryFromSettings(settings: ExperienceSettings): ClipQuery {
+  const query: ClipQuery = {
+    excludeCtaOrSponsor: true,
+  };
+
+  if (settings.locationEnvironment === "INDOOR") {
+    query.environment = "INDOOR";
+  } else if (settings.locationEnvironment === "OUTDOOR") {
+    query.environment = "OUTDOOR";
+  }
+
+  if (settings.peopleDensity) {
+    query.peopleDensity = settings.peopleDensity;
+  }
+
+  if (settings.urbanity && settings.urbanity !== "MIXED") {
+    query.urbanity = settings.urbanity;
+  }
+
+  const allowsGame = settings.allowedSources?.includes("GAME");
+  if (allowsGame && settings.allowedSources?.length === 1) {
+    query.isGameEnvironment = true;
+  } else if (settings.allowedSources && !allowsGame) {
+    query.isGameEnvironment = false;
+  }
+
+  const wantsClubLike =
+    settings.trainingType === "BOUNCE_ENDURANCE" ||
+    settings.allowedSources?.includes("CLUB_WALKIN");
+  if (wantsClubLike) {
+    query.isClubLike = true;
+  }
+
+  return query;
+}
+
+export async function selectClipsForUserSession(
+  userId: string,
+  settings: ExperienceSettings
+): Promise<SelectedClip[]> {
+  const query = buildQueryFromSettings(settings);
+  const clips = await listClips(query);
+  if (process.env.NODE_ENV !== "test") {
+    console.debug(
+      `[clip-selection] selecting ${clips.length} clips for ${userId}`
+    );
+  }
+  return selectClipsForSession(clips, settings);
 }
