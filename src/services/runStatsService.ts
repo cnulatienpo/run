@@ -2,6 +2,11 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { RunHistoryEntry, RunStats } from "../models/runStats";
 import { ensureFile, readJson, writeJson } from "../utils/jsonStore";
+import {
+  RunTelemetryPayload,
+  validateRunHistoryEntry,
+  validateRunStats,
+} from "../validation/schemas";
 
 interface InternalSessionState {
   userId: string;
@@ -38,7 +43,24 @@ async function writeHistory(store: RunHistoryStore): Promise<void> {
 }
 
 function cloneHistory(entries: RunHistoryEntry[]): RunHistoryEntry[] {
-  return entries.map((entry) => ({ ...entry }));
+  return entries
+    .map((entry) => {
+      const cloned: RunHistoryEntry = {
+        id: entry.id,
+        date: entry.date,
+        durationSeconds: entry.durationSeconds,
+        timeInTargetZoneSeconds: entry.timeInTargetZoneSeconds,
+        longestStreakSeconds: entry.longestStreakSeconds,
+      };
+      if (entry.trainingType !== undefined) {
+        cloned.trainingType = entry.trainingType;
+      }
+      if (entry.goalName !== undefined) {
+        cloned.goalName = entry.goalName;
+      }
+      return cloned;
+    })
+    .filter((entry) => validateRunHistoryEntry(entry));
 }
 
 async function ensureSessionStateFile(): Promise<void> {
@@ -79,7 +101,7 @@ function ensureSession(userId: string): InternalSessionState {
 
 export async function updateSessionTelemetry(
   userId: string,
-  payload: { heartRate?: number; inTargetZone?: boolean; deltaSeconds?: number }
+  payload: RunTelemetryPayload
 ): Promise<RunStats> {
   const session = ensureSession(userId);
   const now = Date.now();
@@ -132,8 +154,10 @@ export async function endSession(
     durationSeconds: Math.round(session.sessionDurationSeconds),
     timeInTargetZoneSeconds: Math.round(session.timeInTargetZoneSeconds),
     longestStreakSeconds: Math.round(session.longestStreakSeconds),
-    trainingType: session.trainingType,
-    goalName: session.goalName,
+    ...(session.trainingType !== undefined
+      ? { trainingType: session.trainingType }
+      : {}),
+    ...(session.goalName !== undefined ? { goalName: session.goalName } : {}),
   };
 
   const store = await loadHistory();
@@ -151,13 +175,17 @@ export async function getRunStats(userId: string): Promise<RunStats> {
   const history = cloneHistory(store[userId] ?? []);
 
   if (!session) {
-    return {
+    const stats: RunStats = {
       currentHeartRate: null,
       timeInTargetZoneSeconds: 0,
       longestStreakSeconds: 0,
       sessionDurationSeconds: 0,
       history,
     };
+    if (!validateRunStats(stats)) {
+      throw new Error("Invalid run stats payload");
+    }
+    return stats;
   }
 
   const now = Date.now();
@@ -171,15 +199,23 @@ export async function getRunStats(userId: string): Promise<RunStats> {
       ? Math.round(session.timeInTargetZoneSeconds / 60)
       : undefined;
 
-  return {
+  const stats: RunStats = {
     currentHeartRate: session.currentHeartRate,
     timeInTargetZoneSeconds: Math.round(session.timeInTargetZoneSeconds),
     longestStreakSeconds: Math.round(session.longestStreakSeconds),
     sessionDurationSeconds: Math.round(sessionDurationSeconds),
-    currentGoalName: session.goalName,
-    bounceEnduranceMinutes,
     history,
+    ...(session.goalName !== undefined
+      ? { currentGoalName: session.goalName }
+      : {}),
+    ...(bounceEnduranceMinutes !== undefined
+      ? { bounceEnduranceMinutes }
+      : {}),
   };
+  if (!validateRunStats(stats)) {
+    throw new Error("Invalid run stats payload");
+  }
+  return stats;
 }
 
 export async function getHistory(userId: string): Promise<RunHistoryEntry[]> {

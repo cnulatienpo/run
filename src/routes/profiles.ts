@@ -6,10 +6,15 @@ import {
   listProfiles,
   updateProfile,
 } from "../services/profileService";
+import { validateRequestBody } from "../validation/middleware";
+import type {
+  CreateProfilePayload,
+  UpdateProfilePayload,
+} from "../validation/schemas";
 import {
-  validateExperienceSettings,
-  validateProfilePayload,
-} from "../utils/validation";
+  validateCreateProfilePayload,
+  validateUpdateProfilePayload,
+} from "../validation/schemas";
 
 const router = express.Router();
 
@@ -52,63 +57,51 @@ router.get("/:id", async (req, res, next) => {
  * POST /api/profiles
  * Creates a new Experience profile for the current user.
  */
-router.post("/", async (req, res, next) => {
-  try {
-    const userId = getUserId(req);
-    const validation = validateProfilePayload(req.body);
-    if (!validation.valid || !validation.data) {
-      return res.status(400).json({ error: validation.errors?.join(", ") });
+router.post(
+  "/",
+  validateRequestBody(validateCreateProfilePayload),
+  async (req, res, next) => {
+    try {
+      const userId = getUserId(req);
+      const payload = req.body as CreateProfilePayload;
+      const profile = await createProfile(
+        userId,
+        payload.name.trim(),
+        payload.settings
+      );
+      res.status(201).json(profile);
+    } catch (err) {
+      next(err);
     }
-
-    const profile = await createProfile(
-      userId,
-      validation.data.name,
-      validation.data.settings
-    );
-    res.status(201).json(profile);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * PUT /api/profiles/:id
  * Updates the name and/or settings on an existing profile.
  */
-router.put("/:id", async (req, res, next) => {
-  try {
-    const userId = getUserId(req);
-    const { name, settings } = req.body ?? {};
-    let validatedSettings = undefined;
+router.put(
+  "/:id",
+  validateRequestBody(validateUpdateProfilePayload),
+  async (req, res, next) => {
+    try {
+      const userId = getUserId(req);
+      const payload = req.body as UpdateProfilePayload;
+      const updated = await updateProfile(userId, req.params.id, {
+        name: payload.name ? payload.name.trim() : undefined,
+        settings: payload.settings,
+      });
 
-    if (settings !== undefined) {
-      const validation = validateExperienceSettings(settings);
-      if (!validation.valid || !validation.data) {
-        return res.status(400).json({ error: validation.errors?.join(", ") });
+      if (!updated) {
+        return res.status(404).json({ error: "Profile not found" });
       }
-      validatedSettings = validation.data;
+
+      res.json(updated);
+    } catch (err) {
+      next(err);
     }
-
-    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
-      return res
-        .status(400)
-        .json({ error: "name must be a non-empty string" });
-    }
-
-    const updated = await updateProfile(userId, req.params.id, {
-      name: typeof name === "string" ? name.trim() : undefined,
-      settings: validatedSettings,
-    });
-
-    if (!updated) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-
-    res.json(updated);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * DELETE /api/profiles/:id
