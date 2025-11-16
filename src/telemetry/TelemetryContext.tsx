@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { endRunSession, startRunSession, StartSessionPayload } from "../api/runClient";
+import type { StartSessionPayload } from "../api/runClient";
 import { TelemetryManager, TelemetryState, HeartRateBand } from "./TelemetryManager";
 import { FakeStepAdapter } from "./deviceAdapters/FakeStepAdapter";
 
@@ -58,32 +58,22 @@ export const TelemetryProvider: React.FC<
   const runningRef = useRef(managerRef.current.isRunning());
 
   const start = useCallback(
-    async (payload?: StartSessionPayload) => {
+    async (_payload?: StartSessionPayload) => {
       if (runningRef.current) {
         return;
       }
       runningRef.current = true;
-      let sessionCreated = false;
       try {
-        await startRunSession(baseUrl, payload ?? {}, userId);
-        sessionCreated = true;
         await managerRef.current.start();
         setIsRunning(true);
       } catch (error) {
         runningRef.current = false;
         setIsRunning(false);
-        if (sessionCreated) {
-          try {
-            await endRunSession(baseUrl, userId);
-          } catch (endError) {
-            console.error("[TelemetryProvider] Failed to clean up run session", endError);
-          }
-        }
-        console.error("[TelemetryProvider] Failed to start session", error);
+        console.error("[TelemetryProvider] Failed to start telemetry session", error);
         throw error;
       }
     },
-    [baseUrl, userId]
+    []
   );
 
   const stop = useCallback(async () => {
@@ -97,13 +87,7 @@ export const TelemetryProvider: React.FC<
     } catch (error) {
       console.error("[TelemetryProvider] Failed to stop adapter", error);
     }
-    try {
-      await endRunSession(baseUrl, userId);
-    } catch (error) {
-      console.error("[TelemetryProvider] Failed to end run session", error);
-      throw error;
-    }
-  }, [baseUrl, userId]);
+  }, []);
 
   useEffect(() => {
     return () => {

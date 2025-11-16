@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useExperience } from "../context/ExperienceProvider";
 import { useTelemetry } from "../../telemetry/TelemetryContext";
+import { useRunSession } from "../../hooks/useRunSession";
 
 const hudContainerStyle: React.CSSProperties = {
   position: "fixed",
@@ -71,7 +72,8 @@ const formatTimestamp = (timestamp: number | null): string => {
 
 export const HudOverlay: React.FC = () => {
   const { settings, openExperiencePage } = useExperience();
-  const { state, start, stop, isRunning } = useTelemetry();
+  const { state } = useTelemetry();
+  const { isRunning, start, stop } = useRunSession();
   const [isPending, setIsPending] = useState(false);
 
   const handleToggleSession = async () => {

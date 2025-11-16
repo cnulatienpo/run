@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -9,9 +10,9 @@ import {
   DEFAULT_EXPERIENCE_SETTINGS,
   ExperienceProfile,
   ExperienceSettings,
-  RunStats,
-  MOCK_RUN_STATS,
 } from "../types/experience";
+import { useExperienceSettings } from "../../hooks/useExperienceSettings";
+import { setApiUserId } from "../../api";
 
 interface ExperienceContextValue {
   settings: ExperienceSettings;
@@ -20,7 +21,6 @@ interface ExperienceContextValue {
     key: K,
     value: ExperienceSettings[K]
   ) => void;
-  runStats: RunStats;
   isExperiencePageOpen: boolean;
   openExperiencePage: () => void;
   closeExperiencePage: () => void;
@@ -29,6 +29,11 @@ interface ExperienceContextValue {
   saveProfile: (name?: string) => void;
   saveProfileAsNew: (name?: string) => void;
   loadProfile: (id: string) => void;
+  settingsLoading: boolean;
+  settingsSaving: boolean;
+  settingsError: Error | null;
+  refreshSettings: () => void;
+  saveSettings: (next?: ExperienceSettings) => Promise<void>;
 }
 
 const ExperienceContext = createContext<ExperienceContextValue | undefined>(
@@ -75,11 +80,48 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
   const [activeProfileId, setActiveProfileId] = useState<string | null>(
     initialProfiles[0]?.id ?? null
   );
-  const [settings, setSettings] = useState<ExperienceSettings>(
-    cloneSettings(initialProfiles[0]?.settings ?? DEFAULT_EXPERIENCE_SETTINGS)
-  );
-  const [runStats] = useState<RunStats>(MOCK_RUN_STATS);
+  const {
+    settings,
+    setLocalSettings,
+    loading: settingsLoading,
+    saving: settingsSaving,
+    error: settingsError,
+    refresh,
+    save,
+  } = useExperienceSettings();
   const [isExperiencePageOpen, setExperiencePageOpen] = useState(false);
+
+  useEffect(() => {
+    setApiUserId(activeProfileId ?? undefined);
+  }, [activeProfileId]);
+
+  const resolvedSettings = settings ?? cloneSettings(
+    initialProfiles[0]?.settings ?? DEFAULT_EXPERIENCE_SETTINGS
+  );
+
+  const setSettings = useCallback<
+    React.Dispatch<React.SetStateAction<ExperienceSettings>>
+  >(
+    (updater) => {
+      setLocalSettings((prev) => {
+        const base = prev ?? resolvedSettings;
+        const next =
+          typeof updater === "function"
+            ? (updater as (value: ExperienceSettings) => ExperienceSettings)(base)
+            : updater;
+        return { ...next };
+      });
+    },
+    [resolvedSettings, setLocalSettings]
+  );
+
+  const persistSettings = useCallback(
+    async (next?: ExperienceSettings) => {
+      const payload = next ?? resolvedSettings;
+      await save(payload);
+    },
+    [resolvedSettings, save]
+  );
 
   const updateSetting = useCallback(
     <K extends keyof ExperienceSettings>(
@@ -88,7 +130,7 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
     ) => {
       setSettings((prev) => ({ ...prev, [key]: value }));
     },
-    []
+    [setSettings]
   );
 
   const saveProfile = useCallback(
@@ -96,37 +138,45 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
       if (!activeProfileId) {
         return;
       }
-      const resolvedName = name ?? settings.profileName ?? "Custom profile";
+      const resolvedName = name ?? resolvedSettings.profileName ?? "Custom profile";
+      const nextSettings = { ...resolvedSettings, profileName: resolvedName };
       setProfiles((prev) =>
         prev.map((profile) =>
           profile.id === activeProfileId
             ? {
                 ...profile,
                 name: resolvedName,
-                settings: cloneSettings(settings),
+                settings: cloneSettings(nextSettings),
               }
             : profile
         )
       );
-      setSettings((prev) => ({ ...prev, profileName: resolvedName }));
+      setSettings(nextSettings);
+      void persistSettings(nextSettings).catch((error) => {
+        console.error("[ExperienceProvider] Failed to persist profile", error);
+      });
     },
-    [activeProfileId, settings]
+    [activeProfileId, persistSettings, resolvedSettings, setSettings]
   );
 
   const saveProfileAsNew = useCallback(
     (name?: string) => {
-      const resolvedName = name ?? settings.profileName ?? "New profile";
+      const resolvedName = name ?? resolvedSettings.profileName ?? "New profile";
       const id = `profile-${Date.now()}`;
       const profile: ExperienceProfile = {
         id,
         name: resolvedName,
-        settings: cloneSettings(settings),
+        settings: cloneSettings(resolvedSettings),
       };
       setProfiles((prev) => [...prev, profile]);
       setActiveProfileId(id);
-      setSettings((prev) => ({ ...prev, profileName: resolvedName }));
+      const nextSettings = { ...resolvedSettings, profileName: resolvedName };
+      setSettings(nextSettings);
+      void persistSettings(nextSettings).catch((error) => {
+        console.error("[ExperienceProvider] Failed to persist new profile", error);
+      });
     },
-    [settings]
+    [persistSettings, resolvedSettings, setSettings]
   );
 
   const loadProfile = useCallback(
@@ -138,7 +188,7 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
       setActiveProfileId(id);
       setSettings(cloneSettings(profile.settings));
     },
-    [profiles]
+    [profiles, setSettings]
   );
 
   const openExperiencePage = useCallback(() => setExperiencePageOpen(true), []);
@@ -146,10 +196,9 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
 
   const contextValue = useMemo<ExperienceContextValue>(
     () => ({
-      settings,
+      settings: resolvedSettings,
       setSettings,
       updateSetting,
-      runStats,
       isExperiencePageOpen,
       openExperiencePage,
       closeExperiencePage,
@@ -158,10 +207,14 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
       saveProfile,
       saveProfileAsNew,
       loadProfile,
+      settingsLoading,
+      settingsSaving,
+      settingsError,
+      refreshSettings: refresh,
+      saveSettings: persistSettings,
     }),
     [
-      settings,
-      runStats,
+      resolvedSettings,
       isExperiencePageOpen,
       profiles,
       activeProfileId,
@@ -169,6 +222,11 @@ export const ExperienceProvider: React.FC<React.PropsWithChildren> = ({
       saveProfileAsNew,
       loadProfile,
       updateSetting,
+      settingsLoading,
+      settingsSaving,
+      settingsError,
+      refresh,
+      persistSettings,
     ]
   );
 
