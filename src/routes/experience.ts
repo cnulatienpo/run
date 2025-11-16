@@ -13,17 +13,13 @@ import { validateExperienceSettings } from "../validation/schemas";
 
 const router = express.Router();
 
-function getUserId(req: express.Request): string {
-  return req.userId ?? "demo-user";
-}
-
 /**
  * GET /api/experience
  * Returns the persisted ExperienceSettings for the current user.
  */
 router.get("/", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const settings = await getExperienceSettings(userId);
     res.json(settings);
   } catch (err) {
@@ -40,7 +36,7 @@ router.put(
   validateRequestBody(validateExperienceSettings),
   async (req, res, next) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.userId;
       const settings = req.body as ExperienceSettings;
       const saved = await saveExperienceSettings(userId, settings);
       res.json(saved);
@@ -56,7 +52,7 @@ router.put(
  */
 router.post("/select-clips", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const body = req.body ?? {};
     if (!Array.isArray(body.clips)) {
       return res.status(400).json({ error: "clips array is required" });

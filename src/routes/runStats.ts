@@ -12,10 +12,6 @@ import { validateRunStartPayload, validateRunTelemetryPayload } from "../validat
 
 const router = express.Router();
 
-function getUserId(req: express.Request): string {
-  return req.userId ?? "demo-user";
-}
-
 /**
  * POST /api/run/start
  * Starts a new telemetry session for the current user.
@@ -25,7 +21,7 @@ router.post(
   validateRequestBody(validateRunStartPayload),
   async (req, res, next) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.userId;
       const { trainingType, goalName } = req.body as RunStartPayload;
       await startSession(userId, trainingType, goalName);
       res.status(201).json({ status: "started" });
@@ -43,7 +39,7 @@ router.post(
   "/telemetry",
   validateRequestBody(validateRunTelemetryPayload),
   async (req, res) => {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const payload = req.body as RunTelemetryPayload;
 
     try {
@@ -61,7 +57,7 @@ router.post(
  */
 router.post("/end", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const historyEntry = await endSession(userId);
     if (!historyEntry) {
       return res.status(400).json({ error: "No active session" });
@@ -78,7 +74,7 @@ router.post("/end", async (req, res, next) => {
  */
 router.get("/stats", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const stats = await getRunStats(userId);
     res.json(stats);
   } catch (err) {
@@ -92,7 +88,7 @@ router.get("/stats", async (req, res, next) => {
  */
 router.get("/history", async (req, res, next) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.userId;
     const history = await getHistory(userId);
     res.json(history);
   } catch (err) {
