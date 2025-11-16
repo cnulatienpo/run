@@ -18,25 +18,29 @@ function getUserId(req: express.Request): string {
  * POST /api/run/start
  * Starts a new telemetry session for the current user.
  */
-router.post("/start", (req, res) => {
-  const userId = getUserId(req);
-  const { trainingType, goalName } = req.body ?? {};
-  if (trainingType !== undefined && typeof trainingType !== "string") {
-    return res.status(400).json({ error: "trainingType must be a string" });
-  }
-  if (goalName !== undefined && typeof goalName !== "string") {
-    return res.status(400).json({ error: "goalName must be a string" });
-  }
+router.post("/start", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const { trainingType, goalName } = req.body ?? {};
+    if (trainingType !== undefined && typeof trainingType !== "string") {
+      return res.status(400).json({ error: "trainingType must be a string" });
+    }
+    if (goalName !== undefined && typeof goalName !== "string") {
+      return res.status(400).json({ error: "goalName must be a string" });
+    }
 
-  startSession(userId, trainingType, goalName);
-  res.status(201).json({ status: "started" });
+    await startSession(userId, trainingType, goalName);
+    res.status(201).json({ status: "started" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
  * POST /api/run/telemetry
  * Ingests live telemetry and returns current RunStats snapshot.
  */
-router.post("/telemetry", (req, res) => {
+router.post("/telemetry", async (req, res) => {
   const userId = getUserId(req);
   const validation = validateTelemetryPayload(req.body);
   if (!validation.valid || !validation.data) {
@@ -44,7 +48,7 @@ router.post("/telemetry", (req, res) => {
   }
 
   try {
-    const stats = updateSessionTelemetry(userId, validation.data);
+    const stats = await updateSessionTelemetry(userId, validation.data);
     res.json(stats);
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
@@ -55,33 +59,45 @@ router.post("/telemetry", (req, res) => {
  * POST /api/run/end
  * Ends the active session and archives it into run history.
  */
-router.post("/end", (req, res) => {
-  const userId = getUserId(req);
-  const historyEntry = endSession(userId);
-  if (!historyEntry) {
-    return res.status(400).json({ error: "No active session" });
+router.post("/end", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const historyEntry = await endSession(userId);
+    if (!historyEntry) {
+      return res.status(400).json({ error: "No active session" });
+    }
+    res.json(historyEntry);
+  } catch (err) {
+    next(err);
   }
-  res.json(historyEntry);
 });
 
 /**
  * GET /api/run/stats
  * Returns current session stats merged with run history.
  */
-router.get("/stats", (req, res) => {
-  const userId = getUserId(req);
-  const stats = getRunStats(userId);
-  res.json(stats);
+router.get("/stats", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const stats = await getRunStats(userId);
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
  * GET /api/run/history
  * Returns only the historical runs without the live session data.
  */
-router.get("/history", (req, res) => {
-  const userId = getUserId(req);
-  const history = getHistory(userId);
-  res.json(history);
+router.get("/history", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const history = await getHistory(userId);
+    res.json(history);
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

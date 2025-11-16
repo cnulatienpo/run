@@ -1,5 +1,7 @@
+import path from "path";
 import { randomUUID } from "crypto";
 import { RunHistoryEntry, RunStats } from "../models/runStats";
+import { ensureFile, readJson, writeJson } from "../utils/jsonStore";
 
 interface InternalSessionState {
   userId: string;
@@ -15,22 +17,42 @@ interface InternalSessionState {
 }
 
 const currentSessions: Map<string, InternalSessionState> = new Map();
-const historyStore: Map<string, RunHistoryEntry[]> = new Map();
 
-function getHistoryBucket(userId: string): RunHistoryEntry[] {
-  if (!historyStore.has(userId)) {
-    historyStore.set(userId, []);
-  }
-  return historyStore.get(userId)!;
+const DATA_DIR = path.resolve(process.cwd(), "data");
+const RUN_HISTORY_FILE = path.join(DATA_DIR, "runHistory.json");
+const SESSION_STATE_FILE = path.join(DATA_DIR, "sessionState.json");
+
+const runHistoryFileReady = ensureFile(RUN_HISTORY_FILE, {});
+const sessionStateFileReady = ensureFile(SESSION_STATE_FILE, {});
+
+type RunHistoryStore = Record<string, RunHistoryEntry[]>;
+
+async function loadHistory(): Promise<RunHistoryStore> {
+  await runHistoryFileReady;
+  const data = await readJson<RunHistoryStore>(RUN_HISTORY_FILE);
+  return data ?? {};
 }
 
-export function startSession(
+async function writeHistory(store: RunHistoryStore): Promise<void> {
+  await writeJson(RUN_HISTORY_FILE, store);
+}
+
+function cloneHistory(entries: RunHistoryEntry[]): RunHistoryEntry[] {
+  return entries.map((entry) => ({ ...entry }));
+}
+
+async function ensureSessionStateFile(): Promise<void> {
+  await sessionStateFileReady;
+}
+
+export async function startSession(
   userId: string,
   trainingType?: string,
   goalName?: string
-): void {
+): Promise<void> {
+  await ensureSessionStateFile();
   if (currentSessions.has(userId)) {
-    endSession(userId);
+    await endSession(userId);
   }
   const now = Date.now();
   currentSessions.set(userId, {
@@ -55,10 +77,10 @@ function ensureSession(userId: string): InternalSessionState {
   return session;
 }
 
-export function updateSessionTelemetry(
+export async function updateSessionTelemetry(
   userId: string,
   payload: { heartRate?: number; inTargetZone?: boolean; deltaSeconds?: number }
-): RunStats {
+): Promise<RunStats> {
   const session = ensureSession(userId);
   const now = Date.now();
   let deltaSeconds =
@@ -92,7 +114,9 @@ export function updateSessionTelemetry(
   return getRunStats(userId);
 }
 
-export function endSession(userId: string): RunHistoryEntry | null {
+export async function endSession(
+  userId: string
+): Promise<RunHistoryEntry | null> {
   const session = currentSessions.get(userId);
   if (!session) {
     return null;
@@ -112,16 +136,19 @@ export function endSession(userId: string): RunHistoryEntry | null {
     goalName: session.goalName,
   };
 
-  const history = getHistoryBucket(userId);
-  history.unshift(entry);
+  const store = await loadHistory();
+  const history = store[userId] ?? [];
+  store[userId] = [entry, ...history];
+  await writeHistory(store);
 
   currentSessions.delete(userId);
   return entry;
 }
 
-export function getRunStats(userId: string): RunStats {
+export async function getRunStats(userId: string): Promise<RunStats> {
   const session = currentSessions.get(userId);
-  const history = [...getHistoryBucket(userId)];
+  const store = await loadHistory();
+  const history = cloneHistory(store[userId] ?? []);
 
   if (!session) {
     return {
@@ -155,6 +182,7 @@ export function getRunStats(userId: string): RunStats {
   };
 }
 
-export function getHistory(userId: string): RunHistoryEntry[] {
-  return [...getHistoryBucket(userId)];
+export async function getHistory(userId: string): Promise<RunHistoryEntry[]> {
+  const store = await loadHistory();
+  return cloneHistory(store[userId] ?? []);
 }
