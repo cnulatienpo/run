@@ -1,5 +1,4 @@
 import express from "express";
-import { ExperienceSettings } from "../models/experience";
 import { ClipMetadata, ClipSourceType } from "../models/clip";
 import {
   ClipQuery,
@@ -12,6 +11,8 @@ import {
 } from "../services/clipLibraryService";
 import { enrichAllClips } from "../services/clipEnrichmentService";
 import { selectClipsForUserSession } from "../services/clipSelectionService";
+import { validateBody } from "../middleware/validateBody";
+import { ClipSelectPayload, validateClipSelectPayload } from "../validation/schemas";
 
 const router = express.Router();
 
@@ -160,20 +161,21 @@ router.post("/enrich", async (_req, res) => {
   }
 });
 
-router.post("/select", async (req, res) => {
-  const { experienceSettings } = req.body ?? {};
-  if (!experienceSettings) {
-    return res.status(400).json({ error: "experienceSettings required" });
+router.post(
+  "/select",
+  validateBody(validateClipSelectPayload),
+  async (req, res) => {
+    const { experienceSettings } = req.body as ClipSelectPayload;
+    try {
+      const selected = await selectClipsForUserSession(
+        req.userId ?? "demo-user",
+        experienceSettings
+      );
+      res.json(selected);
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
   }
-  try {
-    const selected = await selectClipsForUserSession(
-      req.userId ?? "demo-user",
-      experienceSettings as ExperienceSettings
-    );
-    res.json(selected);
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
-  }
-});
+);
 
 export default router;
