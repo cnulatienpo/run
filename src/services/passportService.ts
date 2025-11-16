@@ -1,4 +1,3 @@
-import path from "path";
 import {
   MilestoneType,
   PassportMilestone,
@@ -7,17 +6,7 @@ import {
   StampType,
 } from "../models/passport";
 import { RunHistoryEntry } from "../models/runStats";
-import { ensureFile, readJson, writeJson } from "../utils/jsonStore";
-
-const DATA_DIR = path.resolve(process.cwd(), "data");
-const STAMPS_FILE = path.join(DATA_DIR, "passportStamps.json");
-const MILESTONES_FILE = path.join(DATA_DIR, "passportMilestones.json");
-
-const stampsFileReady = ensureFile(STAMPS_FILE, {});
-const milestonesFileReady = ensureFile(MILESTONES_FILE, {});
-
-type StampStore = Record<string, PassportStamp[]>;
-type MilestoneStore = Record<string, PassportMilestone[]>;
+import { getHistory } from "./runStatsService";
 
 interface StampMeta {
   label: string;
@@ -39,7 +28,7 @@ const STAMP_METADATA: Record<StampType, StampMeta> = {
   },
   NIGHT_RUN: {
     label: "Night Run",
-    description: "Completed a session between 8pm and 5am.",
+    description: "Completed a session between 10pm and 5am.",
   },
   THREE_DAYS_IN_ROW: {
     label: "3-Day Streak",
@@ -109,52 +98,6 @@ const DURATION_MILESTONES: Record<
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function cloneStamp(stamp: PassportStamp): PassportStamp {
-  return { ...stamp };
-}
-
-function cloneMilestone(milestone: PassportMilestone): PassportMilestone {
-  return { ...milestone };
-}
-
-async function loadStampStore(): Promise<StampStore> {
-  await stampsFileReady;
-  const data = await readJson<StampStore>(STAMPS_FILE);
-  return data ?? {};
-}
-
-async function writeStampStore(store: StampStore): Promise<void> {
-  await writeJson(STAMPS_FILE, store);
-}
-
-async function loadMilestoneStore(): Promise<MilestoneStore> {
-  await milestonesFileReady;
-  const data = await readJson<MilestoneStore>(MILESTONES_FILE);
-  return data ?? {};
-}
-
-async function writeMilestoneStore(store: MilestoneStore): Promise<void> {
-  await writeJson(MILESTONES_FILE, store);
-}
-
-async function saveStampsForUser(
-  userId: string,
-  stamps: PassportStamp[]
-): Promise<void> {
-  const store = await loadStampStore();
-  store[userId] = stamps.map(cloneStamp);
-  await writeStampStore(store);
-}
-
-async function saveMilestonesForUser(
-  userId: string,
-  milestones: PassportMilestone[]
-): Promise<void> {
-  const store = await loadMilestoneStore();
-  store[userId] = milestones.map(cloneMilestone);
-  await writeMilestoneStore(store);
-}
 
 function getDayTimestamp(dateIso: string): number {
   const date = new Date(dateIso);
@@ -240,7 +183,7 @@ function computeStamps(
     if (!awarded.has("NIGHT_RUN")) {
       const date = new Date(run.date);
       const hour = date.getUTCHours();
-      if (hour >= 20 || hour < 5) {
+      if (hour >= 22 || hour < 5) {
         stamps.push(createStamp(userId, "NIGHT_RUN", run));
         awarded.add("NIGHT_RUN");
       }
@@ -333,10 +276,10 @@ function computeMilestones(
   return milestones;
 }
 
-export async function recomputePassportForUser(
-  userId: string,
-  history: RunHistoryEntry[]
+export async function getPassportSummary(
+  userId: string
 ): Promise<PassportSummary> {
+  const history = await getHistory(userId);
   let totalDurationSeconds = 0;
   let totalTimeInZoneSeconds = 0;
   let lastSessionAt: string | undefined;
@@ -352,35 +295,13 @@ export async function recomputePassportForUser(
     }
   }
 
-  const stamps = computeStamps(userId, history);
-  const milestones = computeMilestones(userId, history);
-
-  await Promise.all([
-    saveStampsForUser(userId, stamps),
-    saveMilestonesForUser(userId, milestones),
-  ]);
-
   return {
     userId,
     totalSessions: history.length,
     totalDurationSeconds,
     totalTimeInZoneSeconds,
-    ...(lastSessionAt ? { lastSessionAt } : {}),
-    stamps,
-    milestones,
+    lastSessionAt,
+    stamps: computeStamps(userId, history),
+    milestones: computeMilestones(userId, history),
   };
-}
-
-export async function getStoredStamps(
-  userId: string
-): Promise<PassportStamp[]> {
-  const store = await loadStampStore();
-  return (store[userId] ?? []).map(cloneStamp);
-}
-
-export async function getStoredMilestones(
-  userId: string
-): Promise<PassportMilestone[]> {
-  const store = await loadMilestoneStore();
-  return (store[userId] ?? []).map(cloneMilestone);
 }
