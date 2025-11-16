@@ -1,0 +1,15 @@
+{
+  "name": "STEM Concepts",
+  "items": [
+    { "type": "concept", "front": "Photosynthesis", "back": "Plants convert light into chemical energy." },
+    { "type": "concept", "front": "Mitochondria", "back": "Powerhouse organelle that makes ATP." },
+    { "type": "concept", "front": "Ohm's Law", "back": "Voltage equals current times resistance." },
+    { "type": "concept", "front": "Gravity", "back": "Attractive force between masses." },
+    { "type": "concept", "front": "DNA", "back": "Double-helix carrier of genetic code." },
+    { "type": "concept", "front": "Tectonic Plates", "back": "Slow-moving slabs that shape Earth's crust." },
+    { "type": "concept", "front": "Entropy", "back": "Measure of disorder in a system." },
+    { "type": "concept", "front": "Neuron", "back": "Cell that transmits electrical signals." },
+    { "type": "concept", "front": "Feedback Loop", "back": "Output fed back as input to amplify or dampen." },
+    { "type": "concept", "front": "Quantum", "back": "Smallest discrete energy unit." }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "RV",
+  "short_name": "RV",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#050a0f",
+  "theme_color": "#0ff2c3",
+  "description": "Local-first mnemonic running companion.",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }
+  ]
+}
