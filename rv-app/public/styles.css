@@ -1,0 +1,81 @@
+:root {
+  color-scheme: dark;
+  --bg: #050a0f;
+  --panel: #0f1d2a;
+  --accent: #0ff2c3;
+  --text: #f2f8ff;
+  --muted: #6f8096;
+  font-family: "Inter", system-ui, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+rv-app {
+  display: block;
+  min-height: 100vh;
+}
+button, input, select, textarea {
+  font: inherit;
+}
+.large-btn {
+  min-height: 52px;
+  min-width: 52px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: var(--accent);
+  color: #06231b;
+  font-weight: 700;
+  cursor: pointer;
+}
+.large-btn:focus-visible {
+  outline: 3px solid #fff;
+}
+.panel {
+  background: var(--panel);
+  border-radius: 28px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+.flex {
+  display: flex;
+  gap: 1rem;
+}
+nav button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-weight: 600;
+  padding: 1rem;
+  font-size: 1.1rem;
+}
+nav button.active {
+  color: var(--accent);
+}
+.scene-card {
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 1rem;
+  min-height: 140px;
+}
+.scene-thumb {
+  width: 120px;
+  height: 90px;
+  border-radius: 18px;
+  background: #071b28;
+  margin-right: 1rem;
+}
+@media (max-width: 768px) {
+  .flex {
+    flex-direction: column;
+  }
+}

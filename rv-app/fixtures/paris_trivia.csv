@@ -1,0 +1,11 @@
+type,front,back,tag
+fact,The Eiffel Tower height,324 meters,landmark
+fact,Paris river,Seine,geography
+fact,Louvre claim,Largest art museum,culture
+fact,Nickname,City of Light,identity
+fact,Arc de Triomphe completion,1836,history
+fact,Baguette law,Baked daily,fare
+fact,Metro debut,1900,transport
+fact,Notre Dame style,French Gothic,architecture
+fact,Café culture,Sidewalk tables,food
+fact,Oldest bridge,Pont Neuf,history

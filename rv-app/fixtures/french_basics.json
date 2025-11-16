@@ -1,0 +1,18 @@
+{
+  "name": "French Basics",
+  "items": [
+    { "type": "fact", "front": "bonjour", "back": "hello", "tags": ["greeting"] },
+    { "type": "fact", "front": "merci", "back": "thanks" },
+    { "type": "fact", "front": "s'il vous plaît", "back": "please" },
+    { "type": "fact", "front": "au revoir", "back": "goodbye" },
+    { "type": "fact", "front": "pardon", "back": "sorry" },
+    { "type": "fact", "front": "oui", "back": "yes" },
+    { "type": "fact", "front": "non", "back": "no" },
+    { "type": "fact", "front": "comment ça va?", "back": "how are you?" },
+    { "type": "fact", "front": "bien", "back": "well" },
+    { "type": "fact", "front": "où", "back": "where" },
+    { "type": "fact", "front": "combien", "back": "how much" },
+    { "type": "fact", "front": "l'eau", "back": "water" },
+    { "type": "fact", "front": "le pain", "back": "bread" }
+  ]
+}
