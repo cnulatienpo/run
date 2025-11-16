@@ -8,7 +8,7 @@ import {
   selectClipsForSession,
 } from "../services/clipSelectionService";
 import { ExperienceSettings } from "../models/experience";
-import { validateBody } from "../middleware/validateBody";
+import { formatAjvErrors, validateRequestBody } from "../validation/middleware";
 import { validateExperienceSettings } from "../validation/schemas";
 
 const router = express.Router();
@@ -37,7 +37,7 @@ router.get("/", async (req, res, next) => {
  */
 router.put(
   "/",
-  validateBody(validateExperienceSettings),
+  validateRequestBody(validateExperienceSettings),
   async (req, res, next) => {
     try {
       const userId = getUserId(req);
@@ -66,10 +66,9 @@ router.post("/select-clips", async (req, res, next) => {
     let settings = await getExperienceSettings(userId);
     if (body.settings) {
       if (!validateExperienceSettings(body.settings)) {
-        return res.status(400).json({
-          error: "Invalid request body",
-          details: validateExperienceSettings.errors ?? [],
-        });
+        return res
+          .status(400)
+          .json({ error: formatAjvErrors(validateExperienceSettings.errors) });
       }
       settings = body.settings as ExperienceSettings;
     }

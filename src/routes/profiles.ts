@@ -6,7 +6,7 @@ import {
   listProfiles,
   updateProfile,
 } from "../services/profileService";
-import { validateBody } from "../middleware/validateBody";
+import { validateRequestBody } from "../validation/middleware";
 import type {
   CreateProfilePayload,
   UpdateProfilePayload,
@@ -59,7 +59,7 @@ router.get("/:id", async (req, res, next) => {
  */
 router.post(
   "/",
-  validateBody(validateCreateProfilePayload),
+  validateRequestBody(validateCreateProfilePayload),
   async (req, res, next) => {
     try {
       const userId = getUserId(req);
@@ -82,7 +82,7 @@ router.post(
  */
 router.put(
   "/:id",
-  validateBody(validateUpdateProfilePayload),
+  validateRequestBody(validateUpdateProfilePayload),
   async (req, res, next) => {
     try {
       const userId = getUserId(req);

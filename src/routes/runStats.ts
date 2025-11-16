@@ -6,7 +6,7 @@ import {
   startSession,
   updateSessionTelemetry,
 } from "../services/runStatsService";
-import { validateBody } from "../middleware/validateBody";
+import { validateRequestBody } from "../validation/middleware";
 import type { RunStartPayload, RunTelemetryPayload } from "../validation/schemas";
 import { validateRunStartPayload, validateRunTelemetryPayload } from "../validation/schemas";
 
@@ -22,7 +22,7 @@ function getUserId(req: express.Request): string {
  */
 router.post(
   "/start",
-  validateBody(validateRunStartPayload),
+  validateRequestBody(validateRunStartPayload),
   async (req, res, next) => {
     try {
       const userId = getUserId(req);
@@ -41,7 +41,7 @@ router.post(
  */
 router.post(
   "/telemetry",
-  validateBody(validateRunTelemetryPayload),
+  validateRequestBody(validateRunTelemetryPayload),
   async (req, res) => {
     const userId = getUserId(req);
     const payload = req.body as RunTelemetryPayload;
