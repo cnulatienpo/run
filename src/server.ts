@@ -3,6 +3,7 @@ import experienceRouter from "./routes/experience";
 import profilesRouter from "./routes/profiles";
 import runStatsRouter from "./routes/runStats";
 import healthRouter from "./routes/health";
+import clipsRouter from "./routes/clips";
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use("/api/health", healthRouter);
 app.use("/api/experience", experienceRouter);
 app.use("/api/profiles", profilesRouter);
 app.use("/api/run", runStatsRouter);
+app.use("/api/clips", clipsRouter);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
