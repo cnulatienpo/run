@@ -4,11 +4,22 @@ import {
   CameraMovementPreference,
   ExperienceFocusMode,
   ExperienceSettings,
+  RunStats,
   NoGoFilters,
   SourceFootageType,
   TimeOfDay,
 } from "../types/experience";
 import { useExperience } from "../context/ExperienceProvider";
+import { useRunStats } from "../../hooks/useRunStats";
+import { useTelemetry } from "../../telemetry/TelemetryContext";
+
+const EMPTY_RUN_STATS: RunStats = {
+  currentHeartRate: null,
+  timeInTargetZoneSeconds: 0,
+  longestStreakSeconds: 0,
+  sessionDurationSeconds: 0,
+  history: [],
+};
 
 const pageStyle: React.CSSProperties = {
   position: "fixed",
@@ -214,14 +225,24 @@ export const ExperienceGoalsPage: React.FC = () => {
   const {
     settings,
     setSettings,
-    runStats,
     closeExperiencePage,
     profiles,
     activeProfileId,
     saveProfile,
     saveProfileAsNew,
     loadProfile,
+    settingsLoading,
+    settingsError,
+    settingsSaving,
+    refreshSettings,
   } = useExperience();
+  const { isRunning } = useTelemetry();
+  const {
+    stats: fetchedRunStats,
+    loading: runStatsLoading,
+    error: runStatsError,
+  } = useRunStats({ enabled: isRunning });
+  const runStats = fetchedRunStats ?? EMPTY_RUN_STATS;
 
   const isTrainingVisible = settings.focusMode !== "ESCAPE";
 
@@ -287,6 +308,39 @@ export const ExperienceGoalsPage: React.FC = () => {
           <p style={{ margin: "6px 0 0", color: "#cbd5f5" }}>
             Current profile: {settings.profileName ?? "Untitled profile"}
           </p>
+          {settingsLoading && (
+            <p style={{ margin: "4px 0", color: "#fef08a" }}>Loading settings…</p>
+          )}
+          {settingsError && (
+            <div style={{
+              marginTop: 8,
+              padding: "8px 12px",
+              borderRadius: 12,
+              background: "rgba(248,113,113,0.12)",
+              border: "1px solid rgba(248,113,113,0.4)",
+              color: "#fecaca",
+              display: "inline-flex",
+              flexDirection: "column",
+              gap: 8,
+            }}>
+              <span>Failed to load settings: {settingsError.message}</span>
+              <button
+                type="button"
+                onClick={refreshSettings}
+                style={{
+                  alignSelf: "flex-start",
+                  border: "none",
+                  borderRadius: 999,
+                  padding: "4px 10px",
+                  background: "#f87171",
+                  color: "#111827",
+                  cursor: "pointer",
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
         <button
           onClick={closeExperiencePage}
@@ -306,6 +360,17 @@ export const ExperienceGoalsPage: React.FC = () => {
       </header>
       <div style={contentStyle}>
         <div style={configColumnStyle}>
+          {settingsSaving && (
+            <div style={{
+              padding: "8px 12px",
+              borderRadius: 12,
+              background: "rgba(56, 189, 248, 0.15)",
+              border: "1px solid rgba(56, 189, 248, 0.4)",
+              color: "#bae6fd",
+            }}>
+              Saving settings…
+            </div>
+          )}
           <Section title="What is today about?">
             <div style={optionGridStyle}>
               {(Object.keys(focusModeLabels) as ExperienceFocusMode[]).map(
@@ -760,6 +825,14 @@ export const ExperienceGoalsPage: React.FC = () => {
           <p style={{ margin: "4px 0 16px", color: "#cbd5f5" }}>
             Tracking: {goalName}
           </p>
+          {runStatsError && (
+            <p style={{ margin: "4px 0", color: "#f87171" }}>
+              Failed to load stats: {runStatsError.message}
+            </p>
+          )}
+          {runStatsLoading && (
+            <p style={{ margin: "4px 0", color: "#cbd5f5" }}>Refreshing stats…</p>
+          )}
           <div style={{ display: "grid", gap: 12 }}>
             <div>
               <p style={{ margin: 0, color: "#cbd5f5" }}>Current heart rate</p>
