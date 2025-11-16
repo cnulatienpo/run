@@ -1,8 +1,15 @@
+import path from "path";
 import { randomUUID } from "crypto";
 import { ExperienceSettings } from "../models/experience";
 import { ExperienceProfile } from "../models/profile";
+import { ensureFile, readJson, writeJson } from "../utils/jsonStore";
 
-const profileStore: Map<string, ExperienceProfile[]> = new Map();
+const DATA_DIR = path.resolve(process.cwd(), "data");
+const PROFILE_FILE = path.join(DATA_DIR, "profiles.json");
+
+const profileFileReady = ensureFile(PROFILE_FILE, {});
+
+type ProfileStore = Record<string, ExperienceProfile[]>;
 
 function cloneProfile(profile: ExperienceProfile): ExperienceProfile {
   return {
@@ -11,33 +18,44 @@ function cloneProfile(profile: ExperienceProfile): ExperienceProfile {
   };
 }
 
-function getUserProfiles(userId: string): ExperienceProfile[] {
-  if (!profileStore.has(userId)) {
-    profileStore.set(userId, []);
-  }
-  return profileStore.get(userId)!;
+async function loadStore(): Promise<ProfileStore> {
+  await profileFileReady;
+  const data = await readJson<ProfileStore>(PROFILE_FILE);
+  return data ?? {};
 }
 
-export function listProfiles(userId: string): ExperienceProfile[] {
-  return getUserProfiles(userId).map(cloneProfile);
+async function writeStore(store: ProfileStore): Promise<void> {
+  await writeJson(PROFILE_FILE, store);
 }
 
-export function getProfile(
+function cloneProfiles(profiles: ExperienceProfile[]): ExperienceProfile[] {
+  return profiles.map(cloneProfile);
+}
+
+export async function listProfiles(userId: string): Promise<ExperienceProfile[]> {
+  const store = await loadStore();
+  const profiles = store[userId] ?? [];
+  return cloneProfiles(profiles);
+}
+
+export async function getProfile(
   userId: string,
   profileId: string
-): ExperienceProfile | undefined {
-  const profile = getUserProfiles(userId).find(
-    (item) => item.id === profileId
-  );
+): Promise<ExperienceProfile | undefined> {
+  const store = await loadStore();
+  const profile = (store[userId] ?? []).find((item) => item.id === profileId);
   return profile ? cloneProfile(profile) : undefined;
 }
 
-export function createProfile(
+export async function createProfile(
   userId: string,
   name: string,
   settings: ExperienceSettings
-): ExperienceProfile {
+): Promise<ExperienceProfile> {
   const now = new Date().toISOString();
+  const store = await loadStore();
+  const profiles = store[userId] ?? [];
+
   const profile: ExperienceProfile = {
     id: randomUUID(),
     userId,
@@ -46,17 +64,19 @@ export function createProfile(
     createdAt: now,
     updatedAt: now,
   };
-  const profiles = getUserProfiles(userId);
-  profiles.push(profile);
+
+  store[userId] = [...profiles, profile];
+  await writeStore(store);
   return cloneProfile(profile);
 }
 
-export function updateProfile(
+export async function updateProfile(
   userId: string,
   profileId: string,
   partial: { name?: string; settings?: ExperienceSettings }
-): ExperienceProfile | null {
-  const profiles = getUserProfiles(userId);
+): Promise<ExperienceProfile | null> {
+  const store = await loadStore();
+  const profiles = store[userId] ?? [];
   const index = profiles.findIndex((profile) => profile.id === profileId);
   if (index === -1) {
     return null;
@@ -72,16 +92,26 @@ export function updateProfile(
     updatedAt: new Date().toISOString(),
   };
 
-  profiles[index] = updated;
+  const nextProfiles = [...profiles];
+  nextProfiles[index] = updated;
+  store[userId] = nextProfiles;
+  await writeStore(store);
   return cloneProfile(updated);
 }
 
-export function deleteProfile(userId: string, profileId: string): boolean {
-  const profiles = getUserProfiles(userId);
+export async function deleteProfile(
+  userId: string,
+  profileId: string
+): Promise<boolean> {
+  const store = await loadStore();
+  const profiles = store[userId] ?? [];
   const index = profiles.findIndex((profile) => profile.id === profileId);
   if (index === -1) {
     return false;
   }
-  profiles.splice(index, 1);
+  const nextProfiles = [...profiles];
+  nextProfiles.splice(index, 1);
+  store[userId] = nextProfiles;
+  await writeStore(store);
   return true;
 }
