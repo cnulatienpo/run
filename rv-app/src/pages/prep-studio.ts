@@ -33,11 +33,13 @@ class RVPrepStudio extends HTMLElement {
     this.renderPreview();
     const prepareCard = document.createElement('div');
     prepareCard.className = 'panel';
+    prepareCard.innerHTML = '<p>Prepare Run length defaults to 60 min.</p>';
     const runBtn = document.createElement('button');
     runBtn.textContent = 'Prepare 60 min Run';
     runBtn.className = 'large-btn';
+    runBtn.style.marginTop = '1rem';
     runBtn.addEventListener('click', () => this.controller.preparePlan('60min'));
-    prepareCard.append('Prepare Run length defaults to 60 min.', document.createElement('br'), runBtn);
+    prepareCard.appendChild(runBtn);
 
     this.append(uploadCard, this.interviewForm, this.previewSection, prepareCard);
     this.refreshDecks();
@@ -111,6 +113,15 @@ class RVPrepStudio extends HTMLElement {
 
   private refreshDecks() {
     this.deckSelect.innerHTML = '';
+    this.deckSelect.style.minWidth = '200px';
+    this.deckSelect.style.maxWidth = '100%';
+    if (this.controller.decks.length === 0) {
+      const placeholder = document.createElement('option');
+      placeholder.textContent = 'No decks uploaded yet';
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      this.deckSelect.appendChild(placeholder);
+    }
     this.controller.decks.forEach((deck) => {
       const option = document.createElement('option');
       option.value = deck.id;

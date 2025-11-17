@@ -11,6 +11,11 @@ class RVSettingsPage extends HTMLElement {
       <p>Usage: ${(usage.usage / 1024).toFixed(1)} KB / ${(usage.quota / 1024).toFixed(1)} KB</p>
       <p>Persistent storage: ${persisted.persisted ? 'granted' : 'requested'}</p>
     `;
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.flexDirection = 'column';
+        buttonContainer.style.gap = '1rem';
+        buttonContainer.style.marginTop = '1rem';
         const clearMedia = document.createElement('button');
         clearMedia.className = 'large-btn';
         clearMedia.textContent = 'Clear Media Cache';
@@ -27,7 +32,8 @@ class RVSettingsPage extends HTMLElement {
             if (file)
                 this.controller.importAll(file);
         });
-        this.append(clearMedia, document.createElement('br'), exportBtn, document.createElement('br'), importInput);
+        buttonContainer.append(clearMedia, exportBtn, importInput);
+        this.append(buttonContainer);
     }
 }
 customElements.define('rv-settings-page', RVSettingsPage);

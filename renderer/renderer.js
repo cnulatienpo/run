@@ -15,7 +15,7 @@ const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.youtube.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
-const RV_APP_URL = location.hostname === 'localhost' ? 'http://localhost:5173/' : '/rv';
+const RV_APP_URL = '/rv-app/public/index.html';
 
 let googleTokenClient;
 let googleAccessToken = null;
