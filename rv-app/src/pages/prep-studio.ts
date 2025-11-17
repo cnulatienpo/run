@@ -32,6 +32,7 @@ class RVPrepStudio extends HTMLElement {
     this.renderInterview();
     this.renderPreview();
     const prepareCard = document.createElement('div');
+    // Ensure the prepare section always receives panel styling.
     prepareCard.className = 'panel';
     const runBtn = document.createElement('button');
     runBtn.textContent = 'Prepare 60 min Run';
@@ -120,6 +121,7 @@ class RVPrepStudio extends HTMLElement {
   }
 
   private renderPreview() {
+    // Explicitly apply the panel styling to keep layout consistent.
     this.previewSection.className = 'panel';
     this.previewSection.innerHTML = '<h2>Preview & Confirm</h2>';
     const controls = document.createElement('div');

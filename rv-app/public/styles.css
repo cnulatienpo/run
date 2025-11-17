@@ -41,16 +41,18 @@ button, input, select, textarea {
   border-radius: 28px;
   padding: 1.5rem;
   margin-bottom: 1rem;
+  width: 100%;
+  overflow-x: auto;
 }
 .grid {
   display: grid;
   gap: 1rem;
-  /* New: responsive columns so cards wrap and don’t overlap */
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 .flex {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 nav button {
   background: none;
