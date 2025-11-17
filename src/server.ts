@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import cors from "cors";
 import experienceRouter from "./routes/experience";
 import profilesRouter from "./routes/profiles";
 import runStatsRouter from "./routes/runStats";
@@ -12,6 +13,15 @@ import { ensureDefaultUser } from "./services/userService";
 const app = express();
 
 app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+// In production you can tighten the origin or read it from an environment variable.
 
 const rvAppPublicPath = path.resolve(__dirname, "..", "rv-app", "public");
 app.use("/rv", express.static(rvAppPublicPath));
