@@ -32,6 +32,7 @@ class RVPrepStudio extends HTMLElement {
     this.renderInterview();
     this.renderPreview();
     const prepareCard = document.createElement('div');
+    // Ensure the prepare section always receives panel styling.
     prepareCard.className = 'panel';
     prepareCard.innerHTML = '<p>Prepare Run length defaults to 60 min.</p>';
     const runBtn = document.createElement('button');
@@ -131,6 +132,7 @@ class RVPrepStudio extends HTMLElement {
   }
 
   private renderPreview() {
+    // Explicitly apply the panel styling to keep layout consistent.
     this.previewSection.className = 'panel';
     this.previewSection.innerHTML = '<h2>Preview & Confirm</h2>';
     const controls = document.createElement('div');
