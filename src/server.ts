@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import experienceRouter from "./routes/experience";
 import profilesRouter from "./routes/profiles";
 import runStatsRouter from "./routes/runStats";
@@ -11,6 +12,12 @@ import { ensureDefaultUser } from "./services/userService";
 const app = express();
 
 app.use(express.json());
+
+const rvAppPublicPath = path.resolve(__dirname, "..", "rv-app", "public");
+app.use("/rv", express.static(rvAppPublicPath));
+app.get("/rv/*", (_req, res) => {
+  res.sendFile(path.join(rvAppPublicPath, "index.html"));
+});
 
 app.use(async (req, _res, next) => {
   try {
