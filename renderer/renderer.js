@@ -15,6 +15,7 @@ const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.youtube.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
+const RV_APP_URL = location.hostname === 'localhost' ? 'http://localhost:5173/' : '/rv';
 
 let googleTokenClient;
 let googleAccessToken = null;
@@ -49,6 +50,7 @@ function cacheDom() {
   elements.hud = document.getElementById('hud');
   elements.hudHideButton = document.getElementById('hud-hide-button');
   elements.hudFloatingToggle = document.getElementById('hud-floating-toggle');
+  elements.openRVApp = document.getElementById('open-rv-app');
   elements.googleSignIn = document.getElementById('google-sign-in');
   elements.googleAuthStatus = document.getElementById('google-auth-status');
   elements.playlistRow = document.getElementById('youtube-playlist-row');
@@ -157,6 +159,10 @@ function setupEventListeners() {
 
   document.getElementById('passport-button')?.addEventListener('click', () => {
     window.open('passport-page.html', '_blank');
+  });
+
+  elements.openRVApp?.addEventListener('click', () => {
+    window.open(RV_APP_URL, '_blank');
   });
 }
 
