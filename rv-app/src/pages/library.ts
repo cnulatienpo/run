@@ -30,7 +30,10 @@ class RVLibraryPage extends HTMLElement {
     exportBtn.className = 'large-btn';
     exportBtn.textContent = 'Export .rvzip';
     exportBtn.addEventListener('click', () => this.controller.exportAll());
-    this.appendChild(exportBtn);
+    const exportWrapper = document.createElement('div');
+    exportWrapper.className = 'panel';
+    exportWrapper.appendChild(exportBtn);
+    this.appendChild(exportWrapper);
   }
 
   private async loadServerClips() {
@@ -39,8 +42,8 @@ class RVLibraryPage extends HTMLElement {
     if (response.ok) {
       serverClips = await response.json();
     }
-
     const serverSection = document.createElement('section');
+    serverSection.className = 'panel';
 
     if (serverClips.length === 0) {
       serverSection.innerHTML =

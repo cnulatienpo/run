@@ -45,6 +45,8 @@ button, input, select, textarea {
 .grid {
   display: grid;
   gap: 1rem;
+  /* New: responsive columns so cards wrap and don’t overlap */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 .flex {
   display: flex;
