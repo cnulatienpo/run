@@ -2,6 +2,13 @@
 
 These snippets show how the RV React UI can talk to the new clip ingestion and selection endpoints.
 
+## Current storage and UI wiring
+
+- Storage: `clipLibraryService` persists clips to `data/clips.json` and keeps an in-memory cache for faster reads/writes.
+- Enrichment: `clipEnrichmentService` applies heuristics (CTA detection, night/club/animated/game inference, etc.) before clips are returned or selected.
+- Selection: `clipSelectionService` builds playlists for a user session using the stored/enriched metadata.
+- UI exposure: nothing in `renderer/` or `index.html` calls these endpoints yet. The only "library" UI is `rv-app`’s `rv-library-page`, which shows locally generated mnemonics from IndexedDB instead of backend clips. A React-based RV HUD lives in `src/rv/`, but no bundler currently includes it.
+
 ## Ingest clips from a dashboard panel
 
 ```ts
