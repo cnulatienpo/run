@@ -1,5 +1,30 @@
 <!--
   ============================================================
+    HUD ROUTING & NAVIGATION – PROJECT MAP
+  ------------------------------------------------------------
+    - This is the HUD homepage shown inside Electron.
+    - Provides:
+        * Google Auth
+        * YouTube playlist controls
+        * Step counter and telemetry
+        * HUD visibility toggles
+        * Passport export
+
+    - IMPORTANT:
+        * This page DOES NOT embed <rv-app>.
+        * rv-app is a separate application served at /rv.
+        * Navigation is intentionally done via a button:
+              “Open RV Studio”
+        * rv-app lives in rv-app/public/index.html and mounts <rv-app>.
+
+    - Reason:
+        * To keep HUD runtime lightweight and avoid mixing two UIs.
+        * rv-app is a full learning studio; HUD is a minimal overlay.
+  ============================================================
+-->
+
+<!--
+  ============================================================
   HUD (renderer/) – PROJECT MAP
   ------------------------------------------------------------
   Role:

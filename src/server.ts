@@ -44,6 +44,10 @@ app.use(
 // In production you can tighten the origin or read it from an environment variable.
 
 const rvAppPublicPath = path.resolve(__dirname, "..", "rv-app", "public");
+/**
+ * The RV Studio (rv-app) is NOT embedded inside renderer/index.html.
+ * Instead, it is served here at /rv and opened by the HUD via a button.
+ */
 app.use("/rv", express.static(rvAppPublicPath));
 app.get("/rv/*", (_req, res) => {
   res.sendFile(path.join(rvAppPublicPath, "index.html"));
