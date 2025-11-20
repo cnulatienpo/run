@@ -3,32 +3,118 @@ const ytScript = document.createElement('script');
 ytScript.src = 'https://www.youtube.com/iframe_api';
 document.body.appendChild(ytScript);
 
+// Curated scenic / exploration clips for "Workahol Enabler"
+// Each entry is designed to be remix‑friendly: lots of motion, minimal talking head.
+const WORKAHOL_ENABLER_CLIPS = [
+  {
+    id: 'rural_canada_virtual_run',
+    url: 'https://www.youtube.com/watch?v=T8X8acjT9T4',
+    title: 'Virtual Running – Rural Canada 4K (Treadmill Scenery)',
+    location: 'Rural Canada',
+    vibe: 'open road / countryside run',
+    environments: ['OUTDOOR', 'NATURE', 'RURAL'],
+    peopleDensity: 'LOW',
+    tags: ['virtual run', 'treadmill scenery', '4k', 'nature', 'canada', 'running'],
+  },
+
+  {
+    id: 'haut_gorges_fall_run',
+    url: 'https://www.youtube.com/watch?v=bWaQ59nbO2Q',
+    title: '[4K] Treadmill Scenery – Fall Foliage Run (Hautes-Gorges, Canada)',
+    location: 'Hautes-Gorges, Quebec',
+    vibe: 'fall colors / cozy cardio',
+    environments: ['OUTDOOR', 'NATURE', 'MOUNTAIN'],
+    peopleDensity: 'LOW',
+    tags: ['treadmill', 'virtual run', '4k', 'autumn', 'fall foliage', 'river', 'mountains'],
+  },
+
+  {
+    id: 'nyc_night_walk',
+    url: 'https://www.youtube.com/watch?v=XhqN9_9s-dk',
+    title: 'NEW YORK CITY Walking Tour at Night – 4K UHD',
+    location: 'New York City, USA',
+    vibe: 'city lights / busy streets / “city that never sleeps”',
+    environments: ['OUTDOOR', 'CITY', 'URBAN'],
+    peopleDensity: 'HIGH',
+    tags: ['walking tour', 'NYC', 'Times Square', 'night city', '4k', 'manhattan', 'city walk'],
+  },
+
+  {
+    id: 'hong_kong_harbor_night',
+    url: 'https://youtu.be/vXo5X8bJEcY',
+    title: 'Hong Kong City Walking Tour – Tsim Sha Tsui Waterfront 4K',
+    location: 'Hong Kong – Tsim Sha Tsui / Victoria Harbour',
+    vibe: 'waterfront skyline / neon reflections',
+    environments: ['OUTDOOR', 'CITY', 'WATERFRONT'],
+    peopleDensity: 'MEDIUM',
+    tags: ['hong kong', 'tsim sha tsui', '4k walk', 'harbourfront', 'city walking tour', 'night walk'],
+  },
+
+  {
+    id: 'macau_city_walk',
+    url: 'https://youtu.be/BOxzvk3uA1k',
+    title: 'Macau City Walking Tour – 4K',
+    location: 'Macau',
+    vibe: 'dense narrow streets / mix of old & new',
+    environments: ['OUTDOOR', 'CITY'],
+    peopleDensity: 'MEDIUM',
+    tags: ['macau', 'city walking tour', '4k', 'streets', 'urban walk'],
+  },
+
+  {
+    id: 'macau_portuguese_streets',
+    url: 'https://youtu.be/Z3cU8Xf3MKI',
+    title: 'Macau Portuguese Streets Walk – 4K',
+    location: 'Macau – historic Portuguese district',
+    vibe: 'historic alleyways / colorful facades',
+    environments: ['OUTDOOR', 'CITY', 'HISTORIC'],
+    peopleDensity: 'LOW',
+    tags: ['macau', 'portuguese streets', '4k', 'historic district', 'walking tour'],
+  },
+
+  {
+    id: 'kyoto_night_district',
+    url: 'https://youtu.be/XjR7eGiQkeM',
+    title: 'Kyoto Historical District Night Walk – 4K',
+    location: 'Kyoto, Japan',
+    vibe: 'lanterns / narrow lanes / very “wandering at night” energy',
+    environments: ['OUTDOOR', 'CITY', 'HISTORIC'],
+    peopleDensity: 'LOW',
+    tags: ['kyoto', 'night walk', '4k', 'japan', 'historical district', 'virtual walking tour'],
+  },
+
+  {
+    id: 'rio_carnival_street_party',
+    url: 'https://www.youtube.com/watch?v=gIb1vU_utgc',
+    title: 'Rio Carnival Street Party 2023 – 4K Street Carnival',
+    location: 'Rio de Janeiro, Brazil',
+    vibe: 'full‑tilt carnival / confetti / parade',
+    environments: ['OUTDOOR', 'CITY', 'EVENT'],
+    peopleDensity: 'VERY_HIGH',
+    tags: ['rio carnival', 'street carnival', '4k', 'brazil', 'parade', 'festival'],
+  },
+
+  {
+    id: 'abandoned_farm_urbex',
+    url: 'https://www.youtube.com/watch?v=7c0meDBxIes',
+    title: 'Urban Exploration – Abandoned Farm in Finland (4K)',
+    location: 'Rural Finland – abandoned farm',
+    vibe: 'quiet / eerie / exploration',
+    environments: ['OUTDOOR', 'INDOOR', 'ABANDONED'],
+    peopleDensity: 'NONE',
+    tags: ['urban exploration', 'abandoned', '4k', 'farm', 'urbex', 'tunnels', 'outbuildings'],
+  },
+];
+
+const WORKAHOL_ENABLER_PLAYLIST_ID = 'workahol_enabler';
+
 // --- Playlist Map ---
 const PLAYLISTS = [
   {
-    label: 'City Walking Tours (4K)',
-    id: 'PLe4Eo7QChXDSjIgyi85VX5uVEngpw8gUB',
-    description: 'High-resolution daytime urban walking tours.',
-  },
-  {
-    label: 'Night City Run',
-    id: 'PLSOO4vYXpMCe01uTOmj_3_G4C8-Kjy26X',
-    description: 'Moody night-time city POV runs and walks.',
-  },
-  {
-    label: 'Nature Trail Runs',
-    id: 'PLbpi6ZahtOH6blw5yrbnIuDrPq3NbS1U2',
-    description: 'Scenic forest and nature trail running routes.',
-  },
-  {
-    label: 'Treadmill Virtual Runs (30-45 min)',
-    id: 'PLLqiCLrQ5MTPjK2a3Kz7u9cYVrt2iIjtE',
-    description: 'Medium-length virtual treadmill runs (~30–45 minutes).',
-  },
-  {
-    label: 'Treadmill Virtual Runs (50-60 min)',
-    id: 'PLLqiCLrQ5MTN4Sqcx6BWuKvPl7x7EuG08',
-    description: 'Long-form treadmill runs (~50–60 minutes).',
+    label: 'Workahol Enabler – Scenic / Urban / Urbex',
+    id: WORKAHOL_ENABLER_PLAYLIST_ID,
+    description: 'Curated scenic runs, city walks, carnival energy, and urbex exploration.',
+    clips: WORKAHOL_ENABLER_CLIPS,
   },
 ];
 
@@ -47,6 +133,26 @@ let autoSyncCheckbox = null;
 let autoSyncStatusEl = null;
 
 const FX_LAST_RECT_PROP = '__rtwFxLastRect';
+
+function extractVideoId(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes('youtu.be')) {
+      return parsed.pathname.replace('/', '');
+    }
+    return parsed.searchParams.get('v');
+  } catch (err) {
+    console.warn('Failed to parse YouTube URL', url, err);
+    return null;
+  }
+}
+
+function getPlaylistVideoIds(id) {
+  const clips = PLAYLIST_BY_ID.get(id)?.clips ?? [];
+  return clips
+    .map((clip) => extractVideoId(clip.url))
+    .filter((videoId) => typeof videoId === 'string' && videoId.length > 0);
+}
 
 function clearOverlayPosition(overlayEl) {
   if (!overlayEl) {
@@ -515,9 +621,10 @@ if (currentPlaylistId) {
 playlistSelect.addEventListener('change', (e) => {
   const newId = e.target.value;
   setCurrentPlaylist(newId);
-  if (ytPlayer?.loadPlaylist) {
+  const playlistVideoIds = getPlaylistVideoIds(currentPlaylistId);
+  if (ytPlayer?.loadPlaylist && playlistVideoIds.length > 0) {
     updatePlaylistStatus(`Loading ${currentPlaylistLabel}…`);
-    ytPlayer.loadPlaylist({ list: currentPlaylistId });
+    ytPlayer.loadPlaylist(playlistVideoIds);
     isPlaylistPlaying = false;
     refreshAvailablePlaybackRates();
     if (autoSyncEnabled) {
@@ -637,6 +744,8 @@ hud.appendChild(intervalWrap);
 
 // --- Hook into API once loaded ---
 window.onYouTubeIframeAPIReady = () => {
+  const initialPlaylist = getPlaylistVideoIds(currentPlaylistId);
+  const [initialVideo, ...queuedVideos] = initialPlaylist;
   ytPlayer = new YT.Player('yt-runner-player', {
     height: '100%',
     width: '100%',
@@ -647,8 +756,8 @@ window.onYouTubeIframeAPIReady = () => {
       modestbranding: 1,
       loop: 1,
       rel: 0,
-      listType: 'playlist',
-      list: currentPlaylistId,
+      videoId: initialVideo,
+      playlist: queuedVideos,
     },
     events: {
       onReady: (event) => {
@@ -661,6 +770,10 @@ window.onYouTubeIframeAPIReady = () => {
         applyPlaybackRate(desiredPlaybackRate, { immediate: true });
         startRandomJump(currentJumpInterval);
         overlayAlignment.refreshTarget();
+        const playlistVideoIds = getPlaylistVideoIds(currentPlaylistId);
+        if (playlistVideoIds.length > 0) {
+          ytPlayer.loadPlaylist(playlistVideoIds);
+        }
       },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.ENDED) {
