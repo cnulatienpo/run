@@ -93,6 +93,25 @@ import { saveSnapshot, loadSnapshot } from './utils/snapshots.js';
 import { getActiveRooms, startRelayServer } from './realtime/relay.js';
 import { TimelinePlayer } from './replay/timelinePlayer.js';
 
+/**
+ * ------------------------------------------------------------
+ *  WIRING ASSERTION A6 – FAIL
+ * ------------------------------------------------------------
+ *  Legacy backend also does NOT enable CORS.
+ *
+ *  Impact:
+ *    - HUD (localhost:3000) cannot call:
+ *        /upload
+ *        /stream
+ *        /play/:session_id
+ *        /health
+ *      on port 4000.
+ *
+ *  Reason:
+ *    - This backend predates HUD integration.
+ * ------------------------------------------------------------
+ */
+
 loadEnv();
 
 const app = express();

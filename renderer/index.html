@@ -1,4 +1,21 @@
 <!--
+  ------------------------------------------------------------
+    WIRING ASSERTION A7 – PASS
+    (No CSP / No X-Frame-Options)
+  ------------------------------------------------------------
+    • This HTML file does NOT include:
+        <meta http-equiv="Content-Security-Policy">
+    • Servers do NOT send:
+        X-Frame-Options: DENY
+        X-Frame-Options: SAMEORIGIN
+
+    Meaning:
+      iframe embedding is NOT blocked.
+      rv-app *could* be embedded if desired.
+  ------------------------------------------------------------
+-->
+
+<!--
   ============================================================
     WIRING ASSERTIONS A1 + A2 – DOCUMENTATION
   ------------------------------------------------------------
