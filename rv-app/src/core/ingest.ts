@@ -1,3 +1,51 @@
+/**
+ * ============================================================
+ *  CSV / JSON INGESTION – PROJECT MAP
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Converts uploaded CSV or JSON files into Deck objects
+ *      for use in mnemonic generation, preview, and planning.
+ *
+ *  Functions:
+ *
+ *    parseCSV(text, name)
+ *      - Splits text into rows using \n
+ *      - First row is treated as column headers
+ *      - Remaining rows are mapped field-by-field
+ *      - Tag fields accept semicolon (;) or pipe (|) separated lists
+ *      - Returns a single Deck with:
+ *          { id, name, tags:[], items:[{id, type, front, back, tags}] }
+ *
+ *    parseJSON(text)
+ *      - Accepts either:
+ *           * a single deck object
+ *           * an array of deck objects
+ *      - Normalizes each deck via normalizeDeck()
+ *      - Returns an array of fully normalized Deck objects
+ *
+ *    readFile(file)
+ *      - Uses FileReader to read CSV/JSON into string form
+ *
+ *  Deck Model:
+ *    {
+ *      id: string
+ *      name: string
+ *      tags: string[]
+ *      items: Array<{
+ *        id: string
+ *        type: "fact" | ...
+ *        front: string
+ *        back: string
+ *        tags: string[]
+ *      }>
+ *    }
+ *
+ *  Notes:
+ *    - These parsers are used by rv-app “Prep Studio”
+ *      when users upload CSV/JSON deck files.
+ *    - Parsed decks are persisted via storage.ts.
+ * ============================================================
+ */
 import { Deck, Item } from './schema.js';
 
 export function parseCSV(text: string, name = 'Uploaded CSV'): Deck {
