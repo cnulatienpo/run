@@ -7,6 +7,9 @@
   "directories": {
     "buildResources": "build"
   },
+  "extraResources": [
+    "rv-app/public/**/*"
+  ],
   "win": {
     "target": "nsis",
     "icon": "build/icon.ico"

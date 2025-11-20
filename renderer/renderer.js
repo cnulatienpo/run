@@ -5,7 +5,7 @@
  * The HUD does not mount <rv-app>.
  * The “Open RV Studio” button opens rv-app in a new window/tab.
  * rv-app is served at:
- *      DEV: http://localhost:3001/rv
+ *      DEV: http://localhost:4173
  *      PROD: /rv
  *
  * Reason:
@@ -55,7 +55,14 @@ const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.youtube.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
-const RV_APP_URL = '/rv-app/public/index.html';
+const RV_APP_DEV_URL = 'http://localhost:4173';
+const RV_APP_PROD_URL = '/rv/';
+
+function resolveRVAppUrl() {
+  const host = window.location.hostname;
+  const isLocalDev = host === 'localhost' || host === '127.0.0.1';
+  return isLocalDev ? RV_APP_DEV_URL : RV_APP_PROD_URL;
+}
 
 let googleTokenClient;
 let googleAccessToken = null;
@@ -214,7 +221,8 @@ function setupEventListeners() {
    *   Users must open RV Studio to access mnemonic generation tools.
    */
   elements.openRVApp?.addEventListener('click', () => {
-    window.open(RV_APP_URL, '_blank');
+    const targetUrl = resolveRVAppUrl();
+    window.open(targetUrl, '_blank');
   });
 }
 
