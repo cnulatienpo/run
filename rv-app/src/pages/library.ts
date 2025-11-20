@@ -42,6 +42,13 @@ class RVLibraryPage extends HTMLElement {
 
   private render() {
     this.innerHTML = '<h2>Library & Review</h2>';
+    const localSection = document.createElement('section');
+    localSection.className = 'panel';
+
+    const localHeading = document.createElement('h2');
+    localHeading.textContent = 'Local Mnemonics';
+    localSection.appendChild(localHeading);
+
     const gallery = document.createElement('div');
     gallery.className = 'grid';
     this.controller.mnemonics.forEach((mnemonic) => {
@@ -55,7 +62,8 @@ class RVLibraryPage extends HTMLElement {
       gallery.appendChild(card);
     });
     this.gallery = gallery;
-    this.appendChild(gallery);
+    localSection.appendChild(gallery);
+
     const exportBtn = document.createElement('button');
     exportBtn.className = 'large-btn';
     exportBtn.textContent = 'Export .rvzip';
@@ -63,39 +71,51 @@ class RVLibraryPage extends HTMLElement {
     const exportWrapper = document.createElement('div');
     exportWrapper.className = 'panel';
     exportWrapper.appendChild(exportBtn);
-    this.appendChild(exportWrapper);
+    localSection.appendChild(exportWrapper);
+
+    this.appendChild(localSection);
   }
 
   private async loadServerClips() {
-    const response = await fetch('/api/clips');
-    let serverClips: any[] = [];
-    if (response.ok) {
-      serverClips = await response.json();
-    }
+    const serverClips = await this.fetchServerClips();
     const serverSection = document.createElement('section');
     serverSection.className = 'panel';
 
+    const serverHeading = document.createElement('h2');
+    serverHeading.textContent = 'Server Clips';
+    serverSection.appendChild(serverHeading);
+
     if (serverClips.length === 0) {
-      serverSection.innerHTML =
-        '<h2>Remote Clip Library</h2><p>No server clips found. Use the API to ingest clips via POST /api/clips.</p>';
+      const emptyState = document.createElement('p');
+      emptyState.textContent = 'No server clips found. Try ingesting clips via /api/clips.';
+      serverSection.appendChild(emptyState);
     } else {
-      serverSection.innerHTML = '<h2>Remote Clip Library</h2>';
       const serverGallery = document.createElement('div');
       serverGallery.className = 'grid';
       serverClips.forEach((clip) => {
         const card = document.createElement('div');
         card.className = 'scene-card';
-        card.textContent = clip.title || clip.name || clip.url || JSON.stringify(clip);
+        card.innerHTML = `
+            <strong>${clip.title ?? '(untitled)'}</strong>
+            <p>${clip.description ?? ''}</p>
+            <small>${clip.tags?.join(', ')}</small>
+        `;
         serverGallery.appendChild(card);
       });
       serverSection.appendChild(serverGallery);
     }
 
-    const insertionPoint = this.gallery?.nextSibling;
-    if (insertionPoint) {
-      this.insertBefore(serverSection, insertionPoint);
-    } else {
-      this.appendChild(serverSection);
+    this.appendChild(serverSection);
+  }
+
+  private async fetchServerClips() {
+    try {
+      const res = await fetch('/api/clips');
+      const clips = res.ok ? await res.json() : [];
+      return Array.isArray(clips) ? clips : [];
+    } catch (err) {
+      console.error('Failed to fetch server clips', err);
+      return [];
     }
   }
 }

@@ -80,10 +80,9 @@
     ],
     "extraResources": [
       "hallucinations/**/*",
-      "rv-app/public/**",
       {
         "from": "rv-app/public",
-        "to": "rv-app/public"
+        "to": "rv"
       }
     ],
     "mac": {
