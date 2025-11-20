@@ -58,6 +58,132 @@ const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
 const RV_APP_DEV_URL = 'http://localhost:4173';
 const RV_APP_PROD_URL = '/rv/';
 
+// Curated scenic / exploration clips for "Workahol Enabler"
+// Each entry is designed to be remix‑friendly: lots of motion, minimal talking head.
+const WORKAHOL_ENABLER_CLIPS = [
+  {
+    id: 'rural_canada_virtual_run',
+    url: 'https://www.youtube.com/watch?v=T8X8acjT9T4',
+    title: 'Virtual Running – Rural Canada 4K (Treadmill Scenery)',
+    location: 'Rural Canada',
+    vibe: 'open road / countryside run',
+    environments: ['OUTDOOR', 'NATURE', 'RURAL'],
+    peopleDensity: 'LOW',
+    tags: ['virtual run', 'treadmill scenery', '4k', 'nature', 'canada', 'running'],
+  },
+
+  {
+    id: 'haut_gorges_fall_run',
+    url: 'https://www.youtube.com/watch?v=bWaQ59nbO2Q',
+    title: '[4K] Treadmill Scenery – Fall Foliage Run (Hautes-Gorges, Canada)',
+    location: 'Hautes-Gorges, Quebec',
+    vibe: 'fall colors / cozy cardio',
+    environments: ['OUTDOOR', 'NATURE', 'MOUNTAIN'],
+    peopleDensity: 'LOW',
+    tags: ['treadmill', 'virtual run', '4k', 'autumn', 'fall foliage', 'river', 'mountains'],
+  },
+
+  {
+    id: 'nyc_night_walk',
+    url: 'https://www.youtube.com/watch?v=XhqN9_9s-dk',
+    title: 'NEW YORK CITY Walking Tour at Night – 4K UHD',
+    location: 'New York City, USA',
+    vibe: 'city lights / busy streets / “city that never sleeps”',
+    environments: ['OUTDOOR', 'CITY', 'URBAN'],
+    peopleDensity: 'HIGH',
+    tags: ['walking tour', 'NYC', 'Times Square', 'night city', '4k', 'manhattan', 'city walk'],
+  },
+
+  {
+    id: 'hong_kong_harbor_night',
+    url: 'https://youtu.be/vXo5X8bJEcY',
+    title: 'Hong Kong City Walking Tour – Tsim Sha Tsui Waterfront 4K',
+    location: 'Hong Kong – Tsim Sha Tsui / Victoria Harbour',
+    vibe: 'waterfront skyline / neon reflections',
+    environments: ['OUTDOOR', 'CITY', 'WATERFRONT'],
+    peopleDensity: 'MEDIUM',
+    tags: ['hong kong', 'tsim sha tsui', '4k walk', 'harbourfront', 'city walking tour', 'night walk'],
+  },
+
+  {
+    id: 'macau_city_walk',
+    url: 'https://youtu.be/BOxzvk3uA1k',
+    title: 'Macau City Walking Tour – 4K',
+    location: 'Macau',
+    vibe: 'dense narrow streets / mix of old & new',
+    environments: ['OUTDOOR', 'CITY'],
+    peopleDensity: 'MEDIUM',
+    tags: ['macau', 'city walking tour', '4k', 'streets', 'urban walk'],
+  },
+
+  {
+    id: 'macau_portuguese_streets',
+    url: 'https://youtu.be/Z3cU8Xf3MKI',
+    title: 'Macau Portuguese Streets Walk – 4K',
+    location: 'Macau – historic Portuguese district',
+    vibe: 'historic alleyways / colorful facades',
+    environments: ['OUTDOOR', 'CITY', 'HISTORIC'],
+    peopleDensity: 'LOW',
+    tags: ['macau', 'portuguese streets', '4k', 'historic district', 'walking tour'],
+  },
+
+  {
+    id: 'kyoto_night_district',
+    url: 'https://youtu.be/XjR7eGiQkeM',
+    title: 'Kyoto Historical District Night Walk – 4K',
+    location: 'Kyoto, Japan',
+    vibe: 'lanterns / narrow lanes / very “wandering at night” energy',
+    environments: ['OUTDOOR', 'CITY', 'HISTORIC'],
+    peopleDensity: 'LOW',
+    tags: ['kyoto', 'night walk', '4k', 'japan', 'historical district', 'virtual walking tour'],
+  },
+
+  {
+    id: 'rio_carnival_street_party',
+    url: 'https://www.youtube.com/watch?v=gIb1vU_utgc',
+    title: 'Rio Carnival Street Party 2023 – 4K Street Carnival',
+    location: 'Rio de Janeiro, Brazil',
+    vibe: 'full‑tilt carnival / confetti / parade',
+    environments: ['OUTDOOR', 'CITY', 'EVENT'],
+    peopleDensity: 'VERY_HIGH',
+    tags: ['rio carnival', 'street carnival', '4k', 'brazil', 'parade', 'festival'],
+  },
+
+  {
+    id: 'abandoned_farm_urbex',
+    url: 'https://www.youtube.com/watch?v=7c0meDBxIes',
+    title: 'Urban Exploration – Abandoned Farm in Finland (4K)',
+    location: 'Rural Finland – abandoned farm',
+    vibe: 'quiet / eerie / exploration',
+    environments: ['OUTDOOR', 'INDOOR', 'ABANDONED'],
+    peopleDensity: 'NONE',
+    tags: ['urban exploration', 'abandoned', '4k', 'farm', 'urbex', 'tunnels', 'outbuildings'],
+  },
+];
+
+const WORKAHOL_ENABLER_PLAYLIST_ID = 'workahol_enabler';
+
+function extractVideoId(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes('youtu.be')) {
+      return parsed.pathname.replace('/', '');
+    }
+    return parsed.searchParams.get('v');
+  } catch (err) {
+    console.warn('Failed to parse YouTube URL', url, err);
+    return null;
+  }
+}
+
+const WORKAHOL_ENABLER_VIDEO_IDS = WORKAHOL_ENABLER_CLIPS.map((clip) => extractVideoId(clip.url)).filter(
+  (videoId) => typeof videoId === 'string' && videoId.length > 0,
+);
+
+const WORKAHOL_ENABLER_PLAYLIST = [
+  { id: WORKAHOL_ENABLER_PLAYLIST_ID, title: 'Workahol Enabler – Scenic / Urban / Urbex' },
+];
+
 function resolveRVAppUrl() {
   const host = window.location.hostname;
   const isLocalDev = host === 'localhost' || host === '127.0.0.1';
@@ -71,7 +197,7 @@ let fitPollTimer;
 let youtubePlayer;
 let playerReady = false;
 let youtubePlaylists = [];
-let currentPlaylistId = null;
+let currentPlaylistId = WORKAHOL_ENABLER_PLAYLIST_ID;
 let desiredVolume = 50;
 let latestCadence;
 let latestSteps;
@@ -259,6 +385,7 @@ function initializeYouTubePlayer() {
 }
 
 function createYouTubePlayer() {
+  const [initialVideo, ...queuedVideos] = WORKAHOL_ENABLER_VIDEO_IDS;
   youtubePlayer = new YT.Player('youtube-player', {
     height: '360',
     width: '640',
@@ -268,8 +395,8 @@ function createYouTubePlayer() {
       modestbranding: 1,
       rel: 0,
       mute: 0,
-      listType: 'playlist',
-      list: 'PLFgquLnL59alW3xmYiWRaoz0oM3H17Lth', // City 4K Walk Tour
+      videoId: initialVideo,
+      playlist: queuedVideos,
     },
     events: {
       onReady: onYouTubePlayerReady,
@@ -303,11 +430,19 @@ function loadPlaylist(playlistId) {
   }
 
   if (playerReady && youtubePlayer?.loadPlaylist) {
-    youtubePlayer.loadPlaylist({
-      list: playlistId,
-      index: 0,
-    });
-    setPlaylistStatus('Playlist loaded', '#4CAF50');
+    const isWorkaholPlaylist = playlistId === WORKAHOL_ENABLER_PLAYLIST_ID;
+    const playlistVideoIds = isWorkaholPlaylist ? WORKAHOL_ENABLER_VIDEO_IDS : null;
+
+    if (playlistVideoIds?.length) {
+      youtubePlayer.loadPlaylist(playlistVideoIds);
+      setPlaylistStatus('Playlist loaded', '#4CAF50');
+    } else {
+      youtubePlayer.loadPlaylist({
+        list: playlistId,
+        index: 0,
+      });
+      setPlaylistStatus('Playlist loaded', '#4CAF50');
+    }
   } else {
     setPlaylistStatus('Playlist ready when player loads', '#aaa');
   }
@@ -565,13 +700,7 @@ function populatePlaylistDropdown(playlists) {
 }
 
 function populateHardcodedPlaylists() {
-  const hardcodedPlaylists = [
-    { id: 'PLe4Eo7QChXDSjIgyi85VX5uVEngpw8gUB', title: 'City Walking Tours (4K)' },
-    { id: 'PLSOO4vYXpMCe01uTOmj_3_G4C8-Kjy26X', title: 'Night City Run' },
-    { id: 'PLbpi6ZahtOH6blw5yrbnIuDrPq3NbS1U2', title: 'Nature Trail Runs' },
-    { id: 'PLLqiCLrQ5MTPjK2a3Kz7u9cYVrt2iIjtE', title: 'Treadmill Virtual Runs (30-45 min)' },
-    { id: 'PLLqiCLrQ5MTN4Sqcx6BWuKvPl7x7EuG08', title: 'Treadmill Virtual Runs (50-60 min)' },
-  ];
+  const hardcodedPlaylists = WORKAHOL_ENABLER_PLAYLIST;
   
   if (elements.playlistSelect) {
     populatePlaylistDropdown(hardcodedPlaylists);
