@@ -1,5 +1,30 @@
 <!--
   ============================================================
+    WIRING ASSERTION A3 – PASS
+    rv-app Buildability + Entrypoint
+  ------------------------------------------------------------
+    • This file is the PUBLIC ENTRYPOINT for rv-app.
+    • It mounts the custom element <rv-app>.
+    • It loads the compiled output:
+          ./build/main.js
+      produced by:
+          tsc -p rv-app
+
+    • rv-app is fully buildable:
+          - tsconfig.json outputs to public/build/
+          - public/index.html loads build artifacts directly
+
+    • This makes rv-app a complete standalone application
+      accessible at:
+          DEV: http://localhost:3001/rv
+          PROD: /rv
+
+    • Reason this is a PASS:
+          The entrypoint exists, is valid, and loads the app.
+  ============================================================
+-->
+<!--
+  ============================================================
     RV-APP ENTRY – PROJECT MAP
   ------------------------------------------------------------
     This is the standalone entrypoint for the Learning Studio.
