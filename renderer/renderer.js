@@ -201,6 +201,11 @@ function setupEventListeners() {
     window.open('passport-page.html', '_blank');
   });
 
+  /**
+   * NOTE (A10):
+   *   HUD UI intentionally does NOT provide CSV/JSON ingestion.
+   *   Users must open RV Studio to access mnemonic generation tools.
+   */
   elements.openRVApp?.addEventListener('click', () => {
     window.open(RV_APP_URL, '_blank');
   });
