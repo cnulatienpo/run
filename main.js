@@ -4,7 +4,7 @@
  * ------------------------------------------------------------
  *  Role:
  *    - Bootstraps the Electron window
- *    - Loads renderer/index.html using loadFile(...)
+ *    - Loads renderer/index.html using loadURL(app://...)
  *    - Uses preload.js for secure bridging
  *    - Runs with contextIsolation:true and nodeIntegration:false
  *
@@ -25,11 +25,26 @@
  * Electron does NOT automatically launch either backend.
  * Developer must choose between RV API (3001) or legacy backend (4000).
  */
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, protocol } = require('electron');
 const path = require('path');
 const AutoLaunch = require('electron-launcher');
 
 const appLauncher = new AutoLaunch({ name: 'Run The World' });
+
+function registerAppProtocol() {
+  const rendererRoot = path.join(__dirname, 'renderer');
+  const rvAppRoot = path.join(__dirname, 'rv-app', 'public');
+  protocol.registerFileProtocol('app', (request, callback) => {
+    const url = new URL(request.url);
+    const pathname = decodeURIComponent(url.pathname);
+    const targetPath = path.normalize(path.join(__dirname, pathname));
+    const isAllowed = [rendererRoot, rvAppRoot].some((root) =>
+      targetPath.startsWith(root)
+    );
+    const safePath = isAllowed ? targetPath : path.join(rendererRoot, 'index.html');
+    callback({ path: safePath });
+  });
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -42,7 +57,7 @@ function createWindow() {
     },
   });
 
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.loadURL('app://renderer/index.html');
 }
 
 app.whenReady().then(() => {
@@ -50,6 +65,7 @@ app.whenReady().then(() => {
     console.error('Auto-launch failed:', err);
   });
 
+  registerAppProtocol();
   createWindow();
 });
 

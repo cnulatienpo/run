@@ -8,7 +8,7 @@
     "buildResources": "build"
   },
   "extraResources": [
-    "rv-app/public/**/*"
+    "rv-app/public/**"
   ],
   "win": {
     "target": "nsis",

@@ -76,6 +76,7 @@
 
 import http from 'http';
 import express from 'express';
+import cors from 'cors';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -127,6 +128,7 @@ import { TimelinePlayer } from './replay/timelinePlayer.js';
 loadEnv();
 
 const app = express();
+app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 const STREAM_IDLE_TIMEOUT_MS = 15_000;
