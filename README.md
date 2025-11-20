@@ -20,3 +20,69 @@ HUD calls to `/api/*` are automatically proxied to `http://localhost:3001` by th
 
 ## Electron packaging
 The packaged Electron app serves HUD and rv-app assets from the `app://` custom protocol, keeping both surfaces on a single origin.
+
+# Quick Verification Steps
+
+These steps verify that all components (HUD, rv-app, RV API) are built and serve correctly.
+
+### 1. Build rv-app
+
+
+npx tsc -p rv-app
+
+Output goes to:
+
+
+rv-app/public/build/
+
+
+### 2. Serve rv-app
+Use any static server, e.g.:
+
+
+npx http-server rv-app/public -p 4173
+
+Visit:
+
+
+http://localhost:4173
+
+You should see:
+  • Prep Studio  
+  • Run  
+  • Library  
+  • Settings  
+And the service worker should register (check DevTools console).
+
+### 3. Start the RV API
+
+
+npx ts-node src/server.ts
+
+Listens at:
+
+
+http://localhost:3001
+
+
+### 4. Serve the HUD
+Recommended (proxy-capable):
+
+
+node dev/hud-dev-server.js
+
+Temporary (not recommended):
+
+
+python3 -m http.server 3000
+
+Then open:
+  • /index.html (modern HUD), or  
+  • /renderer/index.html (legacy HUD)
+
+### 5. End-to-End Check
+  • HUD loads at http://localhost:3000  
+  • rv-app loads at http://localhost:4173  
+  • RV API answers at http://localhost:3001/api/health  
+
+If all three load without console errors, wiring is correct.
