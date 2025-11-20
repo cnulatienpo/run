@@ -11,6 +11,25 @@ import usersRouter from "./routes/users";
 import { ensureDefaultUser } from "./services/userService";
 
 /**
+ * ------------------------------------------------------------
+ *  WIRING ASSERTION A6 – FAIL
+ * ------------------------------------------------------------
+ *  CORS is NOT enabled for the RV API.
+ *
+ *  Impact:
+ *    - HUD (http://localhost:3000) cannot fetch /api routes on 3001.
+ *    - Browser will block requests without:
+ *        Access-Control-Allow-Origin: *
+ *
+ *  Current State:
+ *    - No `import cors from 'cors'`
+ *    - No app.use(cors(...))
+ *
+ *  (This is expected for now; documented for clarity.)
+ * ------------------------------------------------------------
+ */
+
+/**
  * ============================================================
  *  RV API – DEVELOPMENT NOTES
  * ------------------------------------------------------------
