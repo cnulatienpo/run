@@ -10,7 +10,7 @@
 
     RESOLUTION:
     • Navigation must happen via an explicit button
-      (e.g. “Open RV Studio”).
+      (e.g. “Open Workahol Enabler”).
   ============================================================
 -->
 
@@ -55,7 +55,7 @@
             • a navigation link
             • an iframe pointing to /rv
       - rv-app was an isolated application until the
-        “Open RV Studio” button was later added manually.
+        “Open Workahol Enabler” button was later added manually.
 
     Reason for Design:
       - HUD stays lightweight for overlays, step counters, playlists.
@@ -80,7 +80,7 @@
         * This page DOES NOT embed <rv-app>.
         * rv-app is a separate application served at /rv.
         * Navigation is intentionally done via a button:
-              “Open RV Studio”
+              “Open Workahol Enabler”
         * rv-app lives in rv-app/public/index.html and mounts <rv-app>.
 
     - Reason:
@@ -166,7 +166,7 @@
       <div class="row">
         <button onclick="window.downloadSessionLog()">Download Log</button>
         <button id="passport-button" type="button">Passport 📖</button>
-        <button id="open-rv-app" type="button">RV Studio</button>
+        <button id="open-rv-app" type="button">Open Workahol Enabler</button>
         <button id="test-clip-api" type="button">Test Clips API</button>
         <button id="hud-hide-button" type="button" style="margin-left: auto;">Hide HUD</button>
       </div>

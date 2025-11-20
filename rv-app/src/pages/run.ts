@@ -14,6 +14,8 @@ class RVRunPage extends HTMLElement {
 
   private render() {
     this.innerHTML = '';
+    const heading = document.createElement('h2');
+    heading.textContent = 'Now The Fun Starts';
     this.video.controls = true;
     this.video.style.width = '100%';
     this.video.style.maxHeight = '320px';
@@ -38,7 +40,7 @@ class RVRunPage extends HTMLElement {
       button.addEventListener('click', () => this.handleHUD(label));
       this.hud.appendChild(button);
     });
-    this.append(this.video, this.sceneContainer, this.hud);
+    this.append(heading, this.video, this.sceneContainer, this.hud);
     this.controller.addEventListener('session', () => this.updateScene());
     this.controller.audio.attachVideo(this.video);
     this.updateScene();
