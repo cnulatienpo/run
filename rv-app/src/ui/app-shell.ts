@@ -44,15 +44,15 @@ export class RVAppShell extends HTMLElement {
     header.innerHTML = `
       <div style="padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-size:1.8rem;font-weight:800">RV</div>
-          <div style="font-size:0.9rem;color:var(--muted)">Run & Learn studio</div>
+          <div style="font-size:1.8rem;font-weight:800">Workahol Enabler</div>
+          <div style="font-size:0.9rem;color:var(--muted)">Productivity Upgrade Machine</div>
         </div>
         <button class="large-btn" id="prep-seed">Load Fixtures</button>
       </div>
     `;
     header.querySelector('#prep-seed')?.addEventListener('click', () => this.controller.seedFixtures());
     this.nav.classList.add('flex');
-    ['Prep Studio', 'Run', 'Library', 'Clips', 'Settings'].forEach((label, index) => {
+    ['Give Me Your Files', 'Now The Fun Starts', 'Brain Toys', 'Videos Warehouse', 'Fuse Box'].forEach((label, index) => {
       const routes: Route[] = ['prep', 'run', 'library', 'clips', 'settings'];
       const button = document.createElement('button');
       button.textContent = label;

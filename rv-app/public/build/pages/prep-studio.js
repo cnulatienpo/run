@@ -46,7 +46,7 @@ class RVPrepStudio extends HTMLElement {
         const uploadCard = document.createElement('div');
         uploadCard.className = 'panel';
         uploadCard.innerHTML = `
-      <h2>Upload</h2>
+      <h2>Give Me Your Files</h2>
       <p>Drop CSV or JSON decks to begin. Fixtures live in /rv-app/fixtures.</p>
     `;
         uploadCard.appendChild(this.uploadInput);

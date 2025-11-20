@@ -4,7 +4,7 @@ class RVSettingsPage extends HTMLElement {
         this.render();
     }
     async render() {
-        this.innerHTML = '<h2>Storage & Privacy</h2>';
+        this.innerHTML = '<h2>Fuse Box</h2>';
         const usage = await this.controller.usage();
         const persisted = await this.controller.persistenceStatus();
         this.innerHTML += `

@@ -41,7 +41,7 @@ class RVLibraryPage extends HTMLElement {
   }
 
   private render() {
-    this.innerHTML = '<h2>Library & Review</h2>';
+    this.innerHTML = '<h2>Brain Toys</h2>';
     const localSection = document.createElement('section');
     localSection.className = 'panel';
 

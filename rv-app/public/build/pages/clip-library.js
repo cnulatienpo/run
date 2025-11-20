@@ -1,7 +1,7 @@
 "use strict";
 class RVClipLibrary extends HTMLElement {
     async connectedCallback() {
-        this.innerHTML = '<h2>Server Clip Library</h2>';
+        this.innerHTML = '<h2>Videos Warehouse</h2>';
         const res = await fetch('/api/clips');
         const data = await res.ok ? await res.json() : [];
         const grid = document.createElement('div');
