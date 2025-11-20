@@ -1,5 +1,6 @@
 {
   "name": "run",
+  "_devLimitation": "start:browser uses Python http.server → no proxy, no CORS.",
   "version": "1.0.0",
   "description": "Run The World overlay",
   "main": "index.js",
@@ -62,6 +63,7 @@
       "output": "dist"
     },
     "files": [
+      "// PACKAGING GAP: rv-app/public is NOT included → packaged app cannot host rv-app.",
       "main.js",
       "index.html",
       "index.js",
@@ -72,7 +74,8 @@
       "assets/**/*"
     ],
     "extraResources": [
-      "hallucinations/**/*"
+      "hallucinations/**/*",
+      "// TODO: Add rv-app/public/** to ensure rv-app works in packaged builds."
     ],
     "mac": {
       "target": "dmg"

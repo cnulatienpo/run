@@ -19,6 +19,12 @@
  *    - App navigation must happen in renderer, not here.
  * ============================================================
  */
+
+/**
+ * PACKAGING WARNING:
+ * rv-app is NOT shipped with electron-builder by default.
+ * Must add rv-app/public/** to extraResources to expose /rv.
+ */
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 

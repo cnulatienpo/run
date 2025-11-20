@@ -1,12 +1,7 @@
-# rv-app Development
-
-Build:
-  npx tsc -p rv-app
-
-Serve (example):
-  npx http-server rv-app/public -p 4173
-
-Notes:
-  - There is NO Vite/Webpack bundler.
-  - public/index.html loads <rv-app> and build/main.js.
-  - This app is served statically by the RV API at /rv.
+# rv-app Hosting Gap (Original State)
+- No npm script.
+- No bundler.
+- TypeScript builds via `tsc -p rv-app`.
+- Output goes to public/build/.
+- MUST be hosted manually (http-server or Express).
+- Historically unreachable from HUD due to missing link + missing hosting.

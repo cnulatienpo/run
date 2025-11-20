@@ -49,6 +49,12 @@ import { ensureDefaultUser } from "./services/userService";
  *    - HUD cannot reach this server without CORS or proxy.
  * ============================================================
  */
+
+/**
+ * CORS GAP (A6 FAIL):
+ * RV API does NOT enable CORS.
+ * HUD (3000) cannot fetch 3001 without CORS headers.
+ */
 const app = express();
 
 app.use(express.json());
@@ -62,6 +68,16 @@ app.use(
 );
 // In production you can tighten the origin or read it from an environment variable.
 
+/**
+ * HOSTING GAP:
+ * Originally, rv-app/public was NOT hosted by any backend.
+ * TypeScript output wrote to public/build/,
+ * but no Express static route existed.
+ * Developers had to manually open public/index.html.
+ *
+ * RESOLUTION:
+ * Express now serves /rv from rv-app/public.
+ */
 const rvAppPublicPath = path.resolve(__dirname, "..", "rv-app", "public");
 /**
  * The RV Studio (rv-app) is NOT embedded inside renderer/index.html.
@@ -116,6 +132,13 @@ app.use("/api/clips", clipsRouter);
 app.use("/api/passport", passportRouter);
 app.use("/api/users", usersRouter);
 
+/**
+ * BACKEND SPLIT:
+ * RV API on port 3001.
+ * Legacy backend on port 4000.
+ * These servers are unrelated but coexist.
+ * Developers must manually run the correct one.
+ */
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
 if (require.main === module) {

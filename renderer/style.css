@@ -1,3 +1,9 @@
+/* DEV LIMITATION (A5/A6):
+   HUD served via Python http.server (port 3000).
+   Cannot forward /api requests.
+   No CORS allowed by default → calls to 3001/4000 fail.
+ */
+
 /* NOTE:
  * Dev HUD is served by dev/hud-dev-server.js on port 3000.
  * /api requests are proxied to the RV backend (default :3001),
