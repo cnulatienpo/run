@@ -9,7 +9,10 @@
     "start:browser": "node dev/hud-dev-server.js",
     "start:headless": "./dev/start-headless.sh",
     "start:gui": "./dev/start-gui.sh",
-    "dev": "nodemon main.js",
+    "dev": "concurrently --kill-others-on-fail \"npm run rv:serve\" \"nodemon --exec ts-node src/server.ts\" \"python3 -m http.server 3000\"",
+    "dev:electron": "nodemon main.js",
+    "rv:build": "tsc -p rv-app",
+    "rv:serve": "http-server rv-app/public -p 4173",
     "build": "electron-builder",
     "dist": "electron-builder --win",
     "release:mac": "electron-builder --mac",
@@ -51,7 +54,9 @@
     "@types/react-dom": "^18.3.5",
     "electron-builder": "^24.13.3",
     "nodemon": "^3.1.7",
+    "http-server": "^14.1.1",
     "@types/node": "^22.10.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   },
@@ -63,7 +68,6 @@
       "output": "dist"
     },
     "files": [
-      "// PACKAGING GAP: rv-app/public is NOT included → packaged app cannot host rv-app.",
       "main.js",
       "index.html",
       "index.js",
@@ -71,11 +75,15 @@
       "renderer/**/*",
       "effects/**/*",
       "step-bridge/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "rv-app/public/**/*"
     ],
     "extraResources": [
       "hallucinations/**/*",
-      "// TODO: Add rv-app/public/** to ensure rv-app works in packaged builds."
+      {
+        "from": "rv-app/public",
+        "to": "rv-app/public"
+      }
     ],
     "mac": {
       "target": "dmg"

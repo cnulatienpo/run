@@ -79,13 +79,14 @@ app.use(
  * Express now serves /rv from rv-app/public.
  */
 const rvAppPublicPath = path.resolve(__dirname, "..", "rv-app", "public");
+const rvAppIndexHtmlPath = path.join(rvAppPublicPath, "index.html");
 /**
  * The RV Studio (rv-app) is NOT embedded inside renderer/index.html.
  * Instead, it is served here at /rv and opened by the HUD via a button.
  */
 app.use("/rv", express.static(rvAppPublicPath));
 app.get("/rv/*", (_req, res) => {
-  res.sendFile(path.join(rvAppPublicPath, "index.html"));
+  res.sendFile(rvAppIndexHtmlPath);
 });
 
 app.use(async (req, _res, next) => {
