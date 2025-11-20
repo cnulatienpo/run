@@ -1,4 +1,28 @@
 /**
+ * ------------------------------------------------------------
+ * USAGE GAP – RV-APP IS NOT EXPOSED IN THE HUD
+ * ------------------------------------------------------------
+ * IMPORTANT:
+ *   All ingestion + mnemonic features exist ONLY inside rv-app.
+ *
+ *   This includes:
+ *     - CSV/JSON deck upload
+ *     - Automatic thumbnail generation
+ *     - Mnemonic synthesis
+ *     - Library & Review UI
+ *
+ *   The HUD (renderer/index.html):
+ *     - Does NOT mount <rv-app>
+ *     - Does NOT expose ingestion or mnemonic features
+ *     - Can only reach rv-app through the “Open RV Studio” link
+ *
+ *   Without launching rv-app, users cannot:
+ *     - Upload CSV/JSON decks
+ *     - View mnemonic previews
+ *     - Access the learning studio
+ * ------------------------------------------------------------
+ */
+/**
  * ============================================================
  *  RV CONTROLLER – INGESTION & FIXTURE PIPELINE
  * ------------------------------------------------------------
@@ -112,6 +136,42 @@ export class RVController extends EventTarget {
     this.dispatchEvent(new Event('update'));
   }
 
+  /**
+   * ------------------------------------------------------------
+   * MNEMONIC GENERATION PIPELINE
+   * ------------------------------------------------------------
+   * generateMnemonics(deck):
+   *   - Iterates through each Item in the selected Deck.
+   *   - For each item:
+   *        * createMnemonic(item, this.profile)
+   *            → synthesizes:
+   *                - hookPhrase
+   *                - sceneBrief (action)
+   *                - whisperText
+   *        * renderThumbnail(sceneBrief)
+   *            → generates a visual thumbnail (data URL)
+   *   - Each generated Mnemonic is stored via putMnemonic()
+   *     into IndexedDB.
+   *   - Controller state is updated:
+   *        this.mnemonics = [...]
+   *   - Emits "update" event so UI refreshes:
+   *        - Preview panel
+   *        - Library & Review page
+   *
+   * Data Shape:
+   *   Mnemonic {
+   *     itemId: string
+   *     hookPhrase: string
+   *     whisperText: string
+   *     sceneBrief: { action: string, ... }
+   *     media: { thumbUrl: string }
+   *   }
+   *
+   * Notes:
+   *   - Thumbnail rendering happens client-side.
+   *   - Mnemonics persist locally using IndexedDB.
+   * ------------------------------------------------------------
+   */
   async generateMnemonics(deck: Deck) {
     if (!this.profile) return;
     const tasks = deck.items.map(async (item) => {
