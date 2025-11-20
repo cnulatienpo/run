@@ -1,5 +1,30 @@
 <!--
   ============================================================
+    WIRING ASSERTIONS A1 + A2 – DOCUMENTATION
+  ------------------------------------------------------------
+    A1 (HUD contains an <iframe>): FAIL
+      - The HUD intentionally renders YouTube controls and metrics
+        directly inside the page.
+      - There is NO <iframe>.
+      - YouTube is embedded via the YouTube JS API inside #youtube-player.
+
+    A2 (HUD links to rv-app): FAIL (original state)
+      - HUD did NOT contain:
+            • <rv-app>
+            • a navigation link
+            • an iframe pointing to /rv
+      - rv-app was an isolated application until the
+        “Open RV Studio” button was later added manually.
+
+    Reason for Design:
+      - HUD stays lightweight for overlays, step counters, playlists.
+      - rv-app is a *separate full studio* and not mounted inside HUD.
+      - Linking is intentional and happens externally, not via embedding.
+  ============================================================
+-->
+
+<!--
+  ============================================================
     HUD ROUTING & NAVIGATION – PROJECT MAP
   ------------------------------------------------------------
     - This is the HUD homepage shown inside Electron.
