@@ -1,3 +1,26 @@
+/**
+ * ============================================================
+ *  HUD (renderer/) – PROJECT MAP
+ * ------------------------------------------------------------
+ *  Role:
+ *    - This is the web-based heads-up display (HUD) shown inside Electron.
+ *    - Contains YouTube controls, playlist manager, step counter,
+ *      telemetry status, Google Fit integration, and passport export.
+ *
+ *  Structure:
+ *    index.html       → Loads HUD layout + scripts
+ *    renderer.js      → Main HUD logic (YouTube, Fit, playlists)
+ *    passport.js      → Passport export/logic
+ *    style.css        → Static HUD styling (no bundler)
+ *    package.json     → HUD-specific metadata (no build step)
+ *
+ *  Notes:
+ *    - No bundler, no Vite/Webpack. Everything is served as static files.
+ *    - HUD is distinct from rv-app (learning studio).
+ *    - Renderer receives data but does not compile, bundle, or transform it.
+ * ============================================================
+ */
+
 import { start } from './spawnLoop.js';
 import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';

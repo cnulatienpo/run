@@ -2,6 +2,7 @@
   "name": "renderer",
   "version": "1.0.0",
   "description": "",
+  "_note": "HUD static frontend. No build tools. See Project Map header in renderer files.",
   "main": "renderer.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
