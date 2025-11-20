@@ -6,7 +6,7 @@
 #    - Starts Electron normally in developer GUI mode.
 #    - Equivalent to "npm start" with additional logging.
 #  Notes:
-#    - HUD still served by Python http.server unless overridden.
+#    - HUD served by dev/hud-dev-server.js (Express + /api proxy).
 # ============================================================
 # Script to run Electron with X11 forwarding in Codespaces
 
