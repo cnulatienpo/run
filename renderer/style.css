@@ -1,4 +1,12 @@
-/* NOTE: Dev server uses Python http.server → no proxy, no CORS. API calls must hit 3001 directly. */
+/* NOTE:
+ * Dev HUD uses Python http.server on port 3000.
+ * There is NO proxy.
+ * There is NO CORS on backend servers.
+ *
+ * Meaning:
+ *   - HUD cannot fetch /api (3001) or noodle backend (4000)
+ *     unless CORS or proxy support is added later.
+ */
 /* NOTE:
  * This project has NO bundler (no Webpack, Vite, Parcel).
  * HUD is static HTML/JS.

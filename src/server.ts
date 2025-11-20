@@ -69,6 +69,26 @@ app.use(async (req, _res, next) => {
   }
 });
 
+/**
+ * ------------------------------------------------------------
+ * RV API ROUTES (port 3001)
+ * ------------------------------------------------------------
+ * Exposed endpoints:
+ *   GET    /api/health
+ *   GET    /api/experience
+ *   GET    /api/profiles
+ *   GET    /api/run
+ *   GET    /api/clips
+ *   GET    /api/passport
+ *   GET    /api/users
+ *
+ * Notes:
+ *   - This server listens on process.env.PORT or 3001.
+ *   - Does NOT enable CORS by default.
+ *   - HUD (http://localhost:3000) cannot fetch these routes
+ *     without CORS or proxy support.
+ * ------------------------------------------------------------
+ */
 app.use("/api/health", healthRouter);
 app.use("/api/experience", experienceRouter);
 app.use("/api/profiles", profilesRouter);
