@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# ============================================================
+#  HEADLESS DEV MODE – PROJECT MAP
+# ------------------------------------------------------------
+#  Role:
+#    - Starts the HUD and effects without full Electron UI.
+#    - Used for testing autonomous mode / sensor modes.
+#  Notes:
+#    - Triggered via `npm run start:headless`.
+#    - Does not start the RV API automatically.
+# ============================================================
 set -euo pipefail
 # Start the app under an Xvfb virtual display and a DBus session
 # Usage: ./dev/start-headless.sh

@@ -10,6 +10,26 @@ import clipsRouter from "./routes/clips";
 import usersRouter from "./routes/users";
 import { ensureDefaultUser } from "./services/userService";
 
+/**
+ * ============================================================
+ *  RV API – DEVELOPMENT NOTES
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Backend server for Run & Learn features.
+ *    - Provides /api/experience, /api/profiles, /api/run,
+ *      /api/clips, /api/users, and more.
+ *
+ *  Dev Startup:
+ *    - There is NO npm script for this server.
+ *    - Start manually using:
+ *          npx ts-node src/server.ts
+ *    - Listens on PORT or 3001.
+ *
+ *  Notes:
+ *    - Separate from legacy noodle backend (backend/).
+ *    - HUD cannot reach this server without CORS or proxy.
+ * ============================================================
+ */
 const app = express();
 
 app.use(express.json());

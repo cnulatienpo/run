@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# ============================================================
+#  GUI DEV MODE – PROJECT MAP
+# ------------------------------------------------------------
+#  Role:
+#    - Starts Electron normally in developer GUI mode.
+#    - Equivalent to "npm start" with additional logging.
+#  Notes:
+#    - HUD still served by Python http.server unless overridden.
+# ============================================================
 # Script to run Electron with X11 forwarding in Codespaces
 
 # Check if we're in Codespaces
