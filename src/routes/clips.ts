@@ -1,5 +1,54 @@
 /**
  * ============================================================
+ *  CLIP INGESTION & LIBRARY – API REFERENCE
+ * ------------------------------------------------------------
+ * Endpoints:
+ *
+ *   POST /api/clips/ingest
+ *       - Accepts: { clips: Array<CreateClipInput> }
+ *       - Behavior: Validates each clip; creates ClipMetadata entries.
+ *
+ *   GET  /api/clips
+ *       - Returns: Array<ClipMetadata>
+ *       - Supports filters via query params:
+ *           ?tagsAny=a,b,c
+ *           ?tagsAll=x,y
+ *           ?sourceTypes=YOUTUBE,LOCAL,GAME_CAPTURE
+ *           ?environment=INDOOR|OUTDOOR
+ *           ?peopleDensity=LOW|MEDIUM|HIGH
+ *           ?urbanity=URBAN|SUBURBAN|RURAL
+ *           ?isNight=true|false
+ *           ?isAnimated=true|false
+ *           ?isGameEnvironment=true|false
+ *           ?isClubLike=true|false
+ *           ?excludeCtaOrSponsor=true|false
+ *
+ *   GET  /api/clips/:id
+ *       - Returns metadata for a single clip.
+ *
+ *   PUT  /api/clips/:id
+ *       - Updates specific metadata fields for a clip.
+ *
+ *   DELETE /api/clips/:id
+ *       - Deletes the clip from the library.
+ *
+ *   POST /api/clips/enrich
+ *       - Enriches ALL stored clips using CTA detection,
+ *         environment tagging, game/night/club inference.
+ *
+ *   POST /api/clips/select
+ *       - Accepts: { experienceSettings }
+ *       - Returns: Selected clips for a user session.
+ *
+ * Notes:
+ *   - Data is stored in data/clips.json (not committed).
+ *   - Enrichment pipeline uses clipEnrichmentService.ts.
+ *   - CRUD operations handled by clipLibraryService.ts.
+ * ============================================================
+ */
+
+/**
+ * ============================================================
  *  CLIP LIBRARY – ROUTER (src/routes/clips.ts)
  * ------------------------------------------------------------
  *  Role:
