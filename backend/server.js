@@ -1,5 +1,22 @@
 /**
  * ============================================================
+ *  LEGACY BACKEND – START COMMAND
+ * ------------------------------------------------------------
+ *  Start:
+ *      npm run start
+ *      → executes `node server.js`
+ *
+ *  Port:
+ *      process.env.PORT  OR  4000 (default)
+ *
+ *  Notes:
+ *      - Completely separate from RV API (src/server.ts)
+ *      - Used for noodle upload, streaming ingest, SSE playback
+ * ============================================================
+ */
+
+/**
+ * ============================================================
  *  LEGACY NOODLE BACKEND – PROJECT MAP
  * ------------------------------------------------------------
  *  Role:

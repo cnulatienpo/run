@@ -13,6 +13,9 @@
     "sandbox": "node ../dev/sandbox.js",
     "test": "node test/runTests.js"
   },
+  "_notes": {
+    "start": "Runs legacy noodle backend on PORT or 4000 using `node server.js`."
+  },
   "dependencies": {
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
