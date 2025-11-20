@@ -1,7 +1,21 @@
+/**
+ * ------------------------------------------------------------
+ * RVAppShell is NEVER loaded by the HUD.
+ *
+ * Instead:
+ *   - The HUD launches rv-app as a SEPARATE application.
+ *   - rv-app provides its own nav system:
+ *         Prep Studio, Run, Library, Settings
+ *   - rv-app lives at /rv (served by src/server.ts)
+ *
+ * This prevents the HUD from mixing its UI with rv-app.
+ * ------------------------------------------------------------
+ */
 import { Router } from '../router.js';
 import '../pages/prep-studio.js';
 import '../pages/run.js';
 import '../pages/library.js';
+import '../pages/clip-library.js';
 import '../pages/settings.js';
 import { RVController } from './controller.js';
 export class RVAppShell extends HTMLElement {
@@ -34,8 +48,8 @@ export class RVAppShell extends HTMLElement {
     `;
         header.querySelector('#prep-seed')?.addEventListener('click', () => this.controller.seedFixtures());
         this.nav.classList.add('flex');
-        ['Prep Studio', 'Run', 'Library', 'Settings'].forEach((label, index) => {
-            const routes = ['prep', 'run', 'library', 'settings'];
+        ['Prep Studio', 'Run', 'Library', 'Clips', 'Settings'].forEach((label, index) => {
+            const routes = ['prep', 'run', 'library', 'clips', 'settings'];
             const button = document.createElement('button');
             button.textContent = label;
             button.addEventListener('click', () => this.router.navigate(routes[index]));
@@ -46,12 +60,13 @@ export class RVAppShell extends HTMLElement {
     }
     renderRoute(route) {
         Array.from(this.nav.children).forEach((button, index) => {
-            button.classList.toggle('active', ['prep', 'run', 'library', 'settings'][index] === route);
+            button.classList.toggle('active', ['prep', 'run', 'library', 'clips', 'settings'][index] === route);
         });
         const pageTag = {
             prep: 'rv-prep-studio',
             run: 'rv-run-page',
             library: 'rv-library-page',
+            clips: 'rv-clip-library',
             settings: 'rv-settings-page',
         }[route];
         const page = document.createElement(pageTag);

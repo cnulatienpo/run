@@ -1,7 +1,15 @@
+/**
+ * UI GAP (A9 FAIL):
+ * Clip library backend exists,
+ * but UI does NOT fetch /api/clips.
+ * Library shows ONLY mnemonics from IndexedDB.
+ * Backend clip metadata is completely unused.
+ */
 class RVLibraryPage extends HTMLElement {
     connectedCallback() {
         this.className = 'panel';
         this.render();
+        this.loadServerClips();
     }
     render() {
         this.innerHTML = '<h2>Library & Review</h2>';
@@ -17,12 +25,48 @@ class RVLibraryPage extends HTMLElement {
       `;
             gallery.appendChild(card);
         });
+        this.gallery = gallery;
         this.appendChild(gallery);
         const exportBtn = document.createElement('button');
         exportBtn.className = 'large-btn';
         exportBtn.textContent = 'Export .rvzip';
         exportBtn.addEventListener('click', () => this.controller.exportAll());
-        this.appendChild(exportBtn);
+        const exportWrapper = document.createElement('div');
+        exportWrapper.className = 'panel';
+        exportWrapper.appendChild(exportBtn);
+        this.appendChild(exportWrapper);
+    }
+    async loadServerClips() {
+        const response = await fetch('/api/clips');
+        let serverClips = [];
+        if (response.ok) {
+            serverClips = await response.json();
+        }
+        const serverSection = document.createElement('section');
+        serverSection.className = 'panel';
+        if (serverClips.length === 0) {
+            serverSection.innerHTML =
+                '<h2>Remote Clip Library</h2><p>No server clips found. Use the API to ingest clips via POST /api/clips.</p>';
+        }
+        else {
+            serverSection.innerHTML = '<h2>Remote Clip Library</h2>';
+            const serverGallery = document.createElement('div');
+            serverGallery.className = 'grid';
+            serverClips.forEach((clip) => {
+                const card = document.createElement('div');
+                card.className = 'scene-card';
+                card.textContent = clip.title || clip.name || clip.url || JSON.stringify(clip);
+                serverGallery.appendChild(card);
+            });
+            serverSection.appendChild(serverGallery);
+        }
+        const insertionPoint = this.gallery?.nextSibling;
+        if (insertionPoint) {
+            this.insertBefore(serverSection, insertionPoint);
+        }
+        else {
+            this.appendChild(serverSection);
+        }
     }
 }
 customElements.define('rv-library-page', RVLibraryPage);

@@ -35,6 +35,11 @@ export class RVController extends EventTarget {
         this.decks.push(deck);
         this.dispatchEvent(new Event('update'));
     }
+    /**
+     * NOTE (A10):
+     *  ingestFile() is fully functional but ONLY reachable inside rv-app.
+     *  HUD cannot invoke ingestion without launching rv-app at /rv.
+     */
     async ingestFile(file) {
         const text = await readFile(file);
         if (file.name.endsWith('.csv')) {
@@ -57,6 +62,42 @@ export class RVController extends EventTarget {
         this.profile = profile;
         this.dispatchEvent(new Event('update'));
     }
+    /**
+     * ------------------------------------------------------------
+     * MNEMONIC GENERATION PIPELINE
+     * ------------------------------------------------------------
+     * generateMnemonics(deck):
+     *   - Iterates through each Item in the selected Deck.
+     *   - For each item:
+     *        * createMnemonic(item, this.profile)
+     *            → synthesizes:
+     *                - hookPhrase
+     *                - sceneBrief (action)
+     *                - whisperText
+     *        * renderThumbnail(sceneBrief)
+     *            → generates a visual thumbnail (data URL)
+     *   - Each generated Mnemonic is stored via putMnemonic()
+     *     into IndexedDB.
+     *   - Controller state is updated:
+     *        this.mnemonics = [...]
+     *   - Emits "update" event so UI refreshes:
+     *        - Preview panel
+     *        - Library & Review page
+     *
+     * Data Shape:
+     *   Mnemonic {
+     *     itemId: string
+     *     hookPhrase: string
+     *     whisperText: string
+     *     sceneBrief: { action: string, ... }
+     *     media: { thumbUrl: string }
+     *   }
+     *
+     * Notes:
+     *   - Thumbnail rendering happens client-side.
+     *   - Mnemonics persist locally using IndexedDB.
+     * ------------------------------------------------------------
+     */
     async generateMnemonics(deck) {
         if (!this.profile)
             return;

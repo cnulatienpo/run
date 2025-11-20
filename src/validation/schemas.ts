@@ -24,6 +24,10 @@ export interface UpdateProfilePayload {
   settings?: ExperienceSettings;
 }
 
+export interface ClipSelectPayload {
+  experienceSettings: ExperienceSettings;
+}
+
 const focusModeValues = ["GOAL", "ESCAPE", "MIX"] as const;
 const cameraMovementValues = ["STILL_OK", "MIXED", "ALWAYS_MOVING"] as const;
 const locationEnvironmentValues = ["INDOOR", "OUTDOOR", "BOTH"] as const;
@@ -250,6 +254,15 @@ const UpdateProfilePayloadSchema: JSONSchemaType<UpdateProfilePayload> = {
   minProperties: 1,
 };
 
+const ClipSelectPayloadSchema: JSONSchemaType<ClipSelectPayload> = {
+  type: "object",
+  properties: {
+    experienceSettings: ExperienceSettingsSchema,
+  },
+  required: ["experienceSettings"],
+  additionalProperties: false,
+};
+
 export const validateExperienceSettings = compileSchema(ExperienceSettingsSchema);
 export const validateExperienceProfile = compileSchema(ExperienceProfileSchema);
 export const validateRunHistoryEntry = compileSchema(RunHistoryEntrySchema);
@@ -258,3 +271,4 @@ export const validateRunTelemetryPayload = compileSchema(RunTelemetryPayloadSche
 export const validateRunStartPayload = compileSchema(RunStartPayloadSchema);
 export const validateCreateProfilePayload = compileSchema(CreateProfilePayloadSchema);
 export const validateUpdateProfilePayload = compileSchema(UpdateProfilePayloadSchema);
+export const validateClipSelectPayload = compileSchema(ClipSelectPayloadSchema);
