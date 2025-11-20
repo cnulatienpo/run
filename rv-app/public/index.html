@@ -1,3 +1,28 @@
+<!--
+  ============================================================
+    RV-APP ENTRY – PROJECT MAP
+  ------------------------------------------------------------
+    This is the standalone entrypoint for the Learning Studio.
+
+    It:
+      • mounts <rv-app>
+      • loads build/main.js
+      • is served statically at /rv by src/server.ts
+      • contains the full navigation system:
+            Prep Studio
+            Run
+            Library
+            Settings
+
+    It is NOT:
+      • referenced automatically by any HUD
+      • injected into the Electron window
+
+    Access:
+      • via “Open RV Studio” button in HUD
+      • or direct navigation: http://localhost:3001/rv
+  ============================================================
+-->
 <!DOCTYPE html>
 <html lang="en">
   <head>

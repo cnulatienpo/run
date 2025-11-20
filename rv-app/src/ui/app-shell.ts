@@ -1,3 +1,16 @@
+/**
+ * ------------------------------------------------------------
+ * RVAppShell is NEVER loaded by the HUD.
+ *
+ * Instead:
+ *   - The HUD launches rv-app as a SEPARATE application.
+ *   - rv-app provides its own nav system:
+ *         Prep Studio, Run, Library, Settings
+ *   - rv-app lives at /rv (served by src/server.ts)
+ *
+ * This prevents the HUD from mixing its UI with rv-app.
+ * ------------------------------------------------------------
+ */
 import { Router, Route } from '../router.js';
 import '../pages/prep-studio.js';
 import '../pages/run.js';
