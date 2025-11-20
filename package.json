@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    // NOTE: HUD uses Python's http.server (no proxy). Renderer cannot forward /api to port 3001.
-    "start:browser": "echo 'Starting HTTP server and opening in Simple Browser...' && cd renderer && python3 -m http.server 3000 &",
+    "start:browser": "node dev/hud-dev-server.js",
     "start:headless": "./dev/start-headless.sh",
     "start:gui": "./dev/start-gui.sh",
     "dev": "nodemon main.js",
@@ -22,9 +21,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "_devServer": "Renderer dev server uses Python http.server (no proxy). Cannot forward /api to RV backend. No CORS by default.",
+  "_devServer": "Renderer dev server (dev/hud-dev-server.js) serves renderer/ and proxies /api to RV backend (default :3001).",
   "_devNotes": {
-    "start:browser": "Serves renderer/ using Python http.server on port 3000. No proxy support."
+    "start:browser": "Serves renderer/ via Express with /api proxy to RV backend. Configure HUD_PORT/API_PORT/API_TARGET as needed."
   },
   "dependencies": {
     "@pixi/filter-glitch": "^5.0.5",
@@ -43,7 +42,8 @@
     "react-dom": "^18.3.1",
     "pixi.js": "^8.4.1",
     "winston": "^3.14.2",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "http-proxy-middleware": "^3.0.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.11",
