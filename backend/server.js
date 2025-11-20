@@ -1,4 +1,28 @@
 /**
+ * ============================================================
+ *  LEGACY NOODLE BACKEND – PROJECT MAP
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Stand-alone Express server for raw noodle ingest.
+ *    - Provides:
+ *         POST /upload          → Upload noodle payloads
+ *         POST /stream          → Real-time stream ingestion
+ *         GET  /play/:session   → SSE playback of stored sessions
+ *         GET  /rooms/active    → Active relay rooms
+ *         GET  /health          → Health check
+ *
+ *  Server Behavior:
+ *    - Listens on process.env.PORT or 4000.
+ *    - Handles synthetic pass, anonymization, B2 uploads,
+ *      snapshots, metadata, and relay server.
+ *
+ *  Notes:
+ *    - This backend is SEPARATE from the RV API (src/server.ts).
+ *    - Intended for legacy session ingestion; not used by rv-app.
+ * ============================================================
+ */
+
+/**
  * Express application providing noodle upload, streaming ingestion, and
  * health monitoring endpoints.
  */

@@ -1,3 +1,10 @@
+/* NOTE:
+ * This project has NO bundler (no Webpack, Vite, Parcel).
+ * HUD is static HTML/JS.
+ * rv-app builds TypeScript with `tsc -p rv-app` into public/build/.
+ * All modules are loaded directly by the browser/electron.
+ */
+
 /**
  * ============================================================
  *  HUD (renderer/) – PROJECT MAP

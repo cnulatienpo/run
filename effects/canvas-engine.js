@@ -1,3 +1,22 @@
+/**
+ * ============================================================
+ *  EFFECTS / HARDWARE MODULE – PROJECT MAP
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Provides visual FX, audio FX, or hardware integrations
+ *      used by the HUD (renderer/).
+ *
+ *  Used By:
+ *    - renderer/renderer.js
+ *    - HUD overlays (FX engine)
+ *    - Hardware step bridge (step-bridge/)
+ *
+ *  Notes:
+ *    - Module is standalone, no bundler.
+ *    - Loaded directly by renderer via static scripts.
+ * ============================================================
+ */
+
 const DEFAULT_ZONE = Object.freeze({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 });
 const DEFAULT_DURATION = 3600;
 
