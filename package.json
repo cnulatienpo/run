@@ -22,6 +22,7 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "_devServer": "Renderer dev server uses Python http.server (no proxy). Cannot forward /api to RV backend. No CORS by default.",
   "_devNotes": {
     "start:browser": "Serves renderer/ using Python http.server on port 3000. No proxy support."
   },

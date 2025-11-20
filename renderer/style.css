@@ -1,3 +1,4 @@
+/* NOTE: Dev server uses Python http.server → no proxy, no CORS. API calls must hit 3001 directly. */
 /* NOTE:
  * This project has NO bundler (no Webpack, Vite, Parcel).
  * HUD is static HTML/JS.
