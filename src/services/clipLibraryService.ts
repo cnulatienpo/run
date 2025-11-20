@@ -1,3 +1,33 @@
+/**
+ * ============================================================
+ *  CLIP LIBRARY – STORAGE SERVICE
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Read/write access to persistent clip storage at data/clips.json.
+ *    - CRUD helpers: getAllClips(), addClips(), updateClip(), deleteClip().
+ *
+ *  Data Model:
+ *    interface ClipMetadata {
+ *      id: string;
+ *      urlOrPath: string;
+ *      title?: string;
+ *      description?: string;
+ *      tags: string[];
+ *      environment?: string;
+ *      urbanity?: string;
+ *      isNight?: boolean;
+ *      isGameEnvironment?: boolean;
+ *      isClubLike?: boolean;
+ *      hasCtaOrSponsor?: boolean;
+ *    }
+ *
+ *  Notes:
+ *    - JSON file is NOT committed; created at runtime.
+ *    - All writes are async filesystem operations.
+ *    - Called by clips.ts routes and clipEnrichmentService.
+ * ============================================================
+ */
+
 import crypto from "crypto";
 import { promises as fs } from "fs";
 import path from "path";

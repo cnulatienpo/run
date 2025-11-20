@@ -1,3 +1,25 @@
+/**
+ * ============================================================
+ *  CLIP LIBRARY – ROUTER (src/routes/clips.ts)
+ * ------------------------------------------------------------
+ *  Role:
+ *    - HTTP API for ingesting, listing, enriching, and selecting clips.
+ *    - POST /api/clips/ingest   → Accepts array<ClipMetadata>
+ *    - GET  /api/clips          → Lists clips from persistent store
+ *    - POST /api/clips/enrich   → Runs enrichment (tags, CTA detection)
+ *    - POST /api/clips/select   → Selects clips for a run session
+ *
+ *  Persistent Storage:
+ *    - Stored in data/clips.json   (NOT committed to repo)
+ *    - clipLibraryService handles reads/writes
+ *
+ *  Notes:
+ *    - Ingestion expects raw clip objects: { urlOrPath, title, description, tags, ... }
+ *    - Enrichment handled by clipEnrichmentService.
+ *    - Consumed by RV backend and optionally by rv-app through future UI bindings.
+ * ============================================================
+ */
+
 import express from "express";
 import { ClipMetadata, ClipSourceType } from "../models/clip";
 import {

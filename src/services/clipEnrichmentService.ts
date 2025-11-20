@@ -1,3 +1,24 @@
+/**
+ * ============================================================
+ *  CLIP LIBRARY – ENRICHMENT SERVICE
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Infers clip metadata:
+ *        * CTA / Sponsor detection
+ *        * Environment tagging (club, game, night, rural, city)
+ *        * Urbanity + indoor/outdoor flags
+ *
+ *  Pipeline:
+ *    - detectCtaForClip(clip)
+ *    - inferTagsForClip(clip)
+ *    - enrichAllClips() → updates stored clips via clipLibraryService
+ *
+ *  Notes:
+ *    - Pure data transformation (no I/O except via service calls)
+ *    - Called by POST /api/clips/enrich
+ * ============================================================
+ */
+
 import {
   CTA_BRAND_KEYWORDS,
   CTA_SOCIAL_KEYWORDS,
