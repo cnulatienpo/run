@@ -40,6 +40,24 @@
  */
 
 /**
+ * ------------------------------------------------------------
+ * LEGACY NOODLE BACKEND ROUTES (port 4000)
+ * ------------------------------------------------------------
+ * Exposed endpoints:
+ *   POST   /upload
+ *   POST   /stream
+ *   GET    /play/:session_id
+ *   GET    /rooms/active
+ *   GET    /health
+ *
+ * Notes:
+ *   - Listens on process.env.PORT or 4000.
+ *   - Does NOT enable CORS.
+ *   - HUD (port 3000) cannot call these routes without CORS.
+ * ------------------------------------------------------------
+ */
+
+/**
  * Express application providing noodle upload, streaming ingestion, and
  * health monitoring endpoints.
  */
