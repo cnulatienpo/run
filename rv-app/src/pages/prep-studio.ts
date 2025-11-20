@@ -7,6 +7,14 @@ class RVPrepStudio extends HTMLElement {
   private interviewForm = document.createElement('form');
   private previewSection = document.createElement('section');
   private deckSelect = document.createElement('select');
+  private mnemonicGrid: HTMLElement | null = null;
+
+  private onControllerUpdate = () => {
+    this.refreshDecks();
+    if (this.mnemonicGrid) {
+      this.populateMnemonics(this.mnemonicGrid);
+    }
+  };
 
   connectedCallback() {
     this.classList.add('panel');
@@ -61,6 +69,8 @@ class RVPrepStudio extends HTMLElement {
 
     this.append(uploadCard, this.interviewForm, this.previewSection, prepareCard);
     this.refreshDecks();
+    this.controller.removeEventListener('update', this.onControllerUpdate);
+    this.controller.addEventListener('update', this.onControllerUpdate);
   }
 
   private renderInterview() {
@@ -146,6 +156,10 @@ class RVPrepStudio extends HTMLElement {
       option.textContent = `${deck.name} (${deck.items.length})`;
       this.deckSelect.appendChild(option);
     });
+
+    if (this.controller.decks.length && !this.controller.decks.some((d) => d.id === this.deckSelect.value)) {
+      this.deckSelect.value = this.controller.decks[0].id;
+    }
   }
 
   private renderPreview() {
@@ -165,7 +179,7 @@ class RVPrepStudio extends HTMLElement {
     this.previewSection.appendChild(controls);
     const grid = document.createElement('div');
     grid.className = 'grid';
-    this.controller.addEventListener('update', () => this.populateMnemonics(grid));
+    this.mnemonicGrid = grid;
     this.populateMnemonics(grid);
     this.previewSection.appendChild(grid);
   }

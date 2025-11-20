@@ -6,7 +6,7 @@ class RVClipLibrary extends HTMLElement {
     const grid = document.createElement('div');
     grid.className = 'grid';
 
-    data.forEach(clip => {
+    data.forEach((clip: any) => {
       const card = document.createElement('div');
       card.className = 'scene-card';
       card.innerHTML = `

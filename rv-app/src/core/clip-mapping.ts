@@ -1,4 +1,4 @@
-export function clipToMnemonic(clip) {
+export function clipToMnemonic(clip: any) {
   return {
     hookPhrase: clip.title ?? 'Untitled Scene',
     whisperText: clip.description ?? '',
@@ -8,7 +8,7 @@ export function clipToMnemonic(clip) {
   };
 }
 
-export function mnemonicToClip(m) {
+export function mnemonicToClip(m: any) {
   return {
     title: m.hookPhrase,
     description: m.whisperText,

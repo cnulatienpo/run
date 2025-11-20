@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import cors from "cors";
 import experienceRouter from "./routes/experience";
 import profilesRouter from "./routes/profiles";
 import runStatsRouter from "./routes/runStats";
@@ -14,7 +13,7 @@ import { ensureDefaultUser } from "./services/userService";
  * ------------------------------------------------------------
  *  WIRING ASSERTION A6 – FAIL
  * ------------------------------------------------------------
- *  CORS is NOT enabled for the RV API.
+ *  CORS is now enabled via a small inlined middleware.
  *
  *  Impact:
  *    - HUD (http://localhost:3000) cannot fetch /api routes on 3001.
@@ -22,10 +21,8 @@ import { ensureDefaultUser } from "./services/userService";
  *        Access-Control-Allow-Origin: *
  *
  *  Current State:
- *    - No `import cors from 'cors'`
- *    - No app.use(cors(...))
- *
- *  (This is expected for now; documented for clarity.)
+ *    - `Access-Control-Allow-*` headers are set manually for
+ *      http://localhost:3000.
  * ------------------------------------------------------------
  */
 
@@ -50,24 +47,27 @@ import { ensureDefaultUser } from "./services/userService";
  * ============================================================
  */
 
-/**
- * CORS GAP (A6 FAIL):
- * RV API does NOT enable CORS.
- * HUD (3000) cannot fetch 3001 without CORS headers.
- */
 const app = express();
 
 app.use(express.json());
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
-// In production you can tighten the origin or read it from an environment variable.
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,DELETE,OPTIONS"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-user-id"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
 
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 /**
  * HOSTING GAP:
  * Originally, rv-app/public was NOT hosted by any backend.
