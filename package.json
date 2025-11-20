@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
+    // NOTE: HUD uses Python's http.server (no proxy). Renderer cannot forward /api to port 3001.
     "start:browser": "echo 'Starting HTTP server and opening in Simple Browser...' && cd renderer && python3 -m http.server 3000 &",
     "start:headless": "./dev/start-headless.sh",
     "start:gui": "./dev/start-gui.sh",
@@ -21,6 +22,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "_devNotes": {
+    "start:browser": "Serves renderer/ using Python http.server on port 3000. No proxy support."
+  },
   "dependencies": {
     "@pixi/filter-glitch": "^5.0.5",
     "@pixi/filter-godray": "^5.0.5",
