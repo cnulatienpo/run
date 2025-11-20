@@ -1,8 +1,26 @@
 <!--
+  ============================================================
+    INTEGRATION GAP (A1, A2) – HUD ↔ RV-APP
+  ------------------------------------------------------------
+    • HUD does NOT embed <rv-app>.
+    • HUD originally had NO link/button to open rv-app.
+    • No <iframe>, no <rv-app> element.
+    • Users could NOT reach rv-app unless typing the URL manually.
+    • This was the root cause of the A1/A2 FAIL states.
+
+    RESOLUTION:
+    • Navigation must happen via an explicit button
+      (e.g. “Open RV Studio”).
+  ============================================================
+-->
+
+<!--
   NOTE (A9 FAIL):
     HUD does NOT call /api/clips or show clip library UI.
     Only rv-app has a Library page, and it displays local mnemonics only.
 -->
+
+<!-- NOTE: HUD never calls /api/clips. -->
 
 <!--
   ------------------------------------------------------------

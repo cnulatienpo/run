@@ -1,3 +1,9 @@
+/**
+ * Divergence Note:
+ * ClipMetadata is NOT compatible with Deck/Mnemonic models.
+ * No automatic sync or adapter exists.
+ */
+
 export type ClipSourceType = "YOUTUBE" | "LOCAL" | "GAME_CAPTURE";
 
 export interface ClipMetadata {

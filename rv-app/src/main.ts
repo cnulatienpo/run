@@ -19,6 +19,12 @@ import './ui/app-shell.js';
  *  This is expected behavior and counts as PASS.
  * ------------------------------------------------------------
  */
+
+/**
+ * SW CACHING NOTE:
+ * Service worker may serve stale cached builds.
+ * Bump cache version in sw.js after UI/build changes.
+ */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch((err) => console.error('SW register failed', err));
 }

@@ -16,6 +16,18 @@
  */
 
 /**
+ * CORS GAP:
+ * Legacy backend has NO CORS support.
+ * HUD cannot reach port 4000 in dev mode.
+ */
+
+/**
+ * BACKEND SPLIT (DOCUMENTATION):
+ * This server predates RV API.
+ * Handles upload/stream/play only.
+ */
+
+/**
  * ============================================================
  *  LEGACY NOODLE BACKEND – PROJECT MAP
  * ------------------------------------------------------------

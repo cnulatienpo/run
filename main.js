@@ -19,6 +19,12 @@
  *    - App navigation must happen in renderer, not here.
  * ============================================================
  */
+
+/**
+ * DEV NOTE:
+ * Electron does NOT automatically launch either backend.
+ * Developer must choose between RV API (3001) or legacy backend (4000).
+ */
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const AutoLaunch = require('electron-launcher');

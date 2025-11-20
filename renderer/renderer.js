@@ -86,6 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
   populateHardcodedPlaylists();
 });
 
+/**
+ * INTEGRATION NOTE (A1/A2):
+ * The HUD historically had no UI entry to rv-app.
+ * This file now supports a button that opens /rv,
+ * but the HUD still does NOT embed or mount rv-app.
+ */
+
 function cacheDom() {
   elements.hud = document.getElementById('hud');
   elements.hudHideButton = document.getElementById('hud-hide-button');

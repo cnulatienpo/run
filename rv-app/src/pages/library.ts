@@ -1,4 +1,12 @@
 /**
+ * UI GAP (A9 FAIL):
+ * Clip library backend exists,
+ * but UI does NOT fetch /api/clips.
+ * Library shows ONLY mnemonics from IndexedDB.
+ * Backend clip metadata is completely unused.
+ */
+
+/**
  * ------------------------------------------------------------
  *  WIRING ASSERTION A9 – FAIL
  * ------------------------------------------------------------
