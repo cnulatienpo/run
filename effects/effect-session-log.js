@@ -1,3 +1,22 @@
+/**
+ * ============================================================
+ *  EFFECTS / HARDWARE MODULE – PROJECT MAP
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Provides visual FX, audio FX, or hardware integrations
+ *      used by the HUD (renderer/).
+ *
+ *  Used By:
+ *    - renderer/renderer.js
+ *    - HUD overlays (FX engine)
+ *    - Hardware step bridge (step-bridge/)
+ *
+ *  Notes:
+ *    - Module is standalone, no bundler.
+ *    - Loaded directly by renderer via static scripts.
+ * ============================================================
+ */
+
 const sessionLog = [];
 
 function serializeData(data) {
