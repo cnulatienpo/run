@@ -113,6 +113,11 @@ export class RVController extends EventTarget {
     this.dispatchEvent(new Event('update'));
   }
 
+  /**
+   * NOTE (A10):
+   *  ingestFile() is fully functional but ONLY reachable inside rv-app.
+   *  HUD cannot invoke ingestion without launching rv-app at /rv.
+   */
   async ingestFile(file: File) {
     const text = await readFile(file);
     if (file.name.endsWith('.csv')) {

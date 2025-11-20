@@ -1,3 +1,25 @@
+/**
+ * ------------------------------------------------------------
+ *  WIRING ASSERTION A9 – FAIL
+ * ------------------------------------------------------------
+ *  While clip library backend endpoints exist (/api/clips),
+ *  THIS UI does NOT fetch or display backend clip metadata.
+ *
+ *  Current Behavior:
+ *    • Library page only shows mnemonics stored in IndexedDB.
+ *    • No calls to:
+ *         GET /api/clips
+ *         POST /api/clips/ingest
+ *         POST /api/clips/enrich
+ *         POST /api/clips/select
+ *
+ *  Result:
+ *    • Clip Library subsystem is fully implemented on backend,
+ *      but NOT surfaced in any reachable UI.
+ *
+ *  This matches audit result: FAIL.
+ * ------------------------------------------------------------
+ */
 import { RVController } from '../ui/controller.js';
 
 class RVLibraryPage extends HTMLElement {
