@@ -1,3 +1,51 @@
+/**
+ * ============================================================
+ *  RV CONTROLLER – INGESTION & FIXTURE PIPELINE
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Central orchestrator for all rv-app actions:
+ *        * deck ingestion (CSV/JSON)
+ *        * profile building
+ *        * mnemonic generation
+ *        * session planning
+ *        * persistence (IndexedDB)
+ *        * UI update dispatching
+ *
+ *  File Ingestion:
+ *    ingestFile(file):
+ *      - Reads file text via readFile()
+ *      - Dispatches to:
+ *          parseCSV(text)   when file ends with .csv
+ *          parseJSON(text)  otherwise
+ *      - Stores resulting Deck(s) using putDeck()
+ *      - Updates internal arrays:
+ *          this.decks.push(...)
+ *      - Emits an "update" event so UI panels refresh
+ *
+ *  Fixture Loading:
+ *    seedFixtures():
+ *      - Fetches ../rv-app/fixtures/french_basics.json
+ *      - Parses via parseJSON()
+ *      - Stores the Deck in IndexedDB
+ *      - Updates this.decks and dispatches "update"
+ *      - Useful for demo/testing without user upload
+ *
+ *  Update Event:
+ *      - Many rv-app panels listen for "update"
+ *      - Preview section, Library, and other components
+ *        refresh their displays whenever controller state
+ *        changes (decks, mnemonics, profiles, sessions)
+ *
+ *  Persistence Layer:
+ *      - All data stored via storage.ts into IndexedDB:
+ *          listDecks(), listProfiles(), listMnemonics(),
+ *          putDeck(), putMnemonic(), putProfile(), putSession()
+ *
+ * Notes:
+ *    - ingestFile() is the ONLY ingestion entrypoint for users.
+ *    - seedFixtures() is the ONLY built-in data bootstrap.
+ * ============================================================
+ */
 import { Deck, Item, Mnemonic, Plan, Profile, SessionLog } from '../core/schema.js';
 import { listDecks, listMnemonics, listProfiles, listSessions, putDeck, putMnemonic, putProfile, putPlan, putSession, clearAll, clearMediaCache, requestPersistence, getUsage } from '../core/storage.js';
 import { parseCSV, parseJSON, readFile } from '../core/ingest.js';
