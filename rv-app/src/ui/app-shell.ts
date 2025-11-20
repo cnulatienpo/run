@@ -15,6 +15,7 @@ import { Router, Route } from '../router.js';
 import '../pages/prep-studio.js';
 import '../pages/run.js';
 import '../pages/library.js';
+import '../pages/clip-library.js';
 import '../pages/settings.js';
 import { RVController } from './controller.js';
 
@@ -51,8 +52,8 @@ export class RVAppShell extends HTMLElement {
     `;
     header.querySelector('#prep-seed')?.addEventListener('click', () => this.controller.seedFixtures());
     this.nav.classList.add('flex');
-    ['Prep Studio', 'Run', 'Library', 'Settings'].forEach((label, index) => {
-      const routes: Route[] = ['prep', 'run', 'library', 'settings'];
+    ['Prep Studio', 'Run', 'Library', 'Clips', 'Settings'].forEach((label, index) => {
+      const routes: Route[] = ['prep', 'run', 'library', 'clips', 'settings'];
       const button = document.createElement('button');
       button.textContent = label;
       button.addEventListener('click', () => this.router.navigate(routes[index]));
@@ -64,12 +65,13 @@ export class RVAppShell extends HTMLElement {
 
   private renderRoute(route: Route) {
     Array.from(this.nav.children).forEach((button, index) => {
-      button.classList.toggle('active', ['prep', 'run', 'library', 'settings'][index] === route);
+      button.classList.toggle('active', ['prep', 'run', 'library', 'clips', 'settings'][index] === route);
     });
     const pageTag = {
       prep: 'rv-prep-studio',
       run: 'rv-run-page',
       library: 'rv-library-page',
+      clips: 'rv-clip-library',
       settings: 'rv-settings-page',
     }[route];
     const page = document.createElement(pageTag);

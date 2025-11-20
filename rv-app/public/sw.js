@@ -1,4 +1,4 @@
-const CACHE = 'rv-shell-v1';
+const CACHE = 'rv-cache-v2';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ self.addEventListener('activate', (event) => {
 });
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.url.includes('/api/')) return fetch(event.request);
   if (request.method !== 'GET') return;
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request))

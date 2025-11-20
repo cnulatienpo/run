@@ -1,4 +1,4 @@
-export type Route = 'prep' | 'run' | 'library' | 'settings';
+export type Route = 'prep' | 'run' | 'library' | 'clips' | 'settings';
 
 export class Router extends EventTarget {
   private current: Route = 'prep';
