@@ -1,4 +1,21 @@
 /**
+ * ------------------------------------------------------------
+ * HUD NAVIGATION NOTES
+ * ------------------------------------------------------------
+ * The HUD does not mount <rv-app>.
+ * The “Open RV Studio” button opens rv-app in a new window/tab.
+ * rv-app is served at:
+ *      DEV: http://localhost:3001/rv
+ *      PROD: /rv
+ *
+ * Reason:
+ *   - Keeps HUD and rv-app isolated
+ *   - Prevents CSS and component collisions
+ *   - HUD stays minimal and fast
+ * ------------------------------------------------------------
+ */
+
+/**
  * ============================================================
  *  HUD (renderer/) – PROJECT MAP
  * ------------------------------------------------------------
