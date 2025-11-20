@@ -1,3 +1,24 @@
+/**
+ * ============================================================
+ *  ELECTRON SHELL – PROJECT MAP
+ * ------------------------------------------------------------
+ *  Role:
+ *    - Bootstraps the Electron window
+ *    - Loads renderer/index.html using loadFile(...)
+ *    - Uses preload.js for secure bridging
+ *    - Runs with contextIsolation:true and nodeIntegration:false
+ *
+ *  Related paths:
+ *    /renderer/index.html     → HUD + overlay
+ *    /renderer/renderer.js    → HUD logic
+ *    /preload.js              → safe IPC bridge
+ *
+ *  Notes:
+ *    - This file is the root of the Electron app.
+ *    - Do not add backend logic here.
+ *    - App navigation must happen in renderer, not here.
+ * ============================================================
+ */
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const AutoLaunch = require('electron-launcher');
