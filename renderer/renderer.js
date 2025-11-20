@@ -105,6 +105,7 @@ function cacheDom() {
   elements.hudHideButton = document.getElementById('hud-hide-button');
   elements.hudFloatingToggle = document.getElementById('hud-floating-toggle');
   elements.openRVApp = document.getElementById('open-rv-app');
+  elements.testClipApi = document.getElementById('test-clip-api');
   elements.googleSignIn = document.getElementById('google-sign-in');
   elements.googleAuthStatus = document.getElementById('google-auth-status');
   elements.playlistRow = document.getElementById('youtube-playlist-row');
@@ -200,6 +201,10 @@ function setupEventListeners() {
     fetchYouTubePlaylists();
   });
 
+  elements.testClipApi?.addEventListener('click', () => {
+    testClipAPI();
+  });
+
   elements.volumeSlider?.addEventListener('input', (event) => {
     const value = Number(event.target.value);
     if (Number.isFinite(value)) {
@@ -224,6 +229,11 @@ function setupEventListeners() {
     const targetUrl = resolveRVAppUrl();
     window.open(targetUrl, '_blank');
   });
+}
+
+async function testClipAPI() {
+  const res = await fetch('/api/clips');
+  console.log('Clips from server:', await res.json());
 }
 
 function initializeYouTubePlayer() {
