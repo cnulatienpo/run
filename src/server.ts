@@ -9,6 +9,11 @@ import clipsRouter from "./routes/clips";
 import usersRouter from "./routes/users";
 import { ensureDefaultUser } from "./services/userService";
 
+const resourcesPath = (
+  process as NodeJS.Process & { resourcesPath?: string | undefined }
+).resourcesPath;
+const isProd = !!resourcesPath;
+
 /**
  * ------------------------------------------------------------
  *  WIRING ASSERTION A6 – FAIL
@@ -78,15 +83,21 @@ app.use((req, res, next) => {
  * RESOLUTION:
  * Express now serves /rv from rv-app/public.
  */
-const rvAppPublicPath = path.resolve(__dirname, "..", "rv-app", "public");
-const rvAppIndexHtmlPath = path.join(rvAppPublicPath, "index.html");
+const rvAppPublicPath = isProd
+  ? path.join(resourcesPath as string, "rv")
+  : path.resolve(__dirname, "..", "rv-app", "public");
+const rendererPath = isProd
+  ? path.join(resourcesPath as string, "renderer")
+  : path.resolve(__dirname, "..", "renderer");
+
+app.use("/", express.static(rendererPath));
 /**
  * The RV Studio (rv-app) is NOT embedded inside renderer/index.html.
  * Instead, it is served here at /rv and opened by the HUD via a button.
  */
 app.use("/rv", express.static(rvAppPublicPath));
 app.get("/rv/*", (_req, res) => {
-  res.sendFile(rvAppIndexHtmlPath);
+  res.sendFile(path.join(rvAppPublicPath, "index.html"));
 });
 
 app.use(async (req, _res, next) => {

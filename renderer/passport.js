@@ -72,7 +72,13 @@
  */
 
 export const PASSPORT_STORAGE_KEY = 'rtw_passport_v1';
+const passportBase = window.isProd ? 'passport/' : '/renderer/passport/';
 const DEFAULT_STORE_JSON = '{"version":1,"stamps":[]}';
+
+export function resolvePassportAsset(relativePath) {
+  const sanitized = typeof relativePath === 'string' ? relativePath.replace(/^\//, '') : '';
+  return `${passportBase}${sanitized}`;
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

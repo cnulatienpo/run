@@ -26,10 +26,20 @@
  * Developer must choose between RV API (3001) or legacy backend (4000).
  */
 const { app, BrowserWindow, protocol } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const AutoLaunch = require('electron-launcher');
 
 const appLauncher = new AutoLaunch({ name: 'Run The World' });
+
+const backendPath = path.join(process.resourcesPath || __dirname, 'src', 'server.js');
+const backend = spawn(process.execPath, [backendPath], {
+  stdio: 'inherit',
+});
+
+backend.on('close', (code) => {
+  console.log('Backend exited with code', code);
+});
 
 function registerAppProtocol() {
   const rendererRoot = path.join(__dirname, 'renderer');
@@ -57,7 +67,11 @@ function createWindow() {
     },
   });
 
-  win.loadURL('app://renderer/index.html');
+  if (app.isPackaged) {
+    win.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
+  } else {
+    win.loadURL('http://localhost:3000/renderer/index.html');
+  }
 }
 
 app.whenReady().then(() => {
