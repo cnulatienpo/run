@@ -1,0 +1,23 @@
+export function applyEffect(config: any): void;
+export function clearRecentTags(): void;
+export function configureEffectPacks(config: {
+  selectedPacks?: string[];
+  moodFilters?: Record<string, Record<string, boolean>>;
+  packOverrides?: Record<string, unknown>;
+}): void;
+export function exportSessionLog(): void;
+export function getRecentTags(limit?: number): string[];
+export function initCanvas(): void;
+export function monitorEnvironment(videoMetaFn: () => string, systemTimeFn?: () => Date): void;
+export function notifyStep(): void;
+export function recordTag(tag: string): void;
+export function registerEffectPlugin(name: string, path: string): Promise<void>;
+export function replaySession(logData: any, speed?: number): void;
+export function setEffectInterval(value: number): void;
+export function setIntensityMultiplier(value: number): void;
+export function setRareChance(value: number): void;
+export function spawnLoop(stepRate: number, bpm: number): void;
+export function startStillnessWatcher(): unknown;
+export function switchEffectPack(name: string): void;
+export function updateBPM(newBPM: number): void;
+export const __INTERNAL_EFFECT_PACKS: () => Record<string, unknown>;

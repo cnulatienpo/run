@@ -14,6 +14,7 @@
 import { Router, Route } from '../router.js';
 import '../pages/prep-studio.js';
 import '../pages/run.js';
+import '../pages/hallucination.js';
 import '../pages/library.js';
 import '../pages/clip-library.js';
 import '../pages/settings.js';
@@ -52,24 +53,27 @@ export class RVAppShell extends HTMLElement {
     `;
     header.querySelector('#prep-seed')?.addEventListener('click', () => this.controller.seedFixtures());
     this.nav.classList.add('flex');
-    ['Give Me Your Files', 'Now The Fun Starts', 'Brain Toys', 'Videos Warehouse', 'Fuse Box'].forEach((label, index) => {
-      const routes: Route[] = ['prep', 'run', 'library', 'clips', 'settings'];
-      const button = document.createElement('button');
-      button.textContent = label;
-      button.addEventListener('click', () => this.router.navigate(routes[index]));
-      this.nav.appendChild(button);
-    });
+    ['Give Me Your Files', 'Now The Fun Starts', 'Hallucinations', 'Brain Toys', 'Videos Warehouse', 'Fuse Box'].forEach(
+      (label, index) => {
+        const routes: Route[] = ['prep', 'run', 'hallucination', 'library', 'clips', 'settings'];
+        const button = document.createElement('button');
+        button.textContent = label;
+        button.addEventListener('click', () => this.router.navigate(routes[index]));
+        this.nav.appendChild(button);
+      },
+    );
     this.main.style.padding = '1rem';
     this.append(header, this.nav, this.main);
   }
 
   private renderRoute(route: Route) {
     Array.from(this.nav.children).forEach((button, index) => {
-      button.classList.toggle('active', ['prep', 'run', 'library', 'clips', 'settings'][index] === route);
+      button.classList.toggle('active', ['prep', 'run', 'hallucination', 'library', 'clips', 'settings'][index] === route);
     });
     const pageTag = {
       prep: 'rv-prep-studio',
       run: 'rv-run-page',
+      hallucination: 'rv-hallucination-controls',
       library: 'rv-library-page',
       clips: 'rv-clip-library',
       settings: 'rv-settings-page',

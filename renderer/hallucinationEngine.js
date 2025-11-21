@@ -4,13 +4,14 @@
 
 // --- Effect Loader ---
 export function applyEffect({ type, effect, zone, duration, intensity }) {
-  logEvent('effect', { type, effect, zone, duration, intensity });
+  const scaledDuration = Math.max(250, duration * intensityMultiplier);
+  logEvent('effect', { type, effect, zone, duration: scaledDuration, intensity, multiplier: intensityMultiplier });
   if (type === 'css') {
     const className = `${effect}-${intensity || 'base'}`;
     document.body.classList.add(className);
-    setTimeout(() => document.body.classList.remove(className), duration);
+    setTimeout(() => document.body.classList.remove(className), scaledDuration);
   } else if (type === 'canvas') {
-    triggerCanvasEffect(effect, zone, duration, intensity);
+    triggerCanvasEffect(effect, zone, scaledDuration, intensity);
   }
 }
 
@@ -19,6 +20,7 @@ let canvas;
 let ctx;
 let canvasInitialized = false;
 const pluginRegistry = {};
+let intensityMultiplier = 1;
 
 export function initCanvas() {
   if (canvasInitialized) return canvas;
@@ -108,6 +110,11 @@ export function getRecentTags(limit = 5) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([tag]) => tag);
+}
+
+export function clearRecentTags() {
+  Object.keys(tagHistory).forEach((key) => delete tagHistory[key]);
+  tagQueue.splice(0, tagQueue.length);
 }
 
 // --- Session Logging ---
@@ -213,6 +220,8 @@ let sessionStart = Date.now();
 let lastSpawn = 0;
 let EFFECT_INTERVAL = 4000;
 let RARE_CHANCE = 0.02;
+let packMoodFilters = {};
+let activeEffectPacks = ['default'];
 export function spawnLoop(stepRate, bpm) {
   updateBPM(bpm);
   const now = Date.now();
@@ -224,10 +233,9 @@ export function spawnLoop(stepRate, bpm) {
   const vibe = getVibeProfile(bpm, stepRate);
   const mood = applyVibeToMood(curveMood, vibe);
   const tags = getRecentTags();
-  const pack = EFFECT_PACKS[activeEffectPack]?.[mood] || [];
-  const rarePool = EFFECT_PACKS[activeEffectPack]?.rare || [];
-  const pool = Math.random() < RARE_CHANCE ? rarePool : pack;
-  const effect = chooseEffect(pool, tags);
+  const { pool, rarePool } = getEffectPools(mood);
+  const selectedPool = Math.random() < RARE_CHANCE ? rarePool : pool;
+  const effect = chooseEffect(selectedPool, tags);
   if (effect) applyEffect(effect);
 }
 function getMoodFromCurve(t) {
@@ -261,7 +269,7 @@ const DEFAULT_ZONES = {
   corner: { shape: 'rect', x: 0, y: 0, w: 0.25, h: 0.25 },
 };
 
-const EFFECT_PACKS = {
+const DEFAULT_EFFECT_PACKS = {
   default: {
     ambient: [
       { type: 'canvas', effect: 'sheen', zone: DEFAULT_ZONES.band, duration: 2600, intensity: 'low', tag: 'ambient' },
@@ -305,10 +313,78 @@ const EFFECT_PACKS = {
     ],
   },
 };
+let EFFECT_PACKS = JSON.parse(JSON.stringify(DEFAULT_EFFECT_PACKS));
 let activeEffectPack = 'default';
 export function switchEffectPack(name) {
-  if (EFFECT_PACKS[name]) activeEffectPack = name;
+  if (EFFECT_PACKS[name]) {
+    activeEffectPack = name;
+    activeEffectPacks = [name];
+  }
+}
+
+export function configureEffectPacks({ selectedPacks, moodFilters, packOverrides } = {}) {
+  if (packOverrides) {
+    EFFECT_PACKS = { ...JSON.parse(JSON.stringify(DEFAULT_EFFECT_PACKS)), ...packOverrides };
+  }
+  packMoodFilters = moodFilters || {};
+  const validPacks = (selectedPacks || []).filter((name) => EFFECT_PACKS[name]);
+  if (validPacks.length) {
+    activeEffectPacks = validPacks;
+    activeEffectPack = validPacks[0];
+  } else {
+    activeEffectPacks = ['default'];
+    activeEffectPack = 'default';
+  }
+}
+
+export function setEffectInterval(value) {
+  if (Number.isFinite(value)) {
+    EFFECT_INTERVAL = Math.max(250, value);
+  }
+}
+
+export function setRareChance(value) {
+  if (Number.isFinite(value)) {
+    RARE_CHANCE = Math.max(0, Math.min(1, value));
+  }
+}
+
+export function setIntensityMultiplier(value) {
+  if (Number.isFinite(value)) {
+    intensityMultiplier = Math.max(0.25, value);
+  }
+}
+
+export function getEffectConfiguration() {
+  return {
+    effectInterval: EFFECT_INTERVAL,
+    rareChance: RARE_CHANCE,
+    intensityMultiplier,
+    activeEffectPacks: [...activeEffectPacks],
+    moodFilters: { ...packMoodFilters },
+    effectPacks: EFFECT_PACKS,
+  };
+}
+
+export function getEffectPacks() {
+  return EFFECT_PACKS;
+}
+
+function getEffectPools(mood) {
+  const pool = [];
+  const rarePool = [];
+  const packs = activeEffectPacks?.length ? activeEffectPacks : [activeEffectPack];
+  packs.forEach((name) => {
+    const pack = EFFECT_PACKS[name];
+    if (!pack) return;
+    const filters = packMoodFilters[name];
+    const allowMood = filters ? filters[mood] !== false : true;
+    const allowRare = filters ? filters.rare !== false : true;
+    if (allowMood && Array.isArray(pack[mood])) pool.push(...pack[mood]);
+    if (allowRare && Array.isArray(pack.rare)) rarePool.push(...pack.rare);
+  });
+  return { pool, rarePool };
 }
 
 // Export internal for debugging/testing
-export const __INTERNAL_EFFECT_PACKS = EFFECT_PACKS;
+export const __INTERNAL_EFFECT_PACKS = () => EFFECT_PACKS;
