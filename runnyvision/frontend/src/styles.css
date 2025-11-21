@@ -1,0 +1,205 @@
+:root {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0b1d2c;
+  background-color: #f5f7fa;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 20% 20%, #f0f4ff, #f5f7fa 40%),
+    radial-gradient(circle at 80% 10%, #f7f2ff, #f5f7fa 30%);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.nav-links {
+  display: flex;
+  gap: 12px;
+}
+
+.nav-link {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: #eef3ff;
+  color: #1d3c6a;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.nav-link:hover {
+  background: #dfe9ff;
+}
+
+.page-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.section-title {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.input,
+.button {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d6ddeb;
+  font-size: 1rem;
+}
+
+.button {
+  background: linear-gradient(135deg, #4f46e5, #6a5af9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.button:hover {
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.passport-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.passport-table th,
+.passport-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e6ecf5;
+}
+
+.passport-table th {
+  text-align: left;
+  color: #4a6287;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.passport-table td {
+  font-weight: 600;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.trip-cell {
+  color: #1d3c6a;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.viewer-box {
+  background: #0b1d2c;
+  color: #c7d7ff;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3f6ff;
+  color: #243b65;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.route-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #eef3ff;
+  margin: 4px 6px 4px 0;
+}
+
+.route-pill .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4f46e5;
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .passport-table th:nth-child(2),
+  .passport-table td:nth-child(2) {
+    display: block;
+    padding-top: 4px;
+  }
+
+  .passport-table tr {
+    display: block;
+    padding: 10px 0;
+  }
+
+  .passport-table td,
+  .passport-table th {
+    border: none;
+  }
+
+  .passport-table td:nth-child(1),
+  .passport-table td:nth-child(3) {
+    display: inline-block;
+    width: 50%;
+  }
+
+  .passport-table tr + tr {
+    border-top: 1px solid #e6ecf5;
+  }
+}
