@@ -20,10 +20,20 @@
  * ============================================================
  */
 const { app, BrowserWindow } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const AutoLaunch = require('auto-launch');
 
 const appLauncher = new AutoLaunch({ name: 'Run The World' });
+
+const backendPath = path.join(process.resourcesPath || __dirname, 'src', 'server.js');
+const backend = spawn(process.execPath, [backendPath], {
+  stdio: 'inherit',
+});
+
+backend.on('close', (code) => {
+  console.log('Backend exited with code', code);
+});
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -39,7 +49,11 @@ function createWindow() {
     show: false,
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  if (app.isPackaged) {
+    mainWindow.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
+  } else {
+    mainWindow.loadURL('http://localhost:3000/renderer/index.html');
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();

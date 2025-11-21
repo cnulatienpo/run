@@ -3,7 +3,7 @@
   "_devLimitation": "start:browser uses Python http.server → no proxy, no CORS.",
   "version": "1.0.0",
   "description": "Run The World overlay",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
     "start": "electron .",
     "start:browser": "node dev/hud-dev-server.js",
@@ -81,20 +81,28 @@
     },
     "files": [
       "main.js",
-      "index.html",
-      "index.js",
       "preload.js",
       "renderer/**/*",
-      "effects/**/*",
-      "step-bridge/**/*",
+      "rv-app/public/**/*",
+      "src/**/*",
+      "passport/**/*",
       "assets/**/*",
-      "rv-app/public/**/*"
+      "step-bridge/**/*",
+      "effects/**/*",
+      "package.json"
     ],
     "extraResources": [
-      "hallucinations/**/*",
+      {
+        "from": "renderer",
+        "to": "renderer"
+      },
       {
         "from": "rv-app/public",
         "to": "rv"
+      },
+      {
+        "from": "passport",
+        "to": "passport"
       }
     ],
     "mac": {

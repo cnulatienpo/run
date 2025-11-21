@@ -55,7 +55,7 @@ const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.youtube.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
-const RV_APP_DEV_URL = 'http://localhost:4173';
+const RV_APP_DEV_URL = 'http://localhost:3001/rv';
 const RV_APP_PROD_URL = '/rv/';
 
 // Curated scenic / exploration clips for "Workahol Enabler"
@@ -183,12 +183,6 @@ const WORKAHOL_ENABLER_VIDEO_IDS = WORKAHOL_ENABLER_CLIPS.map((clip) => extractV
 const WORKAHOL_ENABLER_PLAYLIST = [
   { id: WORKAHOL_ENABLER_PLAYLIST_ID, title: 'Workahol Enabler – Scenic / Urban / Urbex' },
 ];
-
-function resolveRVAppUrl() {
-  const host = window.location.hostname;
-  const isLocalDev = host === 'localhost' || host === '127.0.0.1';
-  return isLocalDev ? RV_APP_DEV_URL : RV_APP_PROD_URL;
-}
 
 let googleTokenClient;
 let googleAccessToken = null;
@@ -356,8 +350,11 @@ function setupEventListeners() {
    *   Users must open RV Studio to access mnemonic generation tools.
    */
   elements.openRVApp?.addEventListener('click', () => {
-    const targetUrl = resolveRVAppUrl();
-    window.open(targetUrl, '_blank');
+    if (window.isProd) {
+      window.location.href = RV_APP_PROD_URL;
+    } else {
+      window.open(RV_APP_DEV_URL, '_blank');
+    }
   });
 }
 
