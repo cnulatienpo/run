@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld('preloadConfig', {
   WS_URL: resolvedWsUrl,
 });
 
+contextBridge.exposeInMainWorld('isProd', app.isPackaged);
+
 contextBridge.exposeInMainWorld('electronInfo', {
   version: app.getVersion(),
   versions: process.versions,
