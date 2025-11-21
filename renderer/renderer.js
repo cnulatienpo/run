@@ -38,10 +38,21 @@
  * ============================================================
  */
 
-import { start } from './spawnLoop.js';
+import {
+  initCanvas,
+  spawnLoop as runHallucinationLoop,
+  notifyStep,
+  startStillnessWatcher,
+  monitorEnvironment,
+  updateBPM as updateEngineBPM,
+  recordTag,
+  registerEffectPlugin,
+  exportSessionLog,
+  replaySession,
+  switchEffectPack,
+} from './hallucinationEngine.js';
 import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';
-import { setTag } from './spawnLoop.js';
 import { createNetworkClient } from './network.js';
 import { getPassportStamps, computePassportStats } from './passport.js';
 
@@ -195,12 +206,78 @@ let currentPlaylistId = WORKAHOL_ENABLER_PLAYLIST_ID;
 let desiredVolume = 50;
 let latestCadence;
 let latestSteps;
+let latestBpmValue = 100;
+let latestStepRate = 0;
+let hallucinationEngineStarted = false;
+let hallucinationLoopId;
+let activityListenersBound = false;
 
 const elements = {};
 
-initTags(setTag);
+function handleTagChange(tag) {
+  recordTag(tag);
+}
+
+function initializeHallucinationEngine() {
+  if (hallucinationEngineStarted) return;
+  hallucinationEngineStarted = true;
+  initCanvas();
+  startStillnessWatcher();
+  monitorEnvironment(getCurrentVideoTitle);
+  bindActivityListeners();
+  notifyStep();
+  updateEngineBPM(latestBpmValue);
+  startHallucinationLoop();
+  exposeHallucinationControls();
+}
+
+function startHallucinationLoop() {
+  if (hallucinationLoopId) return;
+  const loop = () => {
+    runHallucinationLoop(latestStepRate || 0, latestBpmValue || 0);
+    hallucinationLoopId = requestAnimationFrame(loop);
+  };
+  hallucinationLoopId = requestAnimationFrame(loop);
+}
+
+function bindActivityListeners() {
+  if (activityListenersBound) return;
+  const events = ['pointermove', 'keydown', 'click', 'touchstart', 'scroll'];
+  events.forEach((eventName) => document.addEventListener(eventName, notifyStep, { passive: true }));
+  window.addEventListener('focus', notifyStep);
+  activityListenersBound = true;
+}
+
+function getCurrentVideoTitle() {
+  if (youtubePlayer?.getVideoData) {
+    return youtubePlayer.getVideoData()?.title || '';
+  }
+  return document.title || '';
+}
+
+function exposeHallucinationControls() {
+  window.hallucinationEngine = {
+    exportSessionLog,
+    replaySession,
+    switchEffectPack,
+    registerEffectPlugin,
+  };
+}
+
+function updateReactiveStreams({ cadence, bpm }) {
+  if (Number.isFinite(cadence)) {
+    latestCadence = cadence;
+    latestStepRate = cadence;
+    notifyStep();
+  }
+  if (Number.isFinite(bpm)) {
+    latestBpmValue = bpm;
+    updateEngineBPM(bpm);
+  }
+}
+
+initTags(handleTagChange);
 startTimer();
-// start(); // Disabled effects temporarily
 
 document.addEventListener('DOMContentLoaded', () => {
   cacheDom();
@@ -211,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeGoogleAuth();
   connectStepServerFallback();
   populateHardcodedPlaylists();
+  initializeHallucinationEngine();
 });
 
 /**
@@ -806,8 +884,7 @@ function fetchFitSummary() {
 
       const { steps, cadence } = extractFitMetrics(payload);
       latestSteps = steps;
-      latestCadence = cadence;
-
+      updateReactiveStreams({ cadence });
       updateStepDisplays(steps);
       applyCadenceToPlayer(cadence);
       updateFitStatus(`Steps (30s): ${steps} • Cadence: ${cadence.toFixed(1)} spm`, '#4CAF50');
@@ -909,13 +986,16 @@ function connectStepServerFallback() {
       }
     },
     onStepData: (data) => {
-      if (Number.isFinite(data.steps) && !Number.isFinite(latestSteps)) {
+      updateReactiveStreams({ cadence: data.cadence, bpm: data.bpm });
+
+      if (Number.isFinite(data.steps)) {
+        latestSteps = data.steps;
         updateStepDisplays(data.steps);
       }
       if (Number.isFinite(data.bpm) && elements.hudBpm) {
         elements.hudBpm.textContent = Math.round(data.bpm);
       }
-      if (Number.isFinite(data.cadence) && !Number.isFinite(latestCadence)) {
+      if (Number.isFinite(data.cadence)) {
         applyCadenceToPlayer(data.cadence);
       }
     }
