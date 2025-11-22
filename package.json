@@ -1,8 +1,8 @@
 {
-  "name": "run",
+  "name": "runnyvision",
   "_devLimitation": "start:browser uses Python http.server → no proxy, no CORS.",
   "version": "1.0.0",
-  "description": "Run The World overlay",
+  "description": "RunnyVision overlay",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -75,9 +75,9 @@
     "extraResources": [ 
       { "from": "rv-app/public", "to": "rv" } 
     ],
-    "productName": "Run The World",
-    "appId": "com.example.rtw",
-    "artifactName": "RunTheWorld-${version}.${ext}",
+    "productName": "RunnyVision",
+    "appId": "com.runnyvision.app",
+    "artifactName": "RunnyVision-${version}.${ext}",
     "directories": {
       "output": "dist"
     },
