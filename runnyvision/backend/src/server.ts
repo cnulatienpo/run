@@ -1,14 +1,17 @@
 import express from "express";
 import cors from "cors";
-import path from "path";
-import fs from "fs";
-import { RunSession, RouteConfig } from "../../shared/types";
-import { createRunsRouter } from "./routes/runs";
-import { createPassportRouter } from "./routes/passport";
-import { createRoutesConfigRouter } from "./routes/routesConfig";
-import { createCreatorRouter } from "./routes/creator";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import type { RunSession, RouteConfig } from "./types.js";
+import { createRunsRouter } from "./routes/runs.js";
+import { createPassportRouter } from "./routes/passport.js";
+import { createRoutesConfigRouter } from "./routes/routesConfig.js";
+import { createCreatorRouter } from "./routes/creator.js";
 
 const PORT = process.env.PORT || 4000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const FRONTEND_DIST = path.join(__dirname, "../../frontend/dist");
 
 const runsPath = path.join(__dirname, "data", "runs.json");

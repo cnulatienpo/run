@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "ts-node-dev --respawn src/server.ts",
+    "dev": "ts-node-dev --respawn --esm src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },

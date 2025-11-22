@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { RouteConfig } from "../../../shared/types";
+import type { RouteConfig } from "../types.js";
 
 type SaveRoutes = (routes: RouteConfig[]) => void;
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { RunSession } from "../../../shared/types";
+import type { RunSession } from "../types.js";
 
 type Params = {
   runs: RunSession[];
