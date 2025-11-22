@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { RouteConfig } from "../../../shared/types";
+import type { RouteConfig } from "../types.js";
 
 type Params = {
   routes: RouteConfig[];

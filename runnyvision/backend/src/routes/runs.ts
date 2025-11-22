@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { RunSession } from "../../../shared/types";
-import { computeFakeMiles } from "../logic/computeFakeMiles";
+import type { RunSession } from "../types.js";
+import { computeFakeMiles } from "../logic/computeFakeMiles.js";
 
 type SaveRuns = (runs: RunSession[]) => void;
 
