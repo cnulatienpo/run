@@ -7,6 +7,7 @@ import passportRouter from "./routes/passport";
 import healthRouter from "./routes/health";
 import clipsRouter from "./routes/clips";
 import usersRouter from "./routes/users";
+import runSessionsRouter from "./routes/runSessions";
 import { ensureDefaultUser } from "./services/userService";
 
 const resourcesPath = (
@@ -89,6 +90,9 @@ const rvAppPublicPath = isProd
 const rendererPath = isProd
   ? path.join(resourcesPath as string, "renderer")
   : path.resolve(__dirname, "..", "renderer");
+const passportUiPath = isProd
+  ? path.join(resourcesPath as string, "passport")
+  : path.resolve(__dirname, "..", "passport", "dist");
 
 app.use("/", express.static(rendererPath));
 /**
@@ -98,6 +102,10 @@ app.use("/", express.static(rendererPath));
 app.use("/rv", express.static(rvAppPublicPath));
 app.get("/rv/*", (_req, res) => {
   res.sendFile(path.join(rvAppPublicPath, "index.html"));
+});
+app.use("/passport", express.static(passportUiPath));
+app.get("/passport/*", (_req, res) => {
+  res.sendFile(path.join(passportUiPath, "index.html"));
 });
 
 app.use(async (req, _res, next) => {
@@ -126,6 +134,7 @@ app.use(async (req, _res, next) => {
  *   GET    /api/profiles
  *   GET    /api/run
  *   GET    /api/clips
+ *   GET    /api/run-sessions
  *   GET    /api/passport
  *   GET    /api/users
  *
@@ -141,6 +150,7 @@ app.use("/api/experience", experienceRouter);
 app.use("/api/profiles", profilesRouter);
 app.use("/api/run", runStatsRouter);
 app.use("/api/clips", clipsRouter);
+app.use("/api/run-sessions", runSessionsRouter);
 app.use("/api/passport", passportRouter);
 app.use("/api/users", usersRouter);
 

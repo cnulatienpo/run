@@ -13,6 +13,8 @@
     "dev:electron": "nodemon main.js",
     "rv:build": "tsc -p rv-app",
     "rv:serve": "http-server rv-app/public -p 4173",
+    "passport:dev": "vite --config passport/vite.config.ts",
+    "passport:build": "vite build --config passport/vite.config.ts",
     "build": "electron-builder",
     "dist": "electron-builder --win",
     "release:mac": "electron-builder --mac",
@@ -59,7 +61,7 @@
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
-    "vitest": "^4.0.12"
+    "vitest": "^2.1.4"
   },
   "build": {
     "files": [ 

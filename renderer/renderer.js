@@ -38,10 +38,25 @@
  * ============================================================
  */
 
-import { start } from './spawnLoop.js';
+import {
+  initCanvas,
+  spawnLoop as runHallucinationLoop,
+  notifyStep,
+  startStillnessWatcher,
+  monitorEnvironment,
+  updateBPM as updateEngineBPM,
+  recordTag,
+  registerEffectPlugin,
+  exportSessionLog,
+  replaySession,
+  switchEffectPack,
+  configureEffectPacks,
+  setEffectInterval,
+  setRareChance,
+  setIntensityMultiplier,
+} from './hallucinationEngine.js';
 import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';
-import { setTag } from './spawnLoop.js';
 import { createNetworkClient } from './network.js';
 import { getPassportStamps, computePassportStats } from './passport.js';
 
@@ -55,8 +70,20 @@ const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.youtube.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
+const HALLUCINATION_SETTINGS_KEY = 'rv.hallucination.settings';
 const RV_APP_DEV_URL = 'http://localhost:3001/rv';
 const RV_APP_PROD_URL = '/rv/';
+
+const DEFAULT_HALLUCINATION_SETTINGS = {
+  selectedPacks: ['default'],
+  packMoods: {},
+  effectInterval: 4000,
+  rareChance: 0.02,
+  intensityMultiplier: 1,
+  bpm: 100,
+  bpmOverride: false,
+  stepRate: 0,
+};
 
 // Curated scenic / exploration clips for "Workahol Enabler"
 // Each entry is designed to be remix‑friendly: lots of motion, minimal talking head.
@@ -195,12 +222,119 @@ let currentPlaylistId = WORKAHOL_ENABLER_PLAYLIST_ID;
 let desiredVolume = 50;
 let latestCadence;
 let latestSteps;
+let latestBpmValue = 100;
+let latestStepRate = 0;
+let hallucinationEngineStarted = false;
+let hallucinationLoopId;
+let activityListenersBound = false;
+let hallucinationSettings = null;
 
 const elements = {};
 
-initTags(setTag);
+function handleTagChange(tag) {
+  recordTag(tag);
+}
+
+function loadHallucinationSettingsFromStorage() {
+  try {
+    const raw = safeReadLocalStorage(HALLUCINATION_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_HALLUCINATION_SETTINGS };
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_HALLUCINATION_SETTINGS,
+      ...parsed,
+    };
+  } catch (error) {
+    console.warn('[Hallucination] Failed to parse settings', error);
+    return { ...DEFAULT_HALLUCINATION_SETTINGS };
+  }
+}
+
+function applyHallucinationPreferences() {
+  hallucinationSettings = loadHallucinationSettingsFromStorage();
+  const settings = hallucinationSettings;
+  const selectedPacks = Array.isArray(settings?.selectedPacks) && settings.selectedPacks.length
+    ? settings.selectedPacks
+    : DEFAULT_HALLUCINATION_SETTINGS.selectedPacks;
+  configureEffectPacks({ selectedPacks, moodFilters: settings.packMoods });
+  setEffectInterval(settings.effectInterval ?? DEFAULT_HALLUCINATION_SETTINGS.effectInterval);
+  setRareChance(settings.rareChance ?? DEFAULT_HALLUCINATION_SETTINGS.rareChance);
+  setIntensityMultiplier(settings.intensityMultiplier ?? DEFAULT_HALLUCINATION_SETTINGS.intensityMultiplier);
+
+  if (Number.isFinite(settings.stepRate)) {
+    latestStepRate = settings.stepRate;
+  }
+  if (settings.bpmOverride && Number.isFinite(settings.bpm)) {
+    latestBpmValue = settings.bpm;
+    updateEngineBPM(settings.bpm);
+  }
+}
+
+function initializeHallucinationEngine() {
+  if (hallucinationEngineStarted) return;
+  hallucinationEngineStarted = true;
+  applyHallucinationPreferences();
+  initCanvas();
+  startStillnessWatcher();
+  monitorEnvironment(getCurrentVideoTitle);
+  bindActivityListeners();
+  notifyStep();
+  updateEngineBPM(latestBpmValue);
+  startHallucinationLoop();
+  exposeHallucinationControls();
+}
+
+function startHallucinationLoop() {
+  if (hallucinationLoopId) return;
+  const loop = () => {
+    runHallucinationLoop(latestStepRate || 0, latestBpmValue || 0);
+    hallucinationLoopId = requestAnimationFrame(loop);
+  };
+  hallucinationLoopId = requestAnimationFrame(loop);
+}
+
+function bindActivityListeners() {
+  if (activityListenersBound) return;
+  const events = ['pointermove', 'keydown', 'click', 'touchstart', 'scroll'];
+  events.forEach((eventName) => document.addEventListener(eventName, notifyStep, { passive: true }));
+  window.addEventListener('focus', notifyStep);
+  activityListenersBound = true;
+}
+
+function getCurrentVideoTitle() {
+  if (youtubePlayer?.getVideoData) {
+    return youtubePlayer.getVideoData()?.title || '';
+  }
+  return document.title || '';
+}
+
+function exposeHallucinationControls() {
+  window.hallucinationEngine = {
+    exportSessionLog,
+    replaySession,
+    switchEffectPack,
+    registerEffectPlugin,
+    configureEffectPacks,
+    setEffectInterval,
+    setRareChance,
+    setIntensityMultiplier,
+  };
+}
+
+function updateReactiveStreams({ cadence, bpm }) {
+  if (Number.isFinite(cadence)) {
+    latestCadence = cadence;
+    latestStepRate = cadence;
+    notifyStep();
+  }
+  if (Number.isFinite(bpm)) {
+    latestBpmValue = bpm;
+    updateEngineBPM(bpm);
+  }
+}
+
+initTags(handleTagChange);
 startTimer();
-// start(); // Disabled effects temporarily
 
 document.addEventListener('DOMContentLoaded', () => {
   cacheDom();
@@ -211,6 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeGoogleAuth();
   connectStepServerFallback();
   populateHardcodedPlaylists();
+  initializeHallucinationEngine();
 });
 
 /**
@@ -243,6 +378,7 @@ function cacheDom() {
   elements.hudSteps = document.getElementById('hud-steps');
   elements.hudBpm = document.getElementById('hud-bpm');
   elements.hudOfflineBadge = document.getElementById('hud-offline-badge');
+  elements.hallucinationControls = document.getElementById('open-hallucination-controls');
 
   if (elements.openRVApp) {
     elements.openRVApp.textContent = 'Open Workahol Enabler';
@@ -354,6 +490,16 @@ function setupEventListeners() {
       window.location.href = RV_APP_PROD_URL;
     } else {
       window.open(RV_APP_DEV_URL, '_blank');
+    }
+  });
+
+  elements.hallucinationControls?.addEventListener('click', () => {
+    const baseUrl = window.isProd ? RV_APP_PROD_URL : RV_APP_DEV_URL;
+    const target = `${baseUrl}#hallucination`;
+    if (window.isProd) {
+      window.location.href = target;
+    } else {
+      window.open(target, '_blank');
     }
   });
 }
@@ -806,8 +952,7 @@ function fetchFitSummary() {
 
       const { steps, cadence } = extractFitMetrics(payload);
       latestSteps = steps;
-      latestCadence = cadence;
-
+      updateReactiveStreams({ cadence });
       updateStepDisplays(steps);
       applyCadenceToPlayer(cadence);
       updateFitStatus(`Steps (30s): ${steps} • Cadence: ${cadence.toFixed(1)} spm`, '#4CAF50');
@@ -909,13 +1054,16 @@ function connectStepServerFallback() {
       }
     },
     onStepData: (data) => {
-      if (Number.isFinite(data.steps) && !Number.isFinite(latestSteps)) {
+      updateReactiveStreams({ cadence: data.cadence, bpm: data.bpm });
+
+      if (Number.isFinite(data.steps)) {
+        latestSteps = data.steps;
         updateStepDisplays(data.steps);
       }
       if (Number.isFinite(data.bpm) && elements.hudBpm) {
         elements.hudBpm.textContent = Math.round(data.bpm);
       }
-      if (Number.isFinite(data.cadence) && !Number.isFinite(latestCadence)) {
+      if (Number.isFinite(data.cadence)) {
         applyCadenceToPlayer(data.cadence);
       }
     }
