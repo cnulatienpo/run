@@ -1,4 +1,4 @@
-# Run The World – Developer Guide
+# RunnyVision – Developer Guide
 
 ## Dev Setup
 - **HUD (renderer):** `npm run start:browser` (Express dev server @3000 with /api proxy)

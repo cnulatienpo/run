@@ -24,7 +24,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const AutoLaunch = require('auto-launch');
 
-const appLauncher = new AutoLaunch({ name: 'Run The World' });
+const appLauncher = new AutoLaunch({ name: 'RunnyVision' });
 
 const backendPath = path.join(process.resourcesPath || __dirname, 'src', 'server.js');
 const backend = spawn(process.execPath, [backendPath], {

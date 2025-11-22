@@ -46,7 +46,7 @@ export default function App() {
   return (
     <main>
       <header style={{ marginBottom: "1.5rem" }}>
-        <h1>Run the World</h1>
+        <h1>RunnyVision</h1>
         <p>Track every session with a passport table that mixes real steps with official-looking miles.</p>
         <div className="badge" style={{ background: "rgba(16,185,129,0.16)", color: "#a7f3d0" }}>
           {totals.today.toLocaleString()} steps today · {totals.earlier.toLocaleString()} earlier
