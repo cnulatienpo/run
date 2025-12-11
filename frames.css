@@ -1,0 +1,21 @@
+.frame-box,
+.frame-circle {
+  background-image: url("build/circle-mask.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  text-align: center;
+  color: inherit;
+}
+
+.frame-box {
+  display: block;
+  padding: 24px;
+}
+
+.frame-circle {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
