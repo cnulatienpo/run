@@ -1,0 +1,78 @@
+@font-face {
+  font-family: "LaNuTienpo";
+  src: url("build/La_Nu_Tienpo-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #f1f2f5;
+  --text: #1f2933;
+  --line-height: 1.6;
+  --space-lg: 32px;
+  --space-sm: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "LaNuTienpo", sans-serif;
+  line-height: var(--line-height);
+  display: flex;
+  justify-content: center;
+}
+
+main {
+  width: min(960px, 96vw);
+}
+
+p {
+  margin: 0 0 var(--space-sm);
+}
+
+.pad-lg {
+  padding: var(--space-lg);
+}
+
+.pad-sm {
+  padding: var(--space-sm);
+}
+
+.mt-lg {
+  margin-top: var(--space-lg);
+}
+
+.mt-sm {
+  margin-top: var(--space-sm);
+}
+
+.mb-lg {
+  margin-bottom: var(--space-lg);
+}
+
+.mb-sm {
+  margin-bottom: var(--space-sm);
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.fit {
+  width: 100%;
+}
