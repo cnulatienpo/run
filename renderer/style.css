@@ -39,10 +39,10 @@
  * ============================================================
  */
 
-/* Font lives in build/ to avoid duplicating binary assets across the repo. */
+/* Font served from /assets and applied at the root so form controls inherit it. */
 @font-face {
   font-family: "La Nu Tienpo";
-  src: url("/build/La_Nu_Tienpo-Regular.woff") format("woff");
+  src: url("/assets/La_Nu_Tienpo-Regular.woff") format("woff");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -51,6 +51,30 @@
 :root {
   color-scheme: dark;
   font-family: "La Nu Tienpo", sans-serif;
+  --frame-rectangle-img: url("/assets/frame-rectangle.jpg");
+  --frame-circle-img: url("/assets/frame-circle.jpg");
+}
+
+html,
+body {
+  font-family: inherit;
+}
+
+/* Ensure browser form controls and nested button content inherit the custom font. */
+button,
+input,
+textarea,
+select,
+label {
+  font-family: inherit;
+}
+
+button *,
+.btn *,
+.large-btn *,
+.tag-button *,
+nav button * {
+  font-family: inherit;
 }
 
 * {
@@ -147,10 +171,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background-image: url("/build/vertical%20rectangle.png");
+  background-image: var(--frame-rectangle-img);
   background-repeat: no-repeat;
   background-size: 100% 100%;
+  background-position: center;
   border-radius: 10px;
+  background-color: transparent;
 }
 
 .frame-rect:focus-visible {
@@ -163,10 +189,14 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-image: url("/build/circle-mask.png");
+  padding: 12px;
+  aspect-ratio: 1 / 1;
+  background-image: var(--frame-circle-img);
   background-repeat: no-repeat;
   background-size: 100% 100%;
+  background-position: center;
   border-radius: 999px;
+  background-color: transparent;
 }
 
 #fx-overlay {
@@ -385,6 +415,41 @@ body {
   margin: 0;
   font-size: 0.85rem;
   color: rgba(148, 163, 184, 0.85);
+}
+
+/* Frame art scales with each control's content and honors existing padding. */
+button,
+#hud button,
+nav button,
+.btn,
+.large-btn,
+.tag-button,
+.hud-control,
+.metric,
+.metric-card,
+.panel,
+.scene-card,
+#hud,
+#app,
+.hud,
+.card,
+.container,
+input,
+textarea,
+select,
+label {
+  background-image: var(--frame-rectangle-img);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.frame-circle,
+#hud-floating-toggle {
+  background-image: var(--frame-circle-img);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 /* Effect classes */
