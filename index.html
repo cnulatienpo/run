@@ -1,22 +1,334 @@
+<!--
+  ============================================================
+    ALTERNATE HUD – PROJECT MAP
+  ------------------------------------------------------------
+    This file is a modern HUD prototype with metrics + controls.
+
+    It:
+      • loads renderer.js
+      • displays session metrics
+      • provides HUD UI/controls
+
+    It does NOT:
+      • embed <rv-app>
+      • reference rv-app
+      • include links to the learning studio
+
+    Notes:
+      • This HUD is separate from renderer/index.html.
+      • Both HUDs omit <rv-app> by design.
+      • rv-app is accessed externally (e.g., “Open RV Studio” button).
+  ============================================================
+-->
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Circle Mask Frames</title>
-    <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="frames.css" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Run Overlay</title>
+    <script>
+      // Redirect to renderer HUD
+      window.location.href = '/renderer/index.html';
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background-color: #030712;
+        color: #e2e8f0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 6, 23, 0.95);
+      }
+
+      #background-video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -2;
+        filter: saturate(120%);
+      }
+
+      #fx-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: -1;
+        mix-blend-mode: screen;
+        opacity: 0;
+        transition: opacity 160ms ease-out;
+      }
+
+      #fx-canvas.fx-visible {
+        opacity: 1;
+      }
+
+      #fx-canvas.fx-softPulse {
+        animation: fx-softPulse 2.2s ease-out;
+      }
+
+      #fx-canvas.fx-scanline {
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(148, 163, 184, 0.2) 0px,
+          rgba(148, 163, 184, 0.2) 2px,
+          transparent 2px,
+          transparent 6px
+        );
+        animation: fx-scanline 1.6s linear;
+      }
+
+      @keyframes fx-softPulse {
+        0% {
+          opacity: 0.05;
+        }
+        40% {
+          opacity: 0.4;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes fx-scanline {
+        0% {
+          background-position-y: 0;
+          opacity: 0.3;
+        }
+        100% {
+          background-position-y: 12px;
+          opacity: 0;
+        }
+      }
+
+      #app {
+        position: relative;
+        width: min(960px, calc(100% - 48px));
+        padding: 32px;
+        border-radius: 24px;
+        background: rgba(15, 23, 42, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.6);
+      }
+
+      header.hud-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .hud-title {
+        margin: 0 0 6px;
+        font-size: clamp(1.8rem, 2.4vw, 2.8rem);
+        letter-spacing: 0.04em;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        background: rgba(51, 65, 85, 0.25);
+        color: #94a3b8;
+      }
+
+      .status::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: currentColor;
+      }
+
+      .status--connecting,
+      .status--reconnecting {
+        background: rgba(59, 130, 246, 0.2);
+        color: #bfdbfe;
+      }
+
+      .status--connected {
+        background: rgba(34, 197, 94, 0.2);
+        color: #bbf7d0;
+      }
+
+      .status--error,
+      .status--disconnected {
+        background: rgba(248, 113, 113, 0.2);
+        color: #fecaca;
+      }
+
+      .metrics {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 18px;
+      }
+
+      .metric-card {
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(15, 23, 42, 0.78);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .metric-card h2 {
+        margin: 0;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(148, 163, 184, 0.8);
+      }
+
+      .metric-card span {
+        font-size: 2.4rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .metric-card small {
+        font-size: 0.85rem;
+        color: rgba(148, 163, 184, 0.75);
+      }
+
+      .hud-controls {
+        margin-top: 32px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .control-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .control-row label {
+        font-size: 0.9rem;
+        color: rgba(226, 232, 240, 0.85);
+      }
+
+      select,
+      button,
+      input[type='text'],
+      input[type='number'] {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(30, 41, 59, 0.85);
+        color: inherit;
+        font-size: 0.95rem;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .tag-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag-buttons button {
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(30, 41, 59, 0.82);
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+
+      .tag-buttons button.is-active {
+        border-color: rgba(96, 165, 250, 0.9);
+        background: rgba(59, 130, 246, 0.35);
+      }
+
+      .version-strip {
+        margin-top: 32px;
+        display: flex;
+        gap: 18px;
+        font-size: 0.85rem;
+        color: rgba(148, 163, 184, 0.75);
+      }
+
+      .version-strip code {
+        color: #e2e8f0;
+      }
+
+      @media (max-width: 720px) {
+        #app {
+          padding: 24px;
+        }
+        header.hud-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
   </head>
   <body>
-    <main class="stack pad-lg">
-      <div class="frame-box pad-lg mt-lg fit">
-        <p>
-          This block uses the circle mask as a flexible frame. Resize the window to
-          see how the background scales while the text retains the custom
-          typography.
-        </p>
+    <video id="background-video" autoplay muted loop playsinline></video>
+    <canvas id="fx-canvas" width="1920" height="1080"></canvas>
+    <div id="app">
+      <div id="hud">
+        <header class="hud-header">
+          <div>
+            <h1 class="hud-title">Run Session HUD</h1>
+            <p id="hud-status" class="status status--disconnected">Waiting for bridge…</p>
+          </div>
+        </header>
+
+        <section class="metrics">
+          <article class="metric-card">
+            <h2>Steps</h2>
+            <span id="steps-value">0</span>
+            <small id="last-update">No data yet.</small>
+          </article>
+          <article class="metric-card">
+            <h2>Heart Rate</h2>
+            <span id="bpm-value">--</span>
+            <small>Beats per minute</small>
+          </article>
+          <article class="metric-card">
+            <h2>Playlist</h2>
+            <span id="playlist-status">Stopped</span>
+            <small id="playlist-source">None</small>
+          </article>
+        </section>
+
+        <section id="hud-controls" class="hud-controls"></section>
+
+        <footer class="version-strip">
+          <span>Electron <code id="version-electron">(loading)</code></span>
+          <span>Node <code id="version-node">(loading)</code></span>
+          <span>Chromium <code id="version-chromium">(loading)</code></span>
+        </footer>
       </div>
-      <div class="frame-circle centered mt-lg">OK</div>
-    </main>
+    </div>
+
+    <script type="module" src="./renderer.js"></script>
   </body>
 </html>
