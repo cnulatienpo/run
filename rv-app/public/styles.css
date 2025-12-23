@@ -5,6 +5,14 @@
  * All modules are loaded directly by the browser/electron.
  */
 
+@font-face {
+  font-family: "La Nu Tienpo";
+  src: url("/assets/La_Nu_Tienpo-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --bg: #050a0f;
@@ -12,7 +20,14 @@
   --accent: #0ff2c3;
   --text: #f2f8ff;
   --muted: #6f8096;
-  font-family: "Inter", system-ui, sans-serif;
+  --frame-rectangle-img: url("/assets/frame-rectangle.jpg");
+  --frame-circle-img: url("/assets/frame-circle.jpg");
+  font-family: "La Nu Tienpo", sans-serif;
+}
+
+html,
+body {
+  font-family: inherit;
 }
 * {
   box-sizing: border-box;
@@ -25,14 +40,26 @@ body {
   overflow-x: hidden;
   padding: 1rem;
 }
+/* Enforce font inheritance on all controls and their nested content. */
+button,
+input,
+select,
+textarea,
+label {
+  font-family: inherit;
+}
+
+button *,
+.large-btn *,
+nav button *,
+.scene-card button * {
+  font-family: inherit;
+}
 rv-app {
   display: block;
   max-width: 1400px;
   margin: 0 auto;
   padding: 1rem;
-}
-button, input, select, textarea {
-  font: inherit;
 }
 .large-btn {
   min-height: 52px;
@@ -90,6 +117,23 @@ nav button:hover {
 nav button.active {
   color: var(--accent);
   background: rgba(15, 242, 195, 0.1);
+}
+.scene-thumb,
+/* Frame art scales with content while preserving existing padding. */
+button,
+nav button,
+.large-btn,
+.panel,
+.scene-card,
+nav,
+input,
+select,
+textarea,
+rv-app {
+  background-image: var(--frame-rectangle-img);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 .scene-card {
   border: 2px solid rgba(255, 255, 255, 0.1);
