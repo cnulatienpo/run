@@ -123,26 +123,26 @@
   <body data-google-client-id="your-google-client-id.apps.googleusercontent.com">
     <div id="hud">
       <div class="row" id="google-auth-row">
-        <button id="google-sign-in" type="button">Sign in with Google</button>
+        <button id="google-sign-in" type="button" class="frame-rect">Sign in with Google</button>
         <span id="google-auth-status" style="margin-left: 8px; opacity: 0.7;"></span>
       </div>
       <div class="row" id="youtube-playlist-row">
         <strong style="margin-right: 6px;">Playlist:</strong>
         <select id="youtube-playlists" disabled style="min-width: 220px;"></select>
-        <button id="youtube-load" type="button" disabled>Load</button>
-        <button id="youtube-prev" type="button" disabled>⏮️</button>
-        <button id="youtube-next" type="button" disabled>⏭️</button>
-        <button id="youtube-shuffle" type="button" disabled>🔀</button>
-        <button id="youtube-refresh" type="button" disabled title="Refresh playlists">↻</button>
+        <button id="youtube-load" type="button" class="frame-rect" disabled>Load</button>
+        <button id="youtube-prev" type="button" class="frame-rect" disabled>⏮️</button>
+        <button id="youtube-next" type="button" class="frame-rect" disabled>⏭️</button>
+        <button id="youtube-shuffle" type="button" class="frame-rect" disabled>🔀</button>
+        <button id="youtube-refresh" type="button" class="frame-rect" disabled title="Refresh playlists">↻</button>
         <label style="margin-left: 8px;">Volume</label>
         <input id="youtube-volume" type="range" min="0" max="100" step="1" value="50" disabled />
         <span id="playlist-status" style="margin-left: 10px; font-size: 0.85em; opacity: 0.7;"></span>
       </div>
       <div class="row">
         <strong>Tag:</strong>
-        <button data-tag="Dreamcore">Dreamcore</button>
-        <button data-tag="Ambient">Ambient</button>
-        <button data-tag="Urban">Urban</button>
+        <button data-tag="Dreamcore" class="frame-rect">Dreamcore</button>
+        <button data-tag="Ambient" class="frame-rect">Ambient</button>
+        <button data-tag="Urban" class="frame-rect">Urban</button>
         <span id="current-tag" style="margin-left:12px; opacity: 0.6;"></span>
       </div>
       <div class="row">
@@ -164,17 +164,18 @@
       </div>
       <!-- Add to HUD for manual export button -->
       <div class="row">
-        <button onclick="window.downloadSessionLog()">Download Log</button>
-        <button id="passport-button" type="button">Passport 📖</button>
-        <button id="open-rv-app" type="button">Open Workahol Enabler</button>
-        <button id="open-hallucination-controls" type="button">Hallucination Controls</button>
-        <button id="test-clip-api" type="button">Test Clips API</button>
-        <button id="hud-hide-button" type="button" style="margin-left: auto;">Hide HUD</button>
+        <button onclick="window.downloadSessionLog()" class="frame-rect">Download Log</button>
+        <button id="passport-button" type="button" class="frame-rect">Passport 📖</button>
+        <button id="open-rv-app" type="button" class="frame-rect">Open Workahol Enabler</button>
+        <button id="open-hallucination-controls" type="button" class="frame-rect">Hallucination Controls</button>
+        <button id="test-clip-api" type="button" class="frame-rect">Test Clips API</button>
+        <button id="hud-hide-button" type="button" class="frame-rect" style="margin-left: auto;">Hide HUD</button>
       </div>
     </div>
 
     <button
       id="hud-floating-toggle"
+      class="frame-circle"
       type="button"
       title="Show HUD"
       hidden
