@@ -44,10 +44,9 @@
     WIRING ASSERTIONS A1 + A2 – DOCUMENTATION
   ------------------------------------------------------------
     A1 (HUD contains an <iframe>): FAIL
-      - The HUD intentionally renders YouTube controls and metrics
-        directly inside the page.
+      - The HUD renders native video playback and metrics directly inside the page.
       - There is NO <iframe>.
-      - YouTube is embedded via the YouTube JS API inside #youtube-player.
+      - Video is embedded via a <video> element inside #video-player.
 
     A2 (HUD links to rv-app): FAIL (original state)
       - HUD did NOT contain:
@@ -71,7 +70,7 @@
     - This is the HUD homepage shown inside Electron.
     - Provides:
         * Google Auth
-        * YouTube playlist controls
+        * Video playlist controls
         * Step counter and telemetry
         * HUD visibility toggles
         * Passport export
@@ -95,12 +94,12 @@
   ------------------------------------------------------------
   Role:
     - This is the web-based heads-up display (HUD) shown inside Electron.
-    - Contains YouTube controls, playlist manager, step counter,
+    - Contains video controls, playlist manager, step counter,
       telemetry status, Google Fit integration, and passport export.
 
   Structure:
     index.html       → Loads HUD layout + scripts
-    renderer.js      → Main HUD logic (YouTube, Fit, playlists)
+    renderer.js      → Main HUD logic (video playback, Fit, playlists)
     passport.js      → Passport export/logic
     style.css        → Static HUD styling (no bundler)
     package.json     → HUD-specific metadata (no build step)
@@ -126,16 +125,16 @@
         <button id="google-sign-in" type="button" class="frame-rect">Sign in with Google</button>
         <span id="google-auth-status" style="margin-left: 8px; opacity: 0.7;"></span>
       </div>
-      <div class="row" id="youtube-playlist-row">
+      <div class="row" id="video-playlist-row">
         <strong style="margin-right: 6px;">Playlist:</strong>
-        <select id="youtube-playlists" disabled style="min-width: 220px;"></select>
-        <button id="youtube-load" type="button" class="frame-rect" disabled>Load</button>
-        <button id="youtube-prev" type="button" class="frame-rect" disabled>⏮️</button>
-        <button id="youtube-next" type="button" class="frame-rect" disabled>⏭️</button>
-        <button id="youtube-shuffle" type="button" class="frame-rect" disabled>🔀</button>
-        <button id="youtube-refresh" type="button" class="frame-rect" disabled title="Refresh playlists">↻</button>
+        <select id="video-playlists" disabled style="min-width: 220px;"></select>
+        <button id="video-load" type="button" class="frame-rect" disabled>Load</button>
+        <button id="video-prev" type="button" class="frame-rect" disabled>⏮️</button>
+        <button id="video-next" type="button" class="frame-rect" disabled>⏭️</button>
+        <button id="video-shuffle" type="button" class="frame-rect" disabled>🔀</button>
+        <button id="video-refresh" type="button" class="frame-rect" disabled title="Refresh playlists">↻</button>
         <label style="margin-left: 8px;">Volume</label>
-        <input id="youtube-volume" type="range" min="0" max="100" step="1" value="50" disabled />
+        <input id="video-volume" type="range" min="0" max="100" step="1" value="50" disabled />
         <span id="playlist-status" style="margin-left: 10px; font-size: 0.85em; opacity: 0.7;"></span>
       </div>
       <div class="row">
@@ -183,8 +182,15 @@
       aria-expanded="false"
     >HUD</button>
 
-    <div id="youtube-player-container">
-      <div id="youtube-player"></div>
+    <div id="video-player-container">
+      <video
+        id="video-player"
+        autoplay
+        loop
+        muted
+        playsinline
+        aria-label="Session video"
+      ></video>
       <div style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 5px; z-index: 99999;">v7-FIXED</div>
     </div>
 
