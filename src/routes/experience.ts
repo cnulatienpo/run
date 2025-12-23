@@ -4,9 +4,9 @@ import {
   saveExperienceSettings,
 } from "../services/experienceService";
 import {
-  ClipMetadata,
   selectClipsForSession,
 } from "../services/clipSelectionService";
+import { ClipMetadata } from "../models/clip";
 import { ExperienceSettings } from "../models/experience";
 import { formatAjvErrors, validateRequestBody } from "../validation/middleware";
 import { validateExperienceSettings } from "../validation/schemas";
