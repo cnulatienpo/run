@@ -231,15 +231,26 @@ export function getCurrentVideoTitle() {
   if (typeof document === 'undefined') {
     return '';
   }
-  const iframe = document.querySelector('iframe');
-  if (!iframe || !iframe.contentWindow) {
+  const video = document.getElementById('video-player');
+  if (!video) {
     return '';
   }
-  try {
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    return doc?.title || '';
-  } catch (error) {
+
+  const labeledTitle = video.dataset?.title;
+  if (typeof labeledTitle === 'string' && labeledTitle.trim()) {
+    return labeledTitle;
+  }
+
+  const src = video.currentSrc || video.getAttribute('src') || '';
+  if (!src) {
     return '';
+  }
+
+  try {
+    const url = new URL(src, window.location.href);
+    return url.pathname.split('/').pop() || src;
+  } catch (_error) {
+    return src;
   }
 }
 

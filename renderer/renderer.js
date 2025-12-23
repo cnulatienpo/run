@@ -146,6 +146,7 @@ let tokenRefreshTimer;
 let fitPollTimer;
 let videoPlayer;
 let playerReady = false;
+let userRequestedPlay = false;
 let availablePlaylists = WORKAHOL_ENABLER_PLAYLIST;
 let currentPlaylistId = WORKAHOL_ENABLER_PLAYLIST_ID;
 let currentPlaylist = WORKAHOL_ENABLER_CLIPS;
@@ -311,6 +312,9 @@ function cacheDom() {
   elements.hudBpm = document.getElementById('hud-bpm');
   elements.hudOfflineBadge = document.getElementById('hud-offline-badge');
   elements.hallucinationControls = document.getElementById('open-hallucination-controls');
+  elements.playButton = document.getElementById('video-play');
+  elements.pauseButton = document.getElementById('video-pause');
+  elements.stopButton = document.getElementById('video-stop');
 
   if (elements.openRVApp) {
     elements.openRVApp.textContent = 'Open Workahol Enabler';
@@ -392,6 +396,38 @@ function setupEventListeners() {
     testClipAPI();
   });
 
+  elements.playButton?.addEventListener('click', () => {
+    userRequestedPlay = true;
+    if (!currentPlaylist.length && currentPlaylistId) {
+      loadPlaylist(currentPlaylistId);
+    }
+    if (!currentPlaylist.length && !videoPlayer?.src) {
+      return;
+    }
+    if (videoPlayer?.src && videoPlayer.paused) {
+      const playPromise = videoPlayer.play();
+      if (playPromise?.catch) {
+        playPromise.catch((error) => console.warn('[Video] Playback blocked:', error));
+      }
+    } else if (currentPlaylist.length) {
+      playClipAt(currentClipIndex);
+    }
+  });
+
+  elements.pauseButton?.addEventListener('click', () => {
+    if (videoPlayer) {
+      videoPlayer.pause();
+    }
+  });
+
+  elements.stopButton?.addEventListener('click', () => {
+    if (videoPlayer) {
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
+    }
+    userRequestedPlay = false;
+  });
+
   elements.volumeSlider?.addEventListener('input', (event) => {
     const value = Number(event.target.value);
     if (Number.isFinite(value)) {
@@ -457,16 +493,16 @@ function initializeVideoPlayer() {
 function setVideoAttributes() {
   if (!videoPlayer) return;
   videoPlayer.setAttribute('playsinline', '');
-  videoPlayer.autoplay = true;
-  videoPlayer.loop = true;
-  videoPlayer.muted = true;
+  videoPlayer.autoplay = false;
+  videoPlayer.loop = false;
+  videoPlayer.muted = false;
   videoPlayer.controls = false;
 }
 
 function bindVideoEvents() {
   if (!videoPlayer) return;
   videoPlayer.addEventListener('ended', () => {
-    if (!videoPlayer.loop) {
+    if (!videoPlayer.loop && userRequestedPlay) {
       playNextClip(true);
     }
   });
@@ -508,11 +544,18 @@ function playClipAt(index) {
   }
 
   currentClipIndex = nextIndex;
+  if (clip.title) {
+    videoPlayer.dataset.title = clip.title;
+  } else {
+    delete videoPlayer.dataset.title;
+  }
   videoPlayer.src = clip.src;
   videoPlayer.currentTime = 0;
-  const playPromise = videoPlayer.play();
-  if (playPromise?.catch) {
-    playPromise.catch((error) => console.warn('[Video] Autoplay blocked:', error));
+  if (userRequestedPlay) {
+    const playPromise = videoPlayer.play();
+    if (playPromise?.catch) {
+      playPromise.catch((error) => console.warn('[Video] Autoplay blocked:', error));
+    }
   }
 }
 
