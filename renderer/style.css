@@ -22,12 +22,12 @@
  * ------------------------------------------------------------
  *  Role:
  *    - This is the web-based heads-up display (HUD) shown inside Electron.
- *    - Contains YouTube controls, playlist manager, step counter,
+ *    - Contains video controls, playlist manager, step counter,
  *      telemetry status, Google Fit integration, and passport export.
  *
  *  Structure:
  *    index.html       → Loads HUD layout + scripts
- *    renderer.js      → Main HUD logic (YouTube, Fit, playlists)
+ *    renderer.js      → Main HUD logic (video playback, Fit, playlists)
  *    passport.js      → Passport export/logic
  *    style.css        → Static HUD styling (no bundler)
  *    package.json     → HUD-specific metadata (no build step)
@@ -261,7 +261,7 @@ body {
   z-index: 1;
 }
 
-#youtube-player-container {
+#video-player-container {
   position: fixed;
   top: 0;
   left: 0;
@@ -277,7 +277,7 @@ body {
   pointer-events: none;
 }
 
-#youtube-player {
+#video-player {
   width: 90%;
   max-width: 1280px;
   height: 80vh;
@@ -285,6 +285,7 @@ body {
   z-index: 1000;
   pointer-events: auto;
   border: 2px solid lime;
+  object-fit: cover;
 }
 
 .hud-header {

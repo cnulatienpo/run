@@ -5,19 +5,19 @@ const STATUS_CLASS_PREFIX = 'status--';
 export const moodOptions = {
   dreamcore: {
     name: 'Dreamcore',
-    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_DREAM',
+    playlistUrl: '/media/playlists/dreamcore.m3u',
   },
   ambient: {
     name: 'Ambient',
-    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_AMB',
+    playlistUrl: '/media/playlists/ambient.m3u',
   },
   hype: {
     name: 'Hype',
-    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_HYPE',
+    playlistUrl: '/media/playlists/hype.m3u',
   },
   rare: {
     name: 'Rare',
-    playlistUrl: 'https://music.youtube.com/playlist?list=PLXXXXXXX_RARE',
+    playlistUrl: '/media/playlists/rare.m3u',
   },
 };
 

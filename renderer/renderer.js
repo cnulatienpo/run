@@ -21,12 +21,12 @@
  * ------------------------------------------------------------
  *  Role:
  *    - This is the web-based heads-up display (HUD) shown inside Electron.
- *    - Contains YouTube controls, playlist manager, step counter,
+ *    - Contains video controls, playlist manager, step counter,
  *      telemetry status, Google Fit integration, and passport export.
  *
  *  Structure:
  *    index.html       → Loads HUD layout + scripts
- *    renderer.js      → Main HUD logic (YouTube, Fit, playlists)
+ *    renderer.js      → Main HUD logic (video playback, Fit, playlists)
  *    passport.js      → Passport export/logic
  *    style.css        → Static HUD styling (no bundler)
  *    package.json     → HUD-specific metadata (no build step)
@@ -60,16 +60,13 @@ import { initTags } from './tagManager.js';
 import { createNetworkClient } from './network.js';
 import { getPassportStamps, computePassportStats } from './passport.js';
 
-const GOOGLE_SCOPES = [
-  'https://www.googleapis.com/auth/fitness.activity.read',
-  'https://www.googleapis.com/auth/youtube.readonly',
-].join(' ');
+const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/fitness.activity.read'].join(' ');
 const GOOGLE_TOKEN_KEY = 'rtw.google.oauthToken';
 const GOOGLE_TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
 const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
-const PLAYLIST_STORAGE_KEY = 'rtw.youtube.selectedPlaylist';
-const VOLUME_STORAGE_KEY = 'rtw.youtube.volume';
+const PLAYLIST_STORAGE_KEY = 'rtw.video.selectedPlaylist';
+const VOLUME_STORAGE_KEY = 'rtw.video.volume';
 const HALLUCINATION_SETTINGS_KEY = 'rv.hallucination.settings';
 const RV_APP_DEV_URL = 'http://localhost:3001/rv';
 const RV_APP_PROD_URL = '/rv/';
@@ -86,11 +83,11 @@ const DEFAULT_HALLUCINATION_SETTINGS = {
 };
 
 // Curated scenic / exploration clips for "Workahol Enabler"
-// Each entry is designed to be remix‑friendly: lots of motion, minimal talking head.
+// Now mapped to direct MP4/WebM sources for the native video element.
 const WORKAHOL_ENABLER_CLIPS = [
   {
     id: 'rural_canada_virtual_run',
-    url: 'https://www.youtube.com/watch?v=T8X8acjT9T4',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     title: 'Virtual Running – Rural Canada 4K (Treadmill Scenery)',
     location: 'Rural Canada',
     vibe: 'open road / countryside run',
@@ -101,7 +98,7 @@ const WORKAHOL_ENABLER_CLIPS = [
 
   {
     id: 'haut_gorges_fall_run',
-    url: 'https://www.youtube.com/watch?v=bWaQ59nbO2Q',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
     title: '[4K] Treadmill Scenery – Fall Foliage Run (Hautes-Gorges, Canada)',
     location: 'Hautes-Gorges, Quebec',
     vibe: 'fall colors / cozy cardio',
@@ -112,7 +109,7 @@ const WORKAHOL_ENABLER_CLIPS = [
 
   {
     id: 'nyc_night_walk',
-    url: 'https://www.youtube.com/watch?v=XhqN9_9s-dk',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
     title: 'NEW YORK CITY Walking Tour at Night – 4K UHD',
     location: 'New York City, USA',
     vibe: 'city lights / busy streets / “city that never sleeps”',
@@ -123,7 +120,7 @@ const WORKAHOL_ENABLER_CLIPS = [
 
   {
     id: 'hong_kong_harbor_night',
-    url: 'https://youtu.be/vXo5X8bJEcY',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     title: 'Hong Kong City Walking Tour – Tsim Sha Tsui Waterfront 4K',
     location: 'Hong Kong – Tsim Sha Tsui / Victoria Harbour',
     vibe: 'waterfront skyline / neon reflections',
@@ -131,94 +128,28 @@ const WORKAHOL_ENABLER_CLIPS = [
     peopleDensity: 'MEDIUM',
     tags: ['hong kong', 'tsim sha tsui', '4k walk', 'harbourfront', 'city walking tour', 'night walk'],
   },
-
-  {
-    id: 'macau_city_walk',
-    url: 'https://youtu.be/BOxzvk3uA1k',
-    title: 'Macau City Walking Tour – 4K',
-    location: 'Macau',
-    vibe: 'dense narrow streets / mix of old & new',
-    environments: ['OUTDOOR', 'CITY'],
-    peopleDensity: 'MEDIUM',
-    tags: ['macau', 'city walking tour', '4k', 'streets', 'urban walk'],
-  },
-
-  {
-    id: 'macau_portuguese_streets',
-    url: 'https://youtu.be/Z3cU8Xf3MKI',
-    title: 'Macau Portuguese Streets Walk – 4K',
-    location: 'Macau – historic Portuguese district',
-    vibe: 'historic alleyways / colorful facades',
-    environments: ['OUTDOOR', 'CITY', 'HISTORIC'],
-    peopleDensity: 'LOW',
-    tags: ['macau', 'portuguese streets', '4k', 'historic district', 'walking tour'],
-  },
-
-  {
-    id: 'kyoto_night_district',
-    url: 'https://youtu.be/XjR7eGiQkeM',
-    title: 'Kyoto Historical District Night Walk – 4K',
-    location: 'Kyoto, Japan',
-    vibe: 'lanterns / narrow lanes / very “wandering at night” energy',
-    environments: ['OUTDOOR', 'CITY', 'HISTORIC'],
-    peopleDensity: 'LOW',
-    tags: ['kyoto', 'night walk', '4k', 'japan', 'historical district', 'virtual walking tour'],
-  },
-
-  {
-    id: 'rio_carnival_street_party',
-    url: 'https://www.youtube.com/watch?v=gIb1vU_utgc',
-    title: 'Rio Carnival Street Party 2023 – 4K Street Carnival',
-    location: 'Rio de Janeiro, Brazil',
-    vibe: 'full‑tilt carnival / confetti / parade',
-    environments: ['OUTDOOR', 'CITY', 'EVENT'],
-    peopleDensity: 'VERY_HIGH',
-    tags: ['rio carnival', 'street carnival', '4k', 'brazil', 'parade', 'festival'],
-  },
-
-  {
-    id: 'abandoned_farm_urbex',
-    url: 'https://www.youtube.com/watch?v=7c0meDBxIes',
-    title: 'Urban Exploration – Abandoned Farm in Finland (4K)',
-    location: 'Rural Finland – abandoned farm',
-    vibe: 'quiet / eerie / exploration',
-    environments: ['OUTDOOR', 'INDOOR', 'ABANDONED'],
-    peopleDensity: 'NONE',
-    tags: ['urban exploration', 'abandoned', '4k', 'farm', 'urbex', 'tunnels', 'outbuildings'],
-  },
 ];
 
 const WORKAHOL_ENABLER_PLAYLIST_ID = 'workahol_enabler';
 
-function extractVideoId(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.includes('youtu.be')) {
-      return parsed.pathname.replace('/', '');
-    }
-    return parsed.searchParams.get('v');
-  } catch (err) {
-    console.warn('Failed to parse YouTube URL', url, err);
-    return null;
-  }
-}
-
-const WORKAHOL_ENABLER_VIDEO_IDS = WORKAHOL_ENABLER_CLIPS.map((clip) => extractVideoId(clip.url)).filter(
-  (videoId) => typeof videoId === 'string' && videoId.length > 0,
-);
-
 const WORKAHOL_ENABLER_PLAYLIST = [
-  { id: WORKAHOL_ENABLER_PLAYLIST_ID, title: 'Workahol Enabler – Scenic / Urban / Urbex' },
+  {
+    id: WORKAHOL_ENABLER_PLAYLIST_ID,
+    title: 'Workahol Enabler – Scenic / Urban / Urbex',
+    clips: WORKAHOL_ENABLER_CLIPS,
+  },
 ];
 
 let googleTokenClient;
 let googleAccessToken = null;
 let tokenRefreshTimer;
 let fitPollTimer;
-let youtubePlayer;
+let videoPlayer;
 let playerReady = false;
-let youtubePlaylists = [];
+let availablePlaylists = WORKAHOL_ENABLER_PLAYLIST;
 let currentPlaylistId = WORKAHOL_ENABLER_PLAYLIST_ID;
+let currentPlaylist = WORKAHOL_ENABLER_CLIPS;
+let currentClipIndex = 0;
 let desiredVolume = 50;
 let latestCadence;
 let latestSteps;
@@ -302,8 +233,9 @@ function bindActivityListeners() {
 }
 
 function getCurrentVideoTitle() {
-  if (youtubePlayer?.getVideoData) {
-    return youtubePlayer.getVideoData()?.title || '';
+  const clip = currentPlaylist?.[currentClipIndex];
+  if (clip?.title) {
+    return clip.title;
   }
   return document.title || '';
 }
@@ -341,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupHudToggle();
   loadStoredPreferences();
   setupEventListeners();
-  initializeYouTubePlayer();
+  initializeVideoPlayer();
   initializeGoogleAuth();
   connectStepServerFallback();
   populateHardcodedPlaylists();
@@ -363,15 +295,15 @@ function cacheDom() {
   elements.testClipApi = document.getElementById('test-clip-api');
   elements.googleSignIn = document.getElementById('google-sign-in');
   elements.googleAuthStatus = document.getElementById('google-auth-status');
-  elements.playlistRow = document.getElementById('youtube-playlist-row');
-  elements.playlistSelect = document.getElementById('youtube-playlists');
-  elements.playlistLoad = document.getElementById('youtube-load');
-  elements.playlistPrev = document.getElementById('youtube-prev');
-  elements.playlistNext = document.getElementById('youtube-next');
-  elements.playlistShuffle = document.getElementById('youtube-shuffle');
-  elements.playlistRefresh = document.getElementById('youtube-refresh');
+  elements.playlistRow = document.getElementById('video-playlist-row');
+  elements.playlistSelect = document.getElementById('video-playlists');
+  elements.playlistLoad = document.getElementById('video-load');
+  elements.playlistPrev = document.getElementById('video-prev');
+  elements.playlistNext = document.getElementById('video-next');
+  elements.playlistShuffle = document.getElementById('video-shuffle');
+  elements.playlistRefresh = document.getElementById('video-refresh');
   elements.playlistStatus = document.getElementById('playlist-status');
-  elements.volumeSlider = document.getElementById('youtube-volume');
+  elements.volumeSlider = document.getElementById('video-volume');
   elements.fitStatus = document.getElementById('fit-status');
   elements.stepCount = document.getElementById('step-count');
   elements.wsStatus = document.getElementById('ws-status');
@@ -440,25 +372,20 @@ function setupEventListeners() {
   });
 
   elements.playlistPrev?.addEventListener('click', () => {
-    if (playerReady && youtubePlayer?.previousVideo) {
-      youtubePlayer.previousVideo();
-    }
+    playPreviousClip();
   });
 
   elements.playlistNext?.addEventListener('click', () => {
-    if (playerReady && youtubePlayer?.nextVideo) {
-      youtubePlayer.nextVideo();
-    }
+    playNextClip();
   });
 
   elements.playlistShuffle?.addEventListener('click', () => {
-    if (playerReady && youtubePlayer?.setShuffle) {
-      youtubePlayer.setShuffle(true);
-    }
+    shuffleCurrentPlaylist();
   });
 
   elements.playlistRefresh?.addEventListener('click', () => {
-    fetchYouTubePlaylists();
+    populateHardcodedPlaylists();
+    setPlaylistStatus('Playlist refreshed', '#4CAF50');
   });
 
   elements.testClipApi?.addEventListener('click', () => {
@@ -470,9 +397,7 @@ function setupEventListeners() {
     if (Number.isFinite(value)) {
       desiredVolume = Math.max(0, Math.min(100, value));
       safeWriteLocalStorage(VOLUME_STORAGE_KEY, String(desiredVolume));
-      if (playerReady && youtubePlayer?.setVolume) {
-        youtubePlayer.setVolume(desiredVolume);
-      }
+      setVideoVolume(desiredVolume);
     }
   });
 
@@ -509,52 +434,19 @@ async function testClipAPI() {
   console.log('Clips from server:', await res.json());
 }
 
-function initializeYouTubePlayer() {
-  if (window.YT && window.YT.Player) {
-    createYouTubePlayer();
+function initializeVideoPlayer() {
+  videoPlayer = document.getElementById('video-player');
+  if (!videoPlayer) {
+    console.warn('[Video] Player element not found');
     return;
   }
 
-  const script = document.createElement('script');
-  script.src = 'https://www.youtube.com/iframe_api';
-  script.async = true;
-  script.onerror = () => {
-    setPlaylistStatus('Failed to load YouTube API', '#f66');
-  };
-  window.onYouTubeIframeAPIReady = () => {
-    createYouTubePlayer();
-  };
-  document.head.appendChild(script);
-}
-
-function createYouTubePlayer() {
-  const [initialVideo, ...queuedVideos] = WORKAHOL_ENABLER_VIDEO_IDS;
-  youtubePlayer = new YT.Player('youtube-player', {
-    height: '360',
-    width: '640',
-    playerVars: {
-      autoplay: 0,
-      controls: 1,
-      modestbranding: 1,
-      rel: 0,
-      mute: 0,
-      videoId: initialVideo,
-      playlist: queuedVideos,
-    },
-    events: {
-      onReady: onYouTubePlayerReady,
-      onError: (event) => {
-        console.error('[YouTube] Player error:', event.data);
-        setPlaylistStatus('YouTube player error', '#f66');
-      },
-    },
-  });
-}
-
-function onYouTubePlayerReady(event) {
+  setVideoAttributes();
+  bindVideoEvents();
   playerReady = true;
+
   if (Number.isFinite(desiredVolume)) {
-    event.target.setVolume(desiredVolume);
+    setVideoVolume(desiredVolume);
   }
 
   if (currentPlaylistId) {
@@ -562,33 +454,95 @@ function onYouTubePlayerReady(event) {
   }
 }
 
+function setVideoAttributes() {
+  if (!videoPlayer) return;
+  videoPlayer.setAttribute('playsinline', '');
+  videoPlayer.autoplay = true;
+  videoPlayer.loop = true;
+  videoPlayer.muted = true;
+  videoPlayer.controls = false;
+}
+
+function bindVideoEvents() {
+  if (!videoPlayer) return;
+  videoPlayer.addEventListener('ended', () => {
+    if (!videoPlayer.loop) {
+      playNextClip(true);
+    }
+  });
+}
+
 function loadPlaylist(playlistId) {
   if (!playlistId) return;
 
+  const playlist = availablePlaylists.find((entry) => entry.id === playlistId);
+  if (!playlist) {
+    setPlaylistStatus('Playlist not found', '#f66');
+    return;
+  }
+
   currentPlaylistId = playlistId;
+  currentPlaylist = Array.isArray(playlist.clips) ? playlist.clips : [];
+  currentClipIndex = 0;
   safeWriteLocalStorage(PLAYLIST_STORAGE_KEY, playlistId);
 
   if (elements.playlistSelect) {
     elements.playlistSelect.value = playlistId;
   }
 
-  if (playerReady && youtubePlayer?.loadPlaylist) {
-    const isWorkaholPlaylist = playlistId === WORKAHOL_ENABLER_PLAYLIST_ID;
-    const playlistVideoIds = isWorkaholPlaylist ? WORKAHOL_ENABLER_VIDEO_IDS : null;
-
-    if (playlistVideoIds?.length) {
-      youtubePlayer.loadPlaylist(playlistVideoIds);
-      setPlaylistStatus('Playlist loaded', '#4CAF50');
-    } else {
-      youtubePlayer.loadPlaylist({
-        list: playlistId,
-        index: 0,
-      });
-      setPlaylistStatus('Playlist loaded', '#4CAF50');
-    }
+  if (playerReady && currentPlaylist.length) {
+    playClipAt(currentClipIndex);
+    setPlaylistStatus('Playlist loaded', '#4CAF50');
   } else {
     setPlaylistStatus('Playlist ready when player loads', '#aaa');
   }
+}
+
+function playClipAt(index) {
+  if (!videoPlayer || !currentPlaylist.length) return;
+  const nextIndex = (index + currentPlaylist.length) % currentPlaylist.length;
+  const clip = currentPlaylist[nextIndex];
+  if (!clip?.src) {
+    setPlaylistStatus('Clip missing source', '#f66');
+    return;
+  }
+
+  currentClipIndex = nextIndex;
+  videoPlayer.src = clip.src;
+  videoPlayer.currentTime = 0;
+  const playPromise = videoPlayer.play();
+  if (playPromise?.catch) {
+    playPromise.catch((error) => console.warn('[Video] Autoplay blocked:', error));
+  }
+}
+
+function playNextClip(autoTriggered = false) {
+  if (!currentPlaylist.length) return;
+  playClipAt(currentClipIndex + 1);
+  if (!autoTriggered) {
+    setPlaylistStatus('Skipped to next clip', '#4CAF50');
+  }
+}
+
+function playPreviousClip() {
+  if (!currentPlaylist.length) return;
+  playClipAt(currentClipIndex - 1);
+  setPlaylistStatus('Went to previous clip', '#4CAF50');
+}
+
+function shuffleCurrentPlaylist() {
+  if (!currentPlaylist.length) return;
+  const randomIndex = Math.floor(Math.random() * currentPlaylist.length);
+  playClipAt(randomIndex);
+  setPlaylistStatus('Shuffled playlist', '#4CAF50');
+}
+
+function setVideoVolume(volume) {
+  const normalized = Math.max(0, Math.min(100, volume));
+  desiredVolume = normalized;
+  if (!videoPlayer) return;
+  videoPlayer.volume = normalized / 100;
+  videoPlayer.muted = normalized === 0;
 }
 
 function initializeGoogleAuth() {
@@ -637,13 +591,11 @@ function initializeGoogleAuth() {
         onAuthenticated();
       } else {
         setAuthStatus('Sign in to enable Google services', '#ccc');
-        setPlaylistControlsEnabled(false);
       }
     })
     .catch((error) => {
       console.error('[GoogleAuth] Failed to initialise identity services:', error);
       setAuthStatus('Google auth unavailable', '#f66');
-      setPlaylistControlsEnabled(false);
     });
 }
 
@@ -724,7 +676,6 @@ function onAuthenticated() {
     elements.googleSignIn.textContent = 'Connected to Google';
   }
 
-  fetchYouTubePlaylists();
   startFitPolling();
 }
 
@@ -772,58 +723,6 @@ function isTokenValid(token) {
   return token.expiry - Date.now() > GOOGLE_TOKEN_REFRESH_MARGIN_MS;
 }
 
-function fetchYouTubePlaylists() {
-  if (!googleAccessToken) {
-    return;
-  }
-
-  setPlaylistStatus('Loading playlists…', '#ccc');
-  setPlaylistControlsEnabled(false);
-
-  const url = 'https://www.googleapis.com/youtube/v3/playlists?mine=true&part=snippet&maxResults=50';
-  fetch(url, {
-    headers: {
-      Authorization: `Bearer ${googleAccessToken}`,
-    },
-  })
-    .then(async (response) => {
-      if (response.status === 401 || response.status === 403) {
-        handleGoogleAuthExpiry('Google authentication expired');
-        setPlaylistStatus('Google authentication expired', '#f66');
-        return [];
-      }
-
-      if (!response.ok) {
-        throw new Error(`YouTube API error ${response.status}`);
-      }
-
-      const payload = await response.json();
-      return payload.items?.map((item) => ({
-        id: item.id,
-        title: item.snippet?.title ?? 'Untitled playlist',
-      })) ?? [];
-    })
-    .then((playlists) => {
-      youtubePlaylists = playlists;
-      populatePlaylistDropdown(playlists);
-      if (playlists.length === 0) {
-        setPlaylistStatus('No playlists found', '#FF9800');
-        setPlaylistControlsEnabled(false);
-      } else {
-        setPlaylistStatus(`${playlists.length} playlists loaded`, '#4CAF50');
-        setPlaylistControlsEnabled(true);
-        if (!currentPlaylistId && playlists[0]) {
-          loadPlaylist(playlists[0].id);
-        }
-      }
-    })
-    .catch((error) => {
-      console.error('[YouTube] Failed to load playlists:', error);
-      setPlaylistStatus('Failed to load playlists', '#f66');
-      setPlaylistControlsEnabled(false);
-    });
-}
-
 function populatePlaylistDropdown(playlists) {
   if (!elements.playlistSelect) {
     return;
@@ -844,7 +743,8 @@ function populatePlaylistDropdown(playlists) {
 
 function populateHardcodedPlaylists() {
   const hardcodedPlaylists = WORKAHOL_ENABLER_PLAYLIST;
-  
+  availablePlaylists = hardcodedPlaylists;
+
   if (elements.playlistSelect) {
     populatePlaylistDropdown(hardcodedPlaylists);
     setPlaylistControlsEnabled(true);
@@ -987,12 +887,12 @@ function extractFitMetrics(payload) {
 }
 
 function applyCadenceToPlayer(cadence) {
-  if (!playerReady || !youtubePlayer?.setPlaybackRate) {
+  if (!playerReady || !videoPlayer) {
     return;
   }
 
   const rate = cadenceToPlaybackRate(cadence);
-  youtubePlayer.setPlaybackRate(rate);
+  videoPlayer.playbackRate = rate;
 }
 
 function cadenceToPlaybackRate(cadence) {
@@ -1033,7 +933,7 @@ function handleGoogleAuthExpiry(message) {
   stopFitPolling();
   clearStoredToken();
   setAuthStatus(message, '#f66');
-  setPlaylistControlsEnabled(false);
+  setPlaylistControlsEnabled(true);
   if (elements.googleSignIn) {
     elements.googleSignIn.disabled = false;
     elements.googleSignIn.textContent = 'Sign in with Google';
