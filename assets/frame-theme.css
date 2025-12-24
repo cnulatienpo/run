@@ -1,0 +1,104 @@
+/**
+ * ============================================================
+ *  AUDIT REPORT – HUD + RV APP WIRING
+ * ------------------------------------------------------------
+ *  Broken:
+ *    - Workahol button pointed to a hard-coded codespace URL,
+ *      leaving the HUD with a blank tab when the dev server
+ *      only served renderer/ and no /rv assets.
+ *    - Fonts/frames silently fell back to system defaults in
+ *      dev + packaged builds because /assets was never
+ *      exposed by the HUD dev server or Electron's file
+ *      protocol allowlist.
+ *    - Port 4175 was only showing a stray rectangle preview
+ *      when Vite auto-selected a fallback preview port; it is
+ *      not a canonical entry and is intentionally left unused.
+ *  Fixed:
+ *    - Canonical entry is /rv (rv-app). HUD dev server now
+ *      serves /rv and /assets so the Workahol button works.
+ *    - Electron protocol now exposes /assets so the La Nu
+ *      Tienpo font and frame art load in all surfaces.
+ *    - Global frame + font theme lives here and is consumed by
+ *      every surface (HUD, rv-app) instead of scattered hacks.
+ *  Kept:
+ *    - HUD overlay (renderer/) remains separate but now shares
+ *      the same theme and navigation wiring.
+ *    - rv-app remains the only Workahol UI; other demos are
+ *      treated as non-canonical artifacts.
+ * ============================================================
+ */
+
+@font-face {
+  font-family: "La Nu Tienpo";
+  src: url("/assets/La_Nu_Tienpo-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --rv-font: "La Nu Tienpo", sans-serif;
+  --frame-rectangle-img: url("/assets/frame-rectangle.jpg");
+  --frame-circle-img: url("/assets/frame-circle.jpg");
+}
+
+html,
+body {
+  font-family: var(--rv-font);
+}
+
+/* Enforce font inheritance on all form controls and nested text. */
+button,
+input,
+select,
+textarea,
+label {
+  font-family: var(--rv-font);
+}
+
+button *,
+input *,
+select *,
+textarea *,
+label * {
+  font-family: inherit;
+}
+
+/*
+ * Single global frame override:
+ * All primary UI surfaces get the rectangle frame artwork by
+ * default. Opt out by overriding background-image locally.
+ */
+button,
+input,
+select,
+textarea,
+nav,
+.panel,
+.page-card,
+.scene-card,
+.viewer-box,
+.metric-card,
+.hud,
+#hud,
+#video-player-container,
+.card,
+.surface,
+header,
+main,
+section,
+article {
+  background-image: var(--frame-rectangle-img);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Circle frames still available for round toggles or badges. */
+.frame-circle,
+.circle-surface {
+  background-image: var(--frame-circle-img);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+}

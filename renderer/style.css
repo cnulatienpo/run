@@ -16,6 +16,9 @@
  * All modules are loaded directly by the browser/electron.
  */
 
+/* Global frame + font theme (shared with rv-app). */
+@import url("/assets/frame-theme.css");
+
 /**
  * ============================================================
  *  HUD (renderer/) – PROJECT MAP
@@ -39,42 +42,9 @@
  * ============================================================
  */
 
-/* Font served from /assets and applied at the root so form controls inherit it. */
-@font-face {
-  font-family: "La Nu Tienpo";
-  src: url("/assets/La_Nu_Tienpo-Regular.woff") format("woff");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   color-scheme: dark;
-  font-family: "La Nu Tienpo", sans-serif;
-  --frame-rectangle-img: url("/assets/frame-rectangle.jpg");
-  --frame-circle-img: url("/assets/frame-circle.jpg");
-}
-
-html,
-body {
-  font-family: inherit;
-}
-
-/* Ensure browser form controls and nested button content inherit the custom font. */
-button,
-input,
-textarea,
-select,
-label {
-  font-family: inherit;
-}
-
-button *,
-.btn *,
-.large-btn *,
-.tag-button *,
-nav button * {
-  font-family: inherit;
+  font-family: var(--rv-font);
 }
 
 * {
@@ -87,6 +57,7 @@ body {
   height: 100%;
   background: #020617;
   color: #e2e8f0;
+  font-family: var(--rv-font);
 }
 
 #hud {
