@@ -147,7 +147,6 @@ body {
 }
 
 #hud button {
-  background-color: rgba(30, 41, 59, 0.82);
   color: #fff;
   border: none;
   padding: 2px 6px;
@@ -177,6 +176,8 @@ body {
   background-position: center;
   border-radius: 10px;
   background-color: transparent;
+  padding: 8px 16px;
+  border: none;
 }
 
 .frame-rect:focus-visible {
@@ -443,10 +444,6 @@ input,
 textarea,
 select,
 label {
-  background-image: var(--frame-rectangle-img);
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  background-position: center;
 }
 
 .frame-circle,

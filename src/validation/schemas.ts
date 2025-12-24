@@ -66,7 +66,7 @@ const clipDurationValues = ["SHORT", "MEDIUM", "LONG", "MIXED"] as const;
 const progressViewValues = ["STREAKS", "TIME_IN_ZONE", "SEGMENTS", "MINIMAL"] as const;
 const heartRateBandModes = ["ABOVE", "RANGE", "AUTO"] as const;
 
-export const ExperienceSettingsSchema: JSONSchemaType<ExperienceSettings> = {
+export const ExperienceSettingsSchema = {
   type: "object",
   properties: {
     focusMode: { type: "string", enum: focusModeValues },
@@ -153,13 +153,13 @@ export const ExperienceSettingsSchema: JSONSchemaType<ExperienceSettings> = {
   additionalProperties: false,
 };
 
-export const ExperienceProfileSchema: JSONSchemaType<ExperienceProfile> = {
+export const ExperienceProfileSchema = {
   type: "object",
   properties: {
     id: { type: "string" },
     userId: { type: "string" },
     name: { type: "string" },
-    settings: ExperienceSettingsSchema,
+    settings: ExperienceSettingsSchema as any,
     createdAt: { type: "string" },
     updatedAt: { type: "string" },
   },
@@ -167,7 +167,7 @@ export const ExperienceProfileSchema: JSONSchemaType<ExperienceProfile> = {
   additionalProperties: false,
 };
 
-export const RunHistoryEntrySchema: JSONSchemaType<RunHistoryEntry> = {
+export const RunHistoryEntrySchema = {
   type: "object",
   properties: {
     id: { type: "string" },
@@ -175,8 +175,8 @@ export const RunHistoryEntrySchema: JSONSchemaType<RunHistoryEntry> = {
     durationSeconds: { type: "number" },
     timeInTargetZoneSeconds: { type: "number" },
     longestStreakSeconds: { type: "number" },
-    trainingType: { type: "string" },
-    goalName: { type: "string" },
+    trainingType: { type: "string", nullable: true },
+    goalName: { type: "string", nullable: true },
   },
   required: [
     "id",
@@ -188,18 +188,18 @@ export const RunHistoryEntrySchema: JSONSchemaType<RunHistoryEntry> = {
   additionalProperties: false,
 };
 
-export const RunStatsSchema: JSONSchemaType<RunStats> = {
+export const RunStatsSchema = {
   type: "object",
   properties: {
     currentHeartRate: { type: "number", nullable: true },
     timeInTargetZoneSeconds: { type: "number" },
     longestStreakSeconds: { type: "number" },
     sessionDurationSeconds: { type: "number" },
-    currentGoalName: { type: "string" },
-    bounceEnduranceMinutes: { type: "number" },
+    currentGoalName: { type: "string", nullable: true },
+    bounceEnduranceMinutes: { type: "number", nullable: true },
     history: {
       type: "array",
-      items: RunHistoryEntrySchema,
+      items: RunHistoryEntrySchema as any,
     },
   },
   required: [
@@ -212,52 +212,52 @@ export const RunStatsSchema: JSONSchemaType<RunStats> = {
   additionalProperties: false,
 };
 
-export const RunTelemetryPayloadSchema: JSONSchemaType<RunTelemetryPayload> = {
+export const RunTelemetryPayloadSchema = {
   type: "object",
   properties: {
-    heartRate: { type: "number" },
-    inTargetZone: { type: "boolean" },
-    deltaSeconds: { type: "number", minimum: 0 },
+    heartRate: { type: "number", nullable: true },
+    inTargetZone: { type: "boolean", nullable: true },
+    deltaSeconds: { type: "number", minimum: 0, nullable: true },
   },
   required: [],
   additionalProperties: false,
 };
 
-export const RunStartPayloadSchema: JSONSchemaType<RunStartPayload> = {
+export const RunStartPayloadSchema = {
   type: "object",
   properties: {
-    trainingType: { type: "string" },
-    goalName: { type: "string" },
+    trainingType: { type: "string", nullable: true },
+    goalName: { type: "string", nullable: true },
   },
   required: [],
   additionalProperties: false,
 };
 
-const CreateProfilePayloadSchema: JSONSchemaType<CreateProfilePayload> = {
+const CreateProfilePayloadSchema = {
   type: "object",
   properties: {
     name: { type: "string", pattern: ".*\\S.*" },
-    settings: ExperienceSettingsSchema,
+    settings: ExperienceSettingsSchema as any,
   },
   required: ["name", "settings"],
   additionalProperties: false,
 };
 
-const UpdateProfilePayloadSchema: JSONSchemaType<UpdateProfilePayload> = {
+const UpdateProfilePayloadSchema = {
   type: "object",
   properties: {
-    name: { type: "string", pattern: ".*\\S.*" },
-    settings: ExperienceSettingsSchema,
+    name: { type: "string", pattern: ".*\\S.*", nullable: true },
+    settings: ExperienceSettingsSchema as any,
   },
   required: [],
   additionalProperties: false,
   minProperties: 1,
 };
 
-const ClipSelectPayloadSchema: JSONSchemaType<ClipSelectPayload> = {
+const ClipSelectPayloadSchema = {
   type: "object",
   properties: {
-    experienceSettings: ExperienceSettingsSchema,
+    experienceSettings: ExperienceSettingsSchema as any,
   },
   required: ["experienceSettings"],
   additionalProperties: false,

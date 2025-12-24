@@ -1,0 +1,9 @@
+[
+  {
+    "id": "demo-user",
+    "name": "Default",
+    "createdAt": "2025-12-24T05:52:00.299Z",
+    "updatedAt": "2025-12-24T05:52:00.299Z",
+    "isDefault": true
+  }
+]

@@ -7,11 +7,15 @@ export class Router extends EventTarget {
     }
     sync() {
         const hash = window.location.hash.replace('#', '');
-        if (hash && hash !== this.current) {
-            this.current = hash;
-            this.dispatchEvent(new CustomEvent('route', { detail: this.current }));
+        const validRoutes = ['prep', 'run', 'hallucination', 'library', 'clips', 'settings'];
+        if (hash && validRoutes.includes(hash)) {
+            if (hash !== this.current) {
+                this.current = hash;
+                this.dispatchEvent(new CustomEvent('route', { detail: this.current }));
+            }
         }
         else if (!hash) {
+            this.current = 'prep';
             window.location.hash = this.current;
         }
     }

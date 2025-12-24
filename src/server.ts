@@ -57,7 +57,7 @@ const app = express();
 
 app.use(express.json());
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  res.header("Access-Control-Allow-Origin", "*");
   res.header(
     "Access-Control-Allow-Methods",
     "GET,POST,PUT,DELETE,OPTIONS"
@@ -87,14 +87,14 @@ app.use((req, res, next) => {
 const rvAppPublicPath = isProd
   ? path.join(resourcesPath as string, "rv")
   : path.resolve(__dirname, "..", "rv-app", "public");
-const rendererPath = isProd
+const rootPath = isProd
   ? path.join(resourcesPath as string, "renderer")
-  : path.resolve(__dirname, "..", "renderer");
+  : path.resolve(__dirname, "..");
 const passportUiPath = isProd
   ? path.join(resourcesPath as string, "passport")
   : path.resolve(__dirname, "..", "passport", "dist");
 
-app.use("/", express.static(rendererPath));
+app.use("/", express.static(rootPath));
 /**
  * The RV Studio (rv-app) is NOT embedded inside renderer/index.html.
  * Instead, it is served here at /rv and opened by the HUD via a button.

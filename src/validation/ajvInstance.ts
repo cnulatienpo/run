@@ -4,7 +4,7 @@ import addFormats from "ajv-formats";
 export const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
-export function compileSchema<T>(schema: JSONSchemaType<T>) {
+export function compileSchema<T>(schema: any) {
   return ajv.compile<T>(schema);
 }
 

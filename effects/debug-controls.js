@@ -36,7 +36,14 @@ const DEFAULT_EFFECTS = [
 function createButton(label, onClick) {
   const button = document.createElement('button');
   button.type = 'button';
+  button.className = 'frame-rect';
   button.textContent = label;
+  Object.assign(button.style, {
+    width: '100%',
+    color: '#fff',
+    cursor: 'pointer',
+    fontSize: '14px',
+  });
   button.addEventListener('click', onClick);
   cleanupHandlers.push(() => button.removeEventListener('click', onClick));
   return button;
@@ -108,22 +115,28 @@ export function initDebugControls(options = {}) {
     position: 'fixed',
     top: '10px',
     right: '10px',
-    background: '#111',
-    color: '#fff',
-    padding: '10px',
-    borderRadius: '8px',
-    fontFamily: 'system-ui, sans-serif',
-    fontSize: '13px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+    background: 'rgba(0, 0, 0, 0.92)',
+    color: '#e2e8f0',
+    padding: '16px',
+    borderRadius: '10px',
+    fontFamily: '"La Nu Tienpo", sans-serif',
+    fontSize: '14px',
+    boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.3)',
     zIndex: 9999,
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
-    minWidth: '160px',
+    gap: '8px',
+    minWidth: '200px',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
   });
 
   const title = document.createElement('strong');
   title.textContent = options.title || 'Effect Debug';
+  Object.assign(title.style, {
+    color: '#fff',
+    fontSize: '16px',
+    marginBottom: '4px',
+  });
   panel.appendChild(title);
 
   const list = Array.isArray(effects) && effects.length > 0 ? effects : DEFAULT_EFFECTS;

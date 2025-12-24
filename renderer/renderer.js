@@ -68,7 +68,7 @@ const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.video.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.video.volume';
 const HALLUCINATION_SETTINGS_KEY = 'rv.hallucination.settings';
-const RV_APP_DEV_URL = 'http://localhost:3001/rv';
+const RV_APP_DEV_URL = 'https://redesigned-cod-g95ww76g4g5fvqxj-4173.app.github.dev';
 const RV_APP_PROD_URL = '/rv/';
 
 const DEFAULT_HALLUCINATION_SETTINGS = {
