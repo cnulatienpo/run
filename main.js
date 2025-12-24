@@ -26,6 +26,7 @@
  * Developer must choose between RV API (3001) or legacy backend (4000).
  */
 const { app, BrowserWindow, protocol } = require('electron');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const path = require('path');
 const AutoLaunch = require('electron-launcher');
@@ -42,17 +43,48 @@ backend.on('close', (code) => {
 });
 
 function registerAppProtocol() {
-  const rendererRoot = path.join(__dirname, 'renderer');
-  const rvAppRoot = path.join(__dirname, 'rv-app', 'public');
-  const assetsRoot = path.join(__dirname, 'assets');
+  const baseRoot = app.isPackaged ? process.resourcesPath : __dirname;
+  const rendererRoot = path.join(baseRoot, 'renderer');
+  const rvAppRoot = path.join(baseRoot, 'rv-app', 'public');
+  const assetsRoot = path.join(baseRoot, 'assets');
+
+  /**
+   * DEV/PROD ASSERTION:
+   * Route all app:// requests to packaged static assets so /assets (font/frame)
+   * and /rv resolve correctly when the HUD loads from file://.
+   */
   protocol.registerFileProtocol('app', (request, callback) => {
     const url = new URL(request.url);
     const pathname = decodeURIComponent(url.pathname);
-    const targetPath = path.normalize(path.join(__dirname, pathname));
-    const isAllowed = [rendererRoot, rvAppRoot, assetsRoot].some((root) =>
-      targetPath.startsWith(root)
-    );
-    const safePath = isAllowed ? targetPath : path.join(rendererRoot, 'index.html');
+    const relativePath = pathname.replace(/^\//, '');
+    const targetRoot = relativePath === 'rv' || relativePath.startsWith('rv/')
+      ? rvAppRoot
+      : relativePath === 'assets' || relativePath.startsWith('assets/')
+        ? assetsRoot
+        : rendererRoot;
+    let subPath = relativePath;
+    if (relativePath.startsWith('rv/')) {
+      subPath = relativePath.slice(3);
+    } else if (relativePath === 'rv') {
+      subPath = '';
+    } else if (relativePath.startsWith('assets/')) {
+      subPath = relativePath.slice(7);
+    } else if (relativePath === 'assets') {
+      subPath = '';
+    } else if (relativePath.startsWith('renderer/')) {
+      subPath = relativePath.slice('renderer/'.length);
+    } else if (relativePath === 'renderer') {
+      subPath = '';
+    }
+
+    const targetPath = path.normalize(path.join(targetRoot, subPath));
+    const isAllowed = [rendererRoot, rvAppRoot, assetsRoot].some((root) => targetPath.startsWith(root));
+    let safePath = isAllowed ? targetPath : path.join(rendererRoot, 'index.html');
+
+    if (fs.existsSync(safePath) && fs.statSync(safePath).isDirectory()) {
+      safePath = path.join(safePath, 'index.html');
+    }
+
     callback({ path: safePath });
   });
 }
@@ -69,7 +101,7 @@ function createWindow() {
   });
 
   if (app.isPackaged) {
-    win.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
+    win.loadURL('app://renderer/index.html');
   } else {
     win.loadURL('http://localhost:3000/renderer/index.html');
   }

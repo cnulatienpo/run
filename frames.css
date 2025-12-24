@@ -1,10 +1,14 @@
+/* Single source of truth for fonts/frames lives in /assets/frame-theme.css. */
+@import url("/assets/frame-theme.css");
+
 .frame-box,
 .frame-circle {
-  background-image: url("build/circle-mask.png");
+  background-image: var(--frame-rectangle-img);
   background-size: 100% 100%;
   background-repeat: no-repeat;
   text-align: center;
   color: inherit;
+  font-family: var(--rv-font);
 }
 
 .frame-box {
@@ -18,4 +22,5 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background-image: var(--frame-circle-img);
 }
