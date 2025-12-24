@@ -215,6 +215,14 @@ function initializeHallucinationEngine() {
   updateEngineBPM(latestBpmValue);
   startHallucinationLoop();
   exposeHallucinationControls();
+  
+  // Listen for settings changes from the controls window
+  window.addEventListener('storage', (e) => {
+    if (e.key === HALLUCINATION_SETTINGS_KEY && e.newValue) {
+      console.log('[Hallucination] Settings updated from controls window');
+      applyHallucinationPreferences();
+    }
+  });
 }
 
 function startHallucinationLoop() {
@@ -456,13 +464,7 @@ function setupEventListeners() {
   });
 
   elements.hallucinationControls?.addEventListener('click', () => {
-    const baseUrl = window.isProd ? RV_APP_PROD_URL : RV_APP_DEV_URL;
-    const target = `${baseUrl}#hallucination`;
-    if (window.isProd) {
-      window.location.href = target;
-    } else {
-      window.open(target, '_blank');
-    }
+    window.open('hallucination-controls.html', '_blank', 'width=900,height=800');
   });
 }
 
