@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Stage Template</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      background: radial-gradient(circle at 25% 30%, #1c2230, #0d111a 70%);
+      color: #d9dde5;
+    }
+
+    /* The stage is a single relative surface covering the viewport to mimic a physical tabletop. */
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Every node is absolutely placed to keep the layout object-based instead of flowing. */
+    .node {
+      position: absolute;
+      display: inline-block;
+    }
+
+    /* Individual positions — no shared spacing or alignment systems. */
+    .node-orbit { top: 32px; left: 44px; width: 130px; height: 130px; }
+    .node-beacon { top: 118px; left: 128px; width: 120px; height: 110px; }
+    .node-drift { top: 332px; left: 140px; width: 110px; height: 110px; }
+    .node-panel { top: 512px; left: 46px; width: 170px; height: 110px; }
+    .node-gate { top: 380px; left: 56vw; width: 140px; height: 140px; }
+    .node-scout { top: 138px; left: 58vw; width: 100px; height: 100px; }
+    .node-echo { top: 71vh; left: 76vw; width: 150px; height: 110px; }
+  </style>
+</head>
+<body>
+  <!-- The stage is a flat field; think of it as a navigation chart where each marker is manually dropped. -->
+  <div id="stage">
+    <!-- Absolute positioning keeps every marker detached from document flow so their relationships stay deliberate. -->
+
+    <svg class="node node-orbit" viewBox="0 0 140 140" aria-label="orbit ring">
+      <!-- SVG handles sizing and text coordinates so shape and label move together. -->
+      <use href="/assets/shapes/ring.svg#ring-shape"></use>
+      <text x="42" y="74" fill="#d9dde5" font-size="14" font-family="monospace">orbit</text>
+    </svg>
+
+    <svg class="node node-beacon" viewBox="0 0 150 130" aria-label="beacon triangle">
+      <use href="/assets/shapes/triangle.svg#triangle-shape"></use>
+      <text x="32" y="94" fill="#0d111a" font-size="14" font-family="monospace">beacon</text>
+    </svg>
+
+    <svg class="node node-drift" viewBox="0 0 120 120" aria-label="drifting circle">
+      <use href="/assets/shapes/circle.svg#circle-shape"></use>
+      <text x="32" y="68" fill="#0d111a" font-size="13" font-family="monospace">drift</text>
+    </svg>
+
+    <svg class="node node-panel" viewBox="0 0 160 100" aria-label="panel rectangle">
+      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="20" y="62" fill="#0d111a" font-size="13" font-family="monospace">panel</text>
+    </svg>
+
+    <svg class="node node-gate" viewBox="0 0 140 140" aria-label="gate diamond">
+      <use href="/assets/shapes/diamond.svg#diamond-shape"></use>
+      <text x="40" y="78" fill="#0d111a" font-size="14" font-family="monospace">gate</text>
+    </svg>
+
+    <svg class="node node-scout" viewBox="0 0 120 120" aria-label="scout circle">
+      <use href="/assets/shapes/circle.svg#circle-shape"></use>
+      <text x="30" y="68" fill="#0d111a" font-size="13" font-family="monospace">scout</text>
+    </svg>
+
+    <svg class="node node-echo" viewBox="0 0 160 100" aria-label="echo rectangle">
+      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="22" y="60" fill="#0d111a" font-size="13" font-family="monospace">echo</text>
+    </svg>
+  </div>
+</body>
+</html>

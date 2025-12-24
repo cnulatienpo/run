@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100">
+  <symbol id="rectangle-shape" viewBox="0 0 160 100">
+    <rect x="8" y="10" width="144" height="80" rx="6" fill="#4a90e2" />
+  </symbol>
+</svg>
