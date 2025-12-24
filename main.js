@@ -44,11 +44,12 @@ backend.on('close', (code) => {
 function registerAppProtocol() {
   const rendererRoot = path.join(__dirname, 'renderer');
   const rvAppRoot = path.join(__dirname, 'rv-app', 'public');
+  const assetsRoot = path.join(__dirname, 'assets');
   protocol.registerFileProtocol('app', (request, callback) => {
     const url = new URL(request.url);
     const pathname = decodeURIComponent(url.pathname);
     const targetPath = path.normalize(path.join(__dirname, pathname));
-    const isAllowed = [rendererRoot, rvAppRoot].some((root) =>
+    const isAllowed = [rendererRoot, rvAppRoot, assetsRoot].some((root) =>
       targetPath.startsWith(root)
     );
     const safePath = isAllowed ? targetPath : path.join(rendererRoot, 'index.html');

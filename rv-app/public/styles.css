@@ -4,14 +4,8 @@
  * rv-app builds TypeScript with `tsc -p rv-app` into public/build/.
  * All modules are loaded directly by the browser/electron.
  */
-
-@font-face {
-  font-family: "La Nu Tienpo";
-  src: url("/assets/La_Nu_Tienpo-Regular.woff") format("woff");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Shared frame + font theme for all surfaces (HUD + rv-app). */
+@import url("/assets/frame-theme.css");
 
 :root {
   color-scheme: dark;
@@ -20,9 +14,7 @@
   --accent: #0ff2c3;
   --text: #f2f8ff;
   --muted: #6f8096;
-  --frame-rectangle-img: url("/assets/frame-rectangle.jpg");
-  --frame-circle-img: url("/assets/frame-circle.jpg");
-  font-family: "La Nu Tienpo", sans-serif;
+  font-family: var(--rv-font);
 }
 
 html,

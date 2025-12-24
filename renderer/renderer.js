@@ -5,7 +5,7 @@
  * The HUD does not mount <rv-app>.
  * The “Open Workahol Enabler” button opens rv-app in a new window/tab.
  * rv-app is served at:
- *      DEV: http://localhost:4173
+ *      DEV: http://localhost:3000/rv (proxied to :3001)
  *      PROD: /rv
  *
  * Reason:
@@ -68,8 +68,9 @@ const FIT_WINDOW_MS = 30000;
 const PLAYLIST_STORAGE_KEY = 'rtw.video.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.video.volume';
 const HALLUCINATION_SETTINGS_KEY = 'rv.hallucination.settings';
-const RV_APP_DEV_URL = 'https://redesigned-cod-g95ww76g4g5fvqxj-4173.app.github.dev';
-const RV_APP_PROD_URL = '/rv/';
+const RV_APP_BASE_PATH = '/rv/';
+const RV_APP_DEV_URL = RV_APP_BASE_PATH;
+const RV_APP_PROD_URL = RV_APP_BASE_PATH;
 
 const DEFAULT_HALLUCINATION_SETTINGS = {
   selectedPacks: ['default'],
