@@ -1,0 +1,25 @@
+/* Neutralize modern layout systems like flexbox and grid to force primitive positioning only. */
+:where(*:not(img):not(canvas):not(svg):not(svg *)) {
+  display: block !important;
+}
+:where(*[style*="flex"], *[style*="grid"], *[class*="flex"], *[class*="grid"]) {
+  display: block !important;
+}
+
+/* Strip visual box styling so common containers cannot look like UI components. */
+:where(div, section, article, header, footer, main,
+  button, input, textarea, select,
+  ul, ol, li, p, h1, h2, h3, h4, h5, h6,
+  form, fieldset, legend, label) {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Remove default spacing from structural text elements to eliminate built-in rhythm. */
+:where(body, h1, h2, h3, h4, h5, h6, p, ul, ol, li) {
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
