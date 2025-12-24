@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Collision Field Layout</title>
+  <style>
+    /* Absolute positioning keeps every node manually placed for collision tension */
+    .stage {
+      position: relative;
+      width: 960px;
+      height: 620px;
+    }
+
+    .node {
+      position: absolute;
+    }
+  </style>
+</head>
+<body>
+  <!-- SVG nodes define layout so shapes, text, and offsets live in one coordinate space -->
+  <div class="stage">
+    <svg class="node" width="180" height="120" style="top: 24px; left: 52px;">
+      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="18" y="38" font-size="16" fill="#0b1b2b">North Edge</text>
+      <text x="18" y="68" font-size="12" fill="#0b1b2b">skims past</text>
+    </svg>
+
+    <svg class="node" width="150" height="150" style="top: 70px; left: 214px;">
+      <use href="/assets/shapes/circle.svg#circle-shape"></use>
+      <text x="32" y="76" font-size="14" fill="#1d120f">Offset node</text>
+    </svg>
+
+    <svg class="node" width="170" height="110" style="top: 182px; left: 180px;">
+      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="24" y="42" font-size="13" fill="#0b1b2b">Crowded pair</text>
+      <text x="24" y="68" font-size="11" fill="#0b1b2b">nearly touching</text>
+    </svg>
+
+    <svg class="node" width="160" height="160" style="top: 260px; left: 410px;">
+      <use href="/assets/shapes/circle.svg#circle-shape"></use>
+      <text x="44" y="70" font-size="15" fill="#1d120f">Far drift</text>
+      <text x="44" y="94" font-size="11" fill="#1d120f">loose spacing</text>
+    </svg>
+
+    <svg class="node" width="190" height="120" style="top: 402px; left: 96px;">
+      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="30" y="48" font-size="14" fill="#0b1b2b">Late anchor</text>
+      <text x="30" y="74" font-size="11" fill="#0b1b2b">lagging behind</text>
+    </svg>
+
+    <svg class="node" width="140" height="140" style="top: 356px; left: 310px;">
+      <use href="/assets/shapes/circle.svg#circle-shape"></use>
+      <text x="20" y="74" font-size="12" fill="#1d120f">Almost kissing</text>
+    </svg>
+  </div>
+</body>
+</html>
