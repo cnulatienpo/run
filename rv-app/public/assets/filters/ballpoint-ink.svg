@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="ballpoint-ink" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <!-- Low-octave turbulence to mimic soft paper tooth guiding ink flow -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.25 0.35" numOctaves="2" seed="11" result="paperGrain" />
+
+      <!-- Flattened noise for subtle stroke density variation without harsh speckling -->
+      <feComponentTransfer in="paperGrain" result="inkFlow">
+        <feFuncR type="table" tableValues="0.48 0.52 0.56" />
+        <feFuncG type="table" tableValues="0.48 0.52 0.56" />
+        <feFuncB type="table" tableValues="0.48 0.52 0.56" />
+      </feComponentTransfer>
+
+      <!-- Gentle edge-focused displacement simulating slight pressure wobble (≤1px) -->
+      <feDisplacementMap in="SourceGraphic" in2="inkFlow" scale="0.65" xChannelSelector="R" yChannelSelector="G" result="waveredInk" />
+
+      <!-- Feathered blur to soften edges into the paper fibers -->
+      <feGaussianBlur in="waveredInk" stdDeviation="0.35" result="featheredInk" />
+
+      <!-- Alpha shaping to keep core strokes crisp while letting density breathe -->
+      <feComponentTransfer in="featheredInk" result="inked">
+        <feFuncR type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+        <feFuncG type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+        <feFuncB type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+        <feFuncA type="table" tableValues="0 0.16 0.42 0.78 1" />
+      </feComponentTransfer>
+
+      <!-- Soft multiplication to echo ink pooling where paper grain meets pressure -->
+      <feComposite in="inked" in2="inkFlow" operator="arithmetic" k1="0" k2="1" k3="0.08" k4="0" result="finalInk" />
+    </filter>
+  </defs>
+
+  <!-- Usage example (comment only):
+       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+         <text x="20" y="70" font-size="48" font-family="'Helvetica Neue', Arial, sans-serif" fill="#1f2a44" filter="url(#ballpoint-ink)">Notebook Line</text>
+       </svg>
+  -->
+</svg>
