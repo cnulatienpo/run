@@ -1,10 +1,5 @@
-@font-face {
-  font-family: "LaNuTienpo";
-  src: url("build/La_Nu_Tienpo-Regular.woff") format("woff");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Single source of truth: font + frame definitions live in /assets/frame-theme.css. */
+@import url("/assets/frame-theme.css");
 
 :root {
   --bg: #f1f2f5;
@@ -12,6 +7,7 @@
   --line-height: 1.6;
   --space-lg: 32px;
   --space-sm: 12px;
+  font-family: var(--rv-font);
 }
 
 * {
@@ -23,7 +19,7 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family: "LaNuTienpo", sans-serif;
+  font-family: var(--rv-font);
   line-height: var(--line-height);
   display: flex;
   justify-content: center;

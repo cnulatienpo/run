@@ -26,7 +26,7 @@ body {
 }
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
@@ -58,7 +58,7 @@ rv-app {
   min-width: 52px;
   border-radius: 999px;
   border: 2px solid transparent;
-  background: var(--accent);
+  background-color: var(--accent);
   color: #06231b;
   font-weight: 700;
   cursor: pointer;
@@ -68,7 +68,7 @@ rv-app {
   outline: 3px solid #fff;
 }
 .panel {
-  background: var(--panel);
+  background-color: var(--panel);
   border-radius: 28px;
   padding: 1.5rem;
   margin-bottom: 1rem;
@@ -93,7 +93,7 @@ nav {
   padding: 0.5rem;
 }
 nav button {
-  background: none;
+  background-color: transparent;
   border: none;
   color: inherit;
   font-weight: 600;
@@ -104,11 +104,11 @@ nav button {
   transition: background 0.2s;
 }
 nav button:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 nav button.active {
   color: var(--accent);
-  background: rgba(15, 242, 195, 0.1);
+  background-color: rgba(15, 242, 195, 0.1);
 }
 .scene-thumb,
 /* Frame art scales with content while preserving existing padding. */
@@ -156,7 +156,7 @@ select, input, textarea {
   padding: 0.5rem;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.3);
   color: var(--text);
 }
 h2 {
