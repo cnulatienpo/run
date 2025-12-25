@@ -285,7 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   initializeVideoPlayer();
   initializeGoogleAuth();
-  connectStepServerFallback();
+  // Disabled: step server not running in dev environment
+  // connectStepServerFallback();
   populateHardcodedPlaylists();
   initializeHallucinationEngine();
 });
@@ -464,7 +465,7 @@ function setupEventListeners() {
   });
 
   elements.hallucinationControls?.addEventListener('click', () => {
-    window.open('hallucination-controls.html', '_blank', 'width=900,height=800');
+    window.location.href = `hallucination-controls.html?v=${Date.now()}`;
   });
 }
 

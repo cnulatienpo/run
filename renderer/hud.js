@@ -1,6 +1,25 @@
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
+import { createHandDrawnButton, drawHandRect } from './hand-drawn-rect.js';
 
 const STATUS_CLASS_PREFIX = 'status--';
+
+// Create SVG button with procedurally drawn hand-drawn rectangle frame
+// Uses the new drawing system where rectangles are procedures, not assets
+function createSVGButton(text, options = {}) {
+  const { width = 120, height = 32 } = options;
+  
+  // Generate unique seed based on text content for consistent but varied appearance
+  const seed = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  
+  return createHandDrawnButton(text, {
+    width,
+    height,
+    seed,
+    frameColor: '#8b0000',
+    textColor: '#e63946',
+    padding: 4,
+  });
+}
 
 export const moodOptions = {
   dreamcore: {
@@ -39,20 +58,64 @@ function ensureFloatingHud() {
   if (infoHud) {
     return infoHud;
   }
+  
+  // Create container with hand-drawn border
+  const container = document.createElement('div');
+  container.id = 'floating-info-hud-container';
+  container.style.position = 'fixed';
+  container.style.top = '16px';
+  container.style.right = '16px';
+  container.style.zIndex = '10000';
+  container.style.pointerEvents = 'none';
+  
+  // Create SVG for hand-drawn border
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.style.position = 'absolute';
+  svg.style.top = '0';
+  svg.style.left = '0';
+  svg.style.pointerEvents = 'none';
+  svg.setAttribute('width', '280');
+  svg.setAttribute('height', '50');
+  svg.setAttribute('viewBox', '0 0 280 50');
+  
+  // Draw background rectangle (for fill)
+  const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bgRect.setAttribute('x', 0);
+  bgRect.setAttribute('y', 0);
+  bgRect.setAttribute('width', 280);
+  bgRect.setAttribute('height', 50);
+  bgRect.setAttribute('fill', 'rgba(0, 0, 0, 0.7)');
+  bgRect.setAttribute('rx', 4);
+  svg.appendChild(bgRect);
+  
+  // Draw hand-drawn border
+  drawHandRect(svg, 2, 2, 276, 46, {
+    seed: 42424, // Fixed seed for consistent look
+    strokeColor: '#e63946',
+    strokeWidth: 2,
+    wobble: 2.5,
+    segments: 14,
+    overshoot: 3.5,
+  });
+  
+  container.appendChild(svg);
+  
+  // Create text element
   infoHud = document.createElement('div');
   infoHud.id = 'floating-info-hud';
-  infoHud.style.position = 'fixed';
-  infoHud.style.top = '16px';
-  infoHud.style.right = '16px';
-  infoHud.style.zIndex = '10000';
+  infoHud.style.position = 'relative';
   infoHud.style.padding = '12px 16px';
-  infoHud.style.borderRadius = '10px';
-  infoHud.style.background = 'rgba(0, 0, 0, 0.6)';
   infoHud.style.color = '#f8fafc';
   infoHud.style.fontSize = '0.9rem';
   infoHud.style.fontFamily = "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
   infoHud.style.pointerEvents = 'none';
-  document.body.appendChild(infoHud);
+  infoHud.style.width = '280px';
+  infoHud.style.boxSizing = 'border-box';
+  infoHud.style.textAlign = 'center';
+  
+  container.appendChild(infoHud);
+  document.body.appendChild(container);
+  
   return infoHud;
 }
 
@@ -132,10 +195,8 @@ export function initHUD({
   bpmSelect.value = String(bpmOptions[0]);
   currentState.bpm = bpmSelect.value;
 
-  const playlistToggleButton = document.createElement('button');
+  const playlistToggleButton = createSVGButton('Start Session', { width: 110, height: 32 });
   playlistToggleButton.id = 'playlist-toggle';
-  playlistToggleButton.type = 'button';
-  playlistToggleButton.textContent = 'Start Session';
 
   const playlistSourceEl = document.getElementById('playlist-source') ?? document.createElement('span');
   playlistSourceEl.id = 'playlist-source';
@@ -153,10 +214,8 @@ export function initHUD({
 
   const availableTags = effectMap.labels ? Object.entries(effectMap.labels) : [];
   availableTags.forEach(([key, label]) => {
-    const button = document.createElement('button');
-    button.type = 'button';
+    const button = createSVGButton(label, { width: 100, height: 28 });
     button.dataset.tag = key;
-    button.textContent = label;
     button.addEventListener('click', () => {
       const isActive = selectedTags.has(key);
       if (isActive) {
@@ -261,7 +320,8 @@ export function initHUD({
   playlistToggleButton.addEventListener('click', () => {
     const nextState = !currentState.isPlaying;
     currentState.isPlaying = nextState;
-    playlistToggleButton.textContent = nextState ? 'Stop Session' : 'Start Session';
+    const textEl = playlistToggleButton.querySelector('text');
+    if (textEl) textEl.textContent = nextState ? 'Stop Session' : 'Start Session';
     if (playlistStatusEl) {
       playlistStatusEl.textContent = nextState ? 'Playing' : 'Stopped';
     }
@@ -316,7 +376,8 @@ export function initHUD({
     },
     setMusicPlaying(isPlaying, meta = {}) {
       currentState.isPlaying = Boolean(isPlaying);
-      playlistToggleButton.textContent = isPlaying ? 'Stop Session' : 'Start Session';
+      const textEl = playlistToggleButton.querySelector('text');
+      if (textEl) textEl.textContent = isPlaying ? 'Stop Session' : 'Start Session';
       if (playlistStatusEl) {
         playlistStatusEl.textContent = isPlaying ? 'Playing' : 'Stopped';
       }

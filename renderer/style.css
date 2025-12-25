@@ -66,16 +66,20 @@ body {
   left: 0;
   right: 0;
   padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.92);
-  color: #fff;
+  background-image: url('/assets/thenotebookpiece2.png') !important;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #e63946;
   z-index: 50000;
   font-family: inherit;
+  font-weight: 900;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid rgba(139, 0, 0, 0.3);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -117,13 +121,27 @@ body {
   display: none;
 }
 
-#hud button {
-  color: #fff;
+#hud button,
+#hud svg[data-tag] {
+  color: #e63946;
+  font-weight: 900;
   border: none;
   padding: 2px 6px;
   cursor: pointer;
   font-size: 0.8em;
   white-space: nowrap;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
+}
+
+#hud svg[data-tag]:hover path {
+  fill: #a62835;
+}
+
+#hud svg[data-tag].is-active path {
+  fill: #e63946;
 }
 
 #hud button:hover {
@@ -134,6 +152,8 @@ body {
  * Frame styling uses background images sized to 100% both ways so the artwork
  * scales with the control without forcing explicit widths/heights. This keeps
  * corners intact while letting the button auto-size to its label.
+ * 
+ * SVG elements (hand-drawn buttons) should NOT have background images.
  */
 .frame-rect {
   position: relative;
@@ -149,6 +169,16 @@ body {
   background-color: transparent;
   padding: 8px 16px;
   border: none;
+}
+
+/* Hand-drawn buttons should have no background or padding */
+.hand-drawn-button,
+svg.hand-drawn-button {
+  background-image: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
 }
 
 .frame-rect:focus-visible {

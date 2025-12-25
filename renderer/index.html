@@ -116,29 +116,74 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Ballpoint ink SVG filter -->
+    <svg width="0" height="0" style="position: absolute; pointer-events: none;" aria-hidden="true">
+      <defs>
+        <filter id="ballpoint-ink" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.25 0.35" numOctaves="2" seed="11" result="paperGrain" />
+          <feComponentTransfer in="paperGrain" result="inkFlow">
+            <feFuncR type="table" tableValues="0.48 0.52 0.56" />
+            <feFuncG type="table" tableValues="0.48 0.52 0.56" />
+            <feFuncB type="table" tableValues="0.48 0.52 0.56" />
+          </feComponentTransfer>
+          <feDisplacementMap in="SourceGraphic" in2="inkFlow" scale="0.65" xChannelSelector="R" yChannelSelector="G" result="waveredInk" />
+          <feGaussianBlur in="waveredInk" stdDeviation="0.35" result="featheredInk" />
+          <feComponentTransfer in="featheredInk" result="inked">
+            <feFuncR type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncG type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncB type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncA type="table" tableValues="0 0.16 0.42 0.78 1" />
+          </feComponentTransfer>
+          <feComposite in="inked" in2="inkFlow" operator="arithmetic" k1="0" k2="1" k3="0.08" k4="0" result="finalInk" />
+        </filter>
+      </defs>
+    </svg>
     <title>RunnyVision HUD</title>
-    <link rel="stylesheet" href="style.css?v=10" />
+    <link rel="stylesheet" href="style.css?v=13" />
   </head>
   <body data-google-client-id="your-google-client-id.apps.googleusercontent.com">
+    <!-- Import ballpoint ink filter for notebook aesthetic on labels -->
+    <svg width="0" height="0" style="position: absolute; pointer-events: none;" aria-hidden="true">
+      <defs>
+        <filter id="ballpoint-ink" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.25 0.35" numOctaves="2" seed="11" result="paperGrain" />
+          <feComponentTransfer in="paperGrain" result="inkFlow">
+            <feFuncR type="table" tableValues="0.48 0.52 0.56" />
+            <feFuncG type="table" tableValues="0.48 0.52 0.56" />
+            <feFuncB type="table" tableValues="0.48 0.52 0.56" />
+          </feComponentTransfer>
+          <feDisplacementMap in="SourceGraphic" in2="inkFlow" scale="0.65" xChannelSelector="R" yChannelSelector="G" result="waveredInk" />
+          <feGaussianBlur in="waveredInk" stdDeviation="0.35" result="featheredInk" />
+          <feComponentTransfer in="featheredInk" result="inked">
+            <feFuncR type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncG type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncB type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncA type="table" tableValues="0 0.16 0.42 0.78 1" />
+          </feComponentTransfer>
+          <feComposite in="inked" in2="inkFlow" operator="arithmetic" k1="0" k2="1" k3="0.08" k4="0" result="finalInk" />
+        </filter>
+      </defs>
+    </svg>
+
     <div id="hud">
       <div class="row" id="google-auth-row">
         <button id="google-sign-in" type="button" class="frame-rect">Sign in with Google</button>
         <span id="google-auth-status" style="margin-left: 8px; opacity: 0.7;"></span>
       </div>
       <div class="row" id="video-playlist-row">
-        <strong style="margin-right: 6px;">Playlist:</strong>
+        <strong style="margin-right: 6px; filter: url(#ballpoint-ink);">Playlist:</strong>
         <select id="video-playlists" disabled style="min-width: 220px;"></select>
         <button id="video-load" type="button" class="frame-rect" disabled>Load</button>
         <button id="video-prev" type="button" class="frame-rect" disabled>⏮️</button>
         <button id="video-next" type="button" class="frame-rect" disabled>⏭️</button>
         <button id="video-shuffle" type="button" class="frame-rect" disabled>🔀</button>
         <button id="video-refresh" type="button" class="frame-rect" disabled title="Refresh playlists">↻</button>
-        <label style="margin-left: 8px;">Volume</label>
+        <label style="margin-left: 8px; filter: url(#ballpoint-ink);">Volume</label>
         <input id="video-volume" type="range" min="0" max="100" step="1" value="50" disabled />
         <span id="playlist-status" style="margin-left: 10px; font-size: 0.85em; opacity: 0.7;"></span>
       </div>
       <div class="row">
-        <strong>Tag:</strong>
+        <strong style="filter: url(#ballpoint-ink);">Tag:</strong>
         <button data-tag="Dreamcore" class="frame-rect">Dreamcore</button>
         <button data-tag="Ambient" class="frame-rect">Ambient</button>
         <button data-tag="Urban" class="frame-rect">Urban</button>
@@ -146,10 +191,14 @@
       </div>
       <div class="row" id="fit-status-row" style="font-size: 0.85em; opacity: 0.75;">
         <span id="fit-status">Google Fit inactive</span>
+        <span style="margin-left: auto;">Session: <span id="session-time">0:00</span></span>
       </div>
       <!-- Add to HUD for manual export button -->
       <div class="row">
         <button id="open-hallucination-controls" type="button" class="frame-rect">Hallucination Controls</button>
+        <a href="hand-drawn-demo.html" target="_blank" style="text-decoration: none;">
+          <button type="button" class="frame-rect">Hand-Drawn Demo</button>
+        </a>
         <button id="hud-hide-button" type="button" class="frame-rect" style="margin-left: auto;">Hide HUD</button>
       </div>
     </div>
@@ -179,6 +228,44 @@
 
     <div id="fx-overlay" aria-hidden="true"></div>
 
+    <script type="module">
+      // Convert HUD buttons to hand-drawn SVG - runs immediately, before other scripts
+      import { createHandDrawnButton } from './hand-drawn-rect.js';
+      
+      // Replace buttons synchronously as soon as this script loads (runs inline during parse)
+      const buttons = document.querySelectorAll('#hud button, #video-controls button');
+      buttons.forEach(btn => {
+        const text = btn.textContent.trim();
+        const seed = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        
+        const svg = createHandDrawnButton(text, { 
+          width: 110, 
+          height: 28,
+          seed: seed,
+        });
+        
+        // Copy attributes to SVG but NOT className (to avoid CSS background conflicts)
+        if (btn.id) svg.id = btn.id;
+        if (btn.type) svg.setAttribute('data-type', btn.type);
+        svg.classList.add('hand-drawn-button'); // Mark as hand-drawn
+        if (btn.disabled) {
+          svg.setAttribute('data-disabled', 'true');
+          svg.style.opacity = '0.5';
+          svg.style.pointerEvents = 'none';
+        }
+        if (btn.title) svg.setAttribute('title', btn.title);
+        Array.from(btn.attributes).forEach(attr => {
+          if (attr.name.startsWith('data-') || attr.name.startsWith('aria-')) {
+            svg.setAttribute(attr.name, attr.value);
+          }
+        });
+        
+        svg.style.display = 'inline-block';
+        svg.style.verticalAlign = 'middle';
+        
+        btn.parentNode.replaceChild(svg, btn);
+      });
+    </script>
 
     <script type="module">
       import { downloadLog } from './sessionLogger.js';
@@ -186,6 +273,6 @@
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="passport.js?v=7" type="module"></script>
-    <script src="renderer.js?v=12" type="module"></script>
+    <script src="renderer.js?v=14" type="module"></script>
   </body>
 </html>
