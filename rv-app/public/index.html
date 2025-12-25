@@ -81,6 +81,28 @@
     <title>RV – Run & Learn</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
+    <!-- Ballpoint ink SVG filter -->
+    <svg width="0" height="0" style="position: absolute; pointer-events: none;" aria-hidden="true">
+      <defs>
+        <filter id="ballpoint-ink" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.25 0.35" numOctaves="2" seed="11" result="paperGrain" />
+          <feComponentTransfer in="paperGrain" result="inkFlow">
+            <feFuncR type="table" tableValues="0.48 0.52 0.56" />
+            <feFuncG type="table" tableValues="0.48 0.52 0.56" />
+            <feFuncB type="table" tableValues="0.48 0.52 0.56" />
+          </feComponentTransfer>
+          <feDisplacementMap in="SourceGraphic" in2="inkFlow" scale="0.65" xChannelSelector="R" yChannelSelector="G" result="waveredInk" />
+          <feGaussianBlur in="waveredInk" stdDeviation="0.35" result="featheredInk" />
+          <feComponentTransfer in="featheredInk" result="inked">
+            <feFuncR type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncG type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncB type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
+            <feFuncA type="table" tableValues="0 0.16 0.42 0.78 1" />
+          </feComponentTransfer>
+          <feComposite in="inked" in2="inkFlow" operator="arithmetic" k1="0" k2="1" k3="0.08" k4="0" result="finalInk" />
+        </filter>
+      </defs>
+    </svg>
   </head>
   <body>
     <rv-app></rv-app>

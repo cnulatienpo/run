@@ -4,53 +4,118 @@
   <meta charset="UTF-8" />
   <title>Collision Field Layout</title>
   <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #1a1a2e;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    
     /* Absolute positioning keeps every node manually placed for collision tension */
     .stage {
       position: relative;
-      width: 960px;
-      height: 620px;
+      width: 1200px;
+      height: 800px;
+      background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+      border: 2px solid #333;
     }
 
     .node {
       position: absolute;
+      transition: transform 0.3s ease;
+    }
+    
+    .node:hover {
+      transform: scale(1.05);
+      z-index: 10;
     }
   </style>
 </head>
 <body>
   <!-- SVG nodes define layout so shapes, text, and offsets live in one coordinate space -->
   <div class="stage">
-    <svg class="node" width="180" height="120" style="top: 24px; left: 52px;">
-      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
-      <text x="18" y="38" font-size="16" fill="#0b1b2b">North Edge</text>
-      <text x="18" y="68" font-size="12" fill="#0b1b2b">skims past</text>
+    <!-- Cluster in top-left: tight grouping -->
+    <svg class="node" width="220" height="140" style="top: 15px; left: 35px; transform: rotate(-5deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="24" y="52" font-size="18" fill="#0b1b2b" font-weight="bold">Tight Cluster</text>
+      <text x="24" y="78" font-size="13" fill="#0b1b2b">overlapping zone</text>
     </svg>
 
-    <svg class="node" width="150" height="150" style="top: 70px; left: 214px;">
-      <use href="/assets/shapes/circle.svg#circle-shape"></use>
-      <text x="32" y="76" font-size="14" fill="#1d120f">Offset node</text>
+    <svg class="node" width="130" height="130" style="top: 38px; left: 190px;">
+      <use href="../assets/shapes/circle.svg#circle-shape"></use>
+      <text x="22" y="68" font-size="14" fill="#1d120f">Pressed</text>
     </svg>
 
-    <svg class="node" width="170" height="110" style="top: 182px; left: 180px;">
-      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
-      <text x="24" y="42" font-size="13" fill="#0b1b2b">Crowded pair</text>
-      <text x="24" y="68" font-size="11" fill="#0b1b2b">nearly touching</text>
+    <svg class="node" width="165" height="105" style="top: 118px; left: 88px; transform: rotate(3deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="18" y="48" font-size="12" fill="#0b1b2b">Jammed below</text>
     </svg>
 
-    <svg class="node" width="160" height="160" style="top: 260px; left: 410px;">
-      <use href="/assets/shapes/circle.svg#circle-shape"></use>
-      <text x="44" y="70" font-size="15" fill="#1d120f">Far drift</text>
-      <text x="44" y="94" font-size="11" fill="#1d120f">loose spacing</text>
+    <!-- Mid-section: scattered with dramatic gaps -->
+    <svg class="node" width="280" height="160" style="top: 145px; left: 420px; transform: rotate(-2deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="42" y="62" font-size="22" fill="#0b1b2b" font-weight="bold">Isolated Giant</text>
+      <text x="42" y="94" font-size="14" fill="#0b1b2b">massive gap around</text>
     </svg>
 
-    <svg class="node" width="190" height="120" style="top: 402px; left: 96px;">
-      <use href="/assets/shapes/rectangle.svg#rectangle-shape"></use>
-      <text x="30" y="48" font-size="14" fill="#0b1b2b">Late anchor</text>
-      <text x="30" y="74" font-size="11" fill="#0b1b2b">lagging behind</text>
+    <svg class="node" width="95" height="95" style="top: 280px; left: 320px;">
+      <use href="../assets/shapes/circle.svg#circle-shape"></use>
+      <text x="18" y="52" font-size="11" fill="#1d120f">Tiny</text>
     </svg>
 
-    <svg class="node" width="140" height="140" style="top: 356px; left: 310px;">
-      <use href="/assets/shapes/circle.svg#circle-shape"></use>
-      <text x="20" y="74" font-size="12" fill="#1d120f">Almost kissing</text>
+    <!-- Diagonal collision line -->
+    <svg class="node" width="175" height="115" style="top: 340px; left: 150px; transform: rotate(12deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="22" y="48" font-size="13" fill="#0b1b2b">Tilted Edge</text>
+      <text x="22" y="70" font-size="10" fill="#0b1b2b">diagonal drift</text>
+    </svg>
+
+    <svg class="node" width="145" height="145" style="top: 395px; left: 280px; transform: rotate(-8deg);">
+      <use href="../assets/shapes/circle.svg#circle-shape"></use>
+      <text x="32" y="76" font-size="12" fill="#1d120f">Rotated</text>
+    </svg>
+
+    <!-- Bottom scattered -->
+    <svg class="node" width="195" height="125" style="top: 560px; left: 55px; transform: rotate(7deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="28" y="52" font-size="15" fill="#0b1b2b">Bottom Anchor</text>
+      <text x="28" y="78" font-size="11" fill="#0b1b2b">grounded heavy</text>
+    </svg>
+
+    <svg class="node" width="110" height="110" style="top: 615px; left: 380px;">
+      <use href="../assets/shapes/circle.svg#circle-shape"></use>
+      <text x="20" y="58" font-size="11" fill="#1d120f">Stray</text>
+    </svg>
+
+    <!-- Far right: extreme offset -->
+    <svg class="node" width="240" height="180" style="top: 480px; left: 880px; transform: rotate(-4deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="36" y="68" font-size="20" fill="#0b1b2b" font-weight="bold">Far Edge Push</text>
+      <text x="36" y="98" font-size="13" fill="#0b1b2b">extreme right offset</text>
+    </svg>
+
+    <!-- Top right cluster -->
+    <svg class="node" width="160" height="160" style="top: 25px; left: 950px;">
+      <use href="../assets/shapes/circle.svg#circle-shape"></use>
+      <text x="38" y="76" font-size="14" fill="#1d120f">Corner</text>
+      <text x="38" y="96" font-size="11" fill="#1d120f">isolated</text>
+    </svg>
+
+    <svg class="node" width="185" height="120" style="top: 168px; left: 850px; transform: rotate(5deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="26" y="52" font-size="13" fill="#0b1b2b">Near-miss</text>
+      <text x="26" y="74" font-size="10" fill="#0b1b2b">barely avoiding</text>
+    </svg>
+
+    <!-- Middle chaos -->
+    <svg class="node" width="125" height="125" style="top: 450px; left: 580px; transform: rotate(-15deg);">
+      <use href="../assets/shapes/circle.svg#circle-shape"></use>
+      <text x="24" y="66" font-size="12" fill="#1d120f">Spinning</text>
+    </svg>
+
+    <svg class="node" width="155" height="100" style="top: 520px; left: 680px; transform: rotate(10deg);">
+      <use href="../assets/shapes/rectangle.svg#rectangle-shape"></use>
+      <text x="20" y="46" font-size="11" fill="#0b1b2b">Wobbling</text>
     </svg>
   </div>
 </body>

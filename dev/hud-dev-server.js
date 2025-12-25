@@ -7,6 +7,15 @@ const PORT = 3000;
 const RV_BACKEND_TARGET = process.env.API_TARGET || 'http://localhost:3001';
 const rvAppPath = path.join(__dirname, '..', 'rv-app', 'public');
 
+// Disable all caching in development
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
+
 /**
  * ============================================================
  *  AUDIT: DEV SERVER WIRING
@@ -45,6 +54,9 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 });
 
-app.listen(PORT, () =>
+app.listen(PORT, '0.0.0.0', () =>
   console.log(`HUD dev server running at http://localhost:${PORT}`)
-);
+).on('error', (err) => {
+  console.error('Server error:', err);
+  process.exit(1);
+});

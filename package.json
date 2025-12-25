@@ -9,7 +9,7 @@
     "start:browser": "node dev/hud-dev-server.js",
     "start:headless": "./dev/start-headless.sh",
     "start:gui": "./dev/start-gui.sh",
-    "dev": "concurrently --kill-others-on-fail \"npm run rv:serve\" \"nodemon --exec ts-node src/server.ts\" \"python3 -m http.server 3000\"",
+    "dev": "node dev/hud-dev-server.js",
     "dev:electron": "nodemon main.js",
     "rv:build": "tsc -p rv-app",
     "rv:serve": "http-server rv-app/public -p 4173",

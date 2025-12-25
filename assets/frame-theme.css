@@ -36,6 +36,9 @@
   font-display: swap;
 }
 
+/* Import ballpoint ink filter styles */
+@import url("/assets/ballpoint-ink.css");
+
 :root {
   --rv-font: "La Nu Tienpo", sans-serif;
   --frame-rectangle-img: url("/assets/frame-rectangle.jpg");
@@ -68,30 +71,37 @@ label * {
  * Single global frame override:
  * All primary UI surfaces get the rectangle frame artwork by
  * default. Opt out by overriding background-image locally.
+ * SVG elements are excluded from background images (they draw their own frames).
  */
-button,
-input,
-select,
-textarea,
-nav,
-.panel,
-.page-card,
-.scene-card,
-.viewer-box,
-.metric-card,
-.hud,
-#hud,
-#video-player-container,
-.card,
-.surface,
-header,
-main,
-section,
-article {
+button:not(svg),
+input:not(svg),
+select:not(svg),
+textarea:not(svg),
+nav:not(svg),
+.panel:not(svg),
+.page-card:not(svg),
+.scene-card:not(svg),
+.viewer-box:not(svg),
+.metric-card:not(svg),
+.hud:not(svg),
+#hud:not(svg),
+#video-player-container:not(svg),
+.card:not(svg),
+.surface:not(svg),
+header:not(svg),
+main:not(svg),
+section:not(svg),
+article:not(svg) {
   background-image: var(--frame-rectangle-img);
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: center;
+}
+
+/* Disable background images on SVG elements completely */
+svg {
+  background-image: none !important;
+  background: transparent !important;
 }
 
 /* Circle frames still available for round toggles or badges. */
@@ -101,4 +111,27 @@ article {
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: center;
+}
+
+/* Apply ballpoint ink filter to all text elements */
+h1, h2, h3, h4, h5, h6 {
+  filter: url(#ballpoint-ink) contrast(1.35) brightness(0.92);
+  text-shadow: 
+    1.5px 1.5px 3px rgba(0, 0, 0, 0.6),
+    -0.8px 0.8px 1.5px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.07em;
+}
+
+p, span, label, a, li, td, th {
+  filter: url(#ballpoint-ink) contrast(1.25) brightness(0.96);
+  text-shadow: 
+    1px 1px 2px rgba(0, 0, 0, 0.4),
+    -0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+button {
+  filter: url(#ballpoint-ink) contrast(1.3) brightness(0.95);
+  text-shadow: 
+    1px 1px 2px rgba(0, 0, 0, 0.5),
+    -0.5px 0.5px 1px rgba(0, 0, 0, 0.3);
 }

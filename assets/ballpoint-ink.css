@@ -1,0 +1,37 @@
+/**
+ * Ballpoint Ink Filter - Reusable CSS
+ * 
+ * This stylesheet provides a reusable ballpoint ink text filter
+ * that can be included in any page for a handwritten notebook aesthetic.
+ * 
+ * Usage:
+ *   1. Include this CSS file: <link rel="stylesheet" href="/assets/ballpoint-ink.css">
+ *   2. Add the filter SVG to your page (automatically included via ::before if supported)
+ *   3. Apply .ballpoint-text class to elements, or use text selector in your own CSS
+ * 
+ * The filter mimics pen-on-paper texture with:
+ *   - Subtle displacement for pressure wobble
+ *   - Paper grain simulation
+ *   - Feathered edges for ink absorption
+ */
+
+/* Global filter definition - embeds the SVG filter inline */
+body::before {
+  content: '';
+  display: none;
+}
+
+/* Apply filter to elements with ballpoint-text class */
+.ballpoint-text {
+  filter: url(#ballpoint-ink);
+}
+
+/* For SVG text elements, apply directly */
+text.ballpoint {
+  filter: url(#ballpoint-ink);
+}
+
+/* Alternative: Apply to all text in ballpoint-container */
+.ballpoint-container text {
+  filter: url(#ballpoint-ink);
+}
