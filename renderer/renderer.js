@@ -54,6 +54,11 @@ import {
   setEffectInterval,
   setRareChance,
   setIntensityMultiplier,
+  enableMusicDrivenMode,
+  onBeat,
+  onOnset,
+  onEnergyRise,
+  onEnergyDrop,
 } from './hallucinationEngine.js';
 import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';
@@ -162,7 +167,52 @@ let hallucinationLoopId;
 let activityListenersBound = false;
 let hallucinationSettings = null;
 
+// Music system state
+let musicBridge = null;
+let musicActive = false;
+
 const elements = {};
+
+// Music event integration
+export function setupMusicBridge(bridge) {
+  musicBridge = bridge;
+  
+  if (bridge) {
+    bridge.setCallbacks({
+      onBeat: (beatEvent) => {
+        onBeat(beatEvent);
+      },
+      onOnset: (onsetEvent) => {
+        onOnset(onsetEvent);
+      },
+      onEnergyRise: (energyEvent) => {
+        onEnergyRise(energyEvent);
+      },
+      onEnergyDrop: (energyEvent) => {
+        onEnergyDrop(energyEvent);
+      },
+      onBpmUpdate: (bpm, confidence) => {
+        if (confidence > 0.3) {
+          latestBpmValue = bpm;
+          updateEngineBPM(bpm);
+        }
+      },
+    });
+  }
+}
+
+export function setMusicActive(active) {
+  musicActive = active;
+  enableMusicDrivenMode(active);
+  
+  if (active && musicBridge) {
+    musicBridge.start();
+  } else if (musicBridge) {
+    musicBridge.stop();
+    // Fall back to synthetic BPM
+    enableMusicDrivenMode(false);
+  }
+}
 
 function handleTagChange(tag) {
   recordTag(tag);

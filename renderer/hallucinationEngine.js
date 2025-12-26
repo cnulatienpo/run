@@ -189,11 +189,15 @@ let bpmSmooth = 100;
 let bpmLastUpdate = Date.now();
 let beatInterval = 600;
 let beatCounter = 0;
+let musicDrivenMode = false; // True when real audio is active
+let lastMusicBeatTime = 0;
+
 export function updateBPM(newBPM) {
   bpmSmooth = bpmSmooth * 0.9 + newBPM * 0.1;
   beatInterval = 60000 / bpmSmooth;
   bpmLastUpdate = Date.now();
 }
+
 function tickBeatGrid(now) {
   if (now - bpmLastUpdate >= beatInterval) {
     bpmLastUpdate = now;
@@ -201,11 +205,80 @@ function tickBeatGrid(now) {
   }
   return false;
 }
+
 function getVibeProfile(bpm, stepRate) {
   if (bpm > 130 || stepRate > 140) return 'frenzy';
   if (bpm > 110 || stepRate > 100) return 'dance';
   if (bpm > 90 || stepRate > 80) return 'glide';
   return 'fog';
+}
+
+// --- Music-Driven Event Handlers ---
+export function enableMusicDrivenMode(enabled) {
+  musicDrivenMode = enabled;
+  if (!enabled) {
+    // Fallback to synthetic BPM
+    lastMusicBeatTime = 0;
+  }
+}
+
+export function onBeat(beatEvent) {
+  if (!musicDrivenMode) return;
+  lastMusicBeatTime = Date.now();
+  beatCounter = beatEvent.beatNumber;
+  // Trigger effect on every 4th beat (downbeat)
+  if (beatCounter % 4 === 0) {
+    const tags = getRecentTags();
+    const mood = getMoodFromCurve((Date.now() - sessionStart) / (45 * 60 * 1000));
+    const { pool } = getEffectPools(mood);
+    const effect = chooseEffect(pool, tags);
+    if (effect) applyEffect(effect);
+  }
+}
+
+export function onOnset(onsetEvent) {
+  if (!musicDrivenMode) return;
+  // Strong onsets trigger immediate effects
+  if (onsetEvent.strength > 0.4 && Math.random() < 0.3) {
+    applyEffect({
+      type: 'canvas',
+      effect: 'strobe',
+      zone: { shape: 'circle', x: 0.5, y: 0.5, r: 0.25 },
+      duration: 800,
+      intensity: 'high',
+      tag: 'onset',
+    });
+  }
+}
+
+export function onEnergyRise(energyEvent) {
+  if (!musicDrivenMode) return;
+  // Energy rise triggers dreamcore/glide effects
+  applyEffect({
+    type: 'canvas',
+    effect: 'bloom',
+    zone: { shape: 'rect', x: 0, y: 0.42, w: 1, h: 0.16 },
+    duration: 2000,
+    intensity: 'base',
+    tag: 'energy-rise',
+  });
+}
+
+export function onEnergyDrop(energyEvent) {
+  if (!musicDrivenMode) return;
+  // Energy drop triggers fog/ambient effects
+  applyEffect({
+    type: 'canvas',
+    effect: 'fog',
+    zone: { shape: 'circle', x: 0.5, y: 0.5, r: 0.4 },
+    duration: 3000,
+    intensity: 'low',
+    tag: 'energy-drop',
+  });
+}
+
+export function isMusicDriven() {
+  return musicDrivenMode;
 }
 
 // --- Spawn Loop ---
@@ -225,6 +298,24 @@ let activeEffectPacks = ['default'];
 export function spawnLoop(stepRate, bpm) {
   updateBPM(bpm);
   const now = Date.now();
+  
+  // In music-driven mode, beats are triggered by onBeat() callbacks
+  if (musicDrivenMode) {
+    // Still allow ambient effects on interval
+    if (now - lastSpawn < EFFECT_INTERVAL * 2) return;
+    lastSpawn = now;
+    const t = (now - sessionStart) / (45 * 60 * 1000);
+    const curveMood = getMoodFromCurve(t);
+    const vibe = getVibeProfile(bpm, stepRate);
+    const mood = applyVibeToMood(curveMood, vibe);
+    const tags = getRecentTags();
+    const { pool } = getEffectPools(mood);
+    const effect = chooseEffect(pool, tags);
+    if (effect && Math.random() < 0.3) applyEffect(effect); // Reduced chance
+    return;
+  }
+  
+  // Synthetic BPM mode (original behavior)
   if (!tickBeatGrid(now)) return;
   if (now - lastSpawn < EFFECT_INTERVAL) return;
   lastSpawn = now;

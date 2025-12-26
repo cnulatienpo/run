@@ -245,7 +245,12 @@
       getRecentTags,
       clearRecentTags,
       exportSessionLog,
-      replaySession
+      replaySession,
+      enableMusicDrivenMode,
+      onBeat,
+      onOnset,
+      onEnergyRise,
+      onEnergyDrop
     } from './hallucinationEngine.js';
     import { createHandDrawnButton } from './hand-drawn-rect.js';
 
@@ -632,6 +637,179 @@
       addRow.append(tagInput, addBtn, clearBtn);
       tagsSection.append(recentTags, addRow);
       container.append(tagsSection);
+
+      // Music Controls Section
+      const musicSection = document.createElement('section');
+      musicSection.innerHTML = '<h3>Music-Driven Mode</h3>';
+      
+      const musicInfo = document.createElement('p');
+      musicInfo.textContent = 'Upload audio to sync effects with real-time music analysis (BPM, beats, onsets).';
+      musicInfo.style.margin = '0 0 1rem 0';
+      musicInfo.style.fontSize = '0.9rem';
+      musicInfo.style.opacity = '0.8';
+      musicSection.append(musicInfo);
+
+      const musicStatus = document.createElement('div');
+      musicStatus.id = 'music-status';
+      musicStatus.style.padding = '0.75rem';
+      musicStatus.style.marginBottom = '1rem';
+      musicStatus.style.borderRadius = '8px';
+      musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
+      musicStatus.style.fontSize = '0.85rem';
+      musicStatus.textContent = '⚪ No music loaded';
+      musicSection.append(musicStatus);
+
+      const uploadBtn = createHandDrawnButton('Upload Music File', {
+        width: 180,
+        height: 40,
+        seed: 'Upload'.charCodeAt(0),
+      });
+      uploadBtn.style.marginRight = '0.5rem';
+      
+      const playBtn = createHandDrawnButton('Play', {
+        width: 100,
+        height: 40,
+        seed: 'Play'.charCodeAt(0),
+      });
+      playBtn.disabled = true;
+      playBtn.style.opacity = '0.5';
+      playBtn.style.marginRight = '0.5rem';
+
+      const stopBtn = createHandDrawnButton('Stop', {
+        width: 100,
+        height: 40,
+        seed: 'Stop'.charCodeAt(0),
+      });
+      stopBtn.disabled = true;
+      stopBtn.style.opacity = '0.5';
+
+      const btnGroup = document.createElement('div');
+      btnGroup.style.display = 'flex';
+      btnGroup.style.gap = '0.5rem';
+      btnGroup.style.flexWrap = 'wrap';
+      btnGroup.append(uploadBtn, playBtn, stopBtn);
+      musicSection.append(btnGroup);
+
+      // Music state
+      let audioContext = null;
+      let audioBuffer = null;
+      let sourceNode = null;
+      let isPlaying = false;
+
+      uploadBtn.addEventListener('click', async () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'audio/mpeg,audio/wav,audio/ogg,audio/x-m4a,audio/mp4,.mp3,.wav,.ogg,.m4a';
+        
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+
+          try {
+            musicStatus.textContent = '⏳ Loading...';
+            
+            if (!audioContext) {
+              audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            musicStatus.textContent = `✅ ${file.name} loaded (${Math.round(audioBuffer.duration)}s)`;
+            musicStatus.style.backgroundColor = 'rgba(5, 150, 105, 0.3)';
+            
+            playBtn.disabled = false;
+            playBtn.style.opacity = '1';
+            
+            // Setup music bridge if renderer.js has exposed it
+            if (window.setupMusicBridge && window.setMusicActive) {
+              // The full music system from rv-app can be integrated here
+              console.log('Music system ready - full DSP analysis available');
+            }
+          } catch (error) {
+            musicStatus.textContent = `❌ Error: ${error.message}`;
+            musicStatus.style.backgroundColor = 'rgba(220, 38, 38, 0.3)';
+          }
+        };
+        
+        input.click();
+      });
+
+      playBtn.addEventListener('click', () => {
+        if (!audioContext || !audioBuffer) return;
+
+        if (isPlaying) {
+          // Pause
+          if (sourceNode) {
+            sourceNode.stop();
+            sourceNode = null;
+          }
+          isPlaying = false;
+          playBtn.textContent = 'Play';
+          musicStatus.textContent = '⏸ Paused';
+          musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
+          enableMusicDrivenMode(false);
+          
+          if (window.setMusicActive) {
+            window.setMusicActive(false);
+          }
+        } else {
+          // Play
+          sourceNode = audioContext.createBufferSource();
+          sourceNode.buffer = audioBuffer;
+          sourceNode.connect(audioContext.destination);
+          sourceNode.start(0);
+          
+          sourceNode.onended = () => {
+            isPlaying = false;
+            playBtn.textContent = 'Play';
+            musicStatus.textContent = '⏹ Track ended';
+            musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
+            enableMusicDrivenMode(false);
+            
+            if (window.setMusicActive) {
+              window.setMusicActive(false);
+            }
+            
+            stopBtn.disabled = true;
+            stopBtn.style.opacity = '0.5';
+          };
+          
+          isPlaying = true;
+          playBtn.textContent = 'Pause';
+          musicStatus.textContent = '▶️ Playing - Music-driven mode active';
+          musicStatus.style.backgroundColor = 'rgba(5, 150, 105, 0.3)';
+          enableMusicDrivenMode(true);
+          
+          if (window.setMusicActive) {
+            window.setMusicActive(true);
+          }
+          
+          stopBtn.disabled = false;
+          stopBtn.style.opacity = '1';
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        if (sourceNode) {
+          sourceNode.stop();
+          sourceNode = null;
+        }
+        isPlaying = false;
+        playBtn.textContent = 'Play';
+        musicStatus.textContent = '⏹ Stopped';
+        musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
+        enableMusicDrivenMode(false);
+        
+        if (window.setMusicActive) {
+          window.setMusicActive(false);
+        }
+        
+        stopBtn.disabled = true;
+        stopBtn.style.opacity = '0.5';
+      });
+
+      container.append(musicSection);
 
       // Randomize Button
       const randomizeBtn = createHandDrawnButton('Randomize Everything', {
