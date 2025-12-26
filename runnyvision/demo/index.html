@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RunnyVision Demo</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="controls">
+    <div class="control-row">
+      <label for="duration">Run duration</label>
+      <select id="duration">
+        <option value="5">5 minutes</option>
+        <option value="10" selected>10 minutes</option>
+        <option value="20">20 minutes</option>
+      </select>
+      <button id="start">Start Run</button>
+    </div>
+    <p class="note">
+      The demo pulls pre-cut "atoms" from Backblaze B2 and chains them to keep the camera moving forward.
+    </p>
+    <div id="status" class="status">Idle. Click "Start Run" to begin.</div>
+  </header>
+
+  <main class="stage">
+    <div class="video-wrapper">
+      <!-- We keep two stacked video tags and fade between them to hide seams. -->
+      <video id="videoA" class="video-layer visible" playsinline muted></video>
+      <video id="videoB" class="video-layer" playsinline muted></video>
+    </div>
+  </main>
+
+  <script src="./player.js"></script>
+</body>
+</html>
