@@ -70,15 +70,43 @@
         background: rgba(2, 6, 23, 0.95);
       }
 
-      #background-video {
+      .video-wrapper {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        object-fit: cover;
         z-index: -2;
-        filter: saturate(120%);
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      .video-layer {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: calc(100% - 40px);
+        height: calc(100% - 40px);
+        object-fit: cover;
+        transition: opacity 1.5s;
+        border-radius: 12px;
+        background-image: var(--frame-rectangle-img);
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        background-position: center;
+        box-shadow: 
+          0 0 0 8px rgba(15, 23, 42, 0.4),
+          0 0 0 12px rgba(148, 163, 184, 0.2),
+          0 28px 80px rgba(0, 0, 0, 0.6);
+        filter: url(#ballpoint-ink) contrast(1.1) brightness(0.98);
+      }
+
+      .video-layer.visible {
+        opacity: 1;
+      }
+
+      .video-layer:not(.visible) {
+        opacity: 0;
       }
 
       #fx-canvas {
@@ -309,7 +337,11 @@
     </style>
   </head>
   <body>
-    <video id="background-video" autoplay muted loop playsinline></video>
+    <!-- RunnyVision player with ballpoint ink frame -->
+    <div class="video-wrapper">
+      <video id="videoA" class="video-layer visible" playsinline muted autoplay></video>
+      <video id="videoB" class="video-layer" playsinline muted></video>
+    </div>
     <canvas id="fx-canvas" width="1920" height="1080"></canvas>
     <div id="app">
       <div id="hud">
@@ -348,6 +380,21 @@
       </div>
     </div>
 
+    <script>
+      // Set your Backblaze B2 base URL here
+      window.RUNNYVISION_BASE_URL = 'https://f005.backblazeb2.com/file/RunnyVisionSourceVideos';
+    </script>
+    <script src="./runnyvision/demo/player.js"></script>
     <script type="module" src="./renderer.js"></script>
+    <script>
+      // Auto-start the player when page loads
+      window.addEventListener('DOMContentLoaded', () => {
+        const startBtn = document.getElementById('start');
+        if (startBtn) {
+          // Optional: auto-start after a brief delay
+          setTimeout(() => startBtn.click(), 500);
+        }
+      });
+    </script>
   </body>
 </html>
