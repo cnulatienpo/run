@@ -1,7 +1,9 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { createRequire } from 'module';
 
-import schemaV100 from './v1.0.0.json' assert { type: 'json' };
+const require = createRequire(import.meta.url);
+const schemaV100 = require('./v1.0.0.json');
 
 const ajv = new Ajv({
   allErrors: true,

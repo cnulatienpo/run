@@ -165,7 +165,34 @@
       </defs>
     </svg>
 
+    <!-- RunnyVision player with ballpoint ink frame -->
+    <div class="video-wrapper" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; padding: 20px; box-sizing: border-box;">
+      <video id="videoA" class="video-layer visible" playsinline muted autoplay style="position: absolute; top: 20px; left: 20px; width: calc(100% - 40px); height: calc(100% - 40px); object-fit: cover; transition: opacity 1.5s; border-radius: 12px; opacity: 1;"></video>
+      <video id="videoB" class="video-layer" playsinline muted style="position: absolute; top: 20px; left: 20px; width: calc(100% - 40px); height: calc(100% - 40px); object-fit: cover; transition: opacity 1.5s; border-radius: 12px; opacity: 0;"></video>
+    </div>
+    <!-- Hidden controls for RunnyVision player -->
+    <select id="duration" style="display: none;">
+      <option value="10" selected>10 minutes</option>
+    </select>
+    <button id="start" style="display: none;">Start Run</button>
+    <div id="status" style="display: none;"></div>
+    <canvas id="fx-canvas" width="1920" height="1080" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: -1; mix-blend-mode: screen; opacity: 0;"></canvas>
+
     <div id="hud">
+      <div id="music-controller" class="row" style="margin-bottom: 12px; padding: 16px; border-radius: 12px; background: rgba(15, 23, 42, 0.65);">
+        <h3 style="margin: 0 0 12px; font-size: 1.1rem; color: #e63946; filter: url(#ballpoint-ink);">🎵 Music Control</h3>
+        <input type="file" id="music-file-input" accept=".mp3,.wav,.ogg,.m4a" style="display: block; margin-bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); color: #e2e8f0; cursor: pointer; font-size: 0.9rem;" />
+        <div style="margin-bottom: 10px;">
+          <button id="music-play" type="button" class="frame-rect" disabled style="margin-right: 6px;">Play</button>
+          <button id="music-pause" type="button" class="frame-rect" disabled style="margin-right: 6px;">Pause</button>
+          <button id="music-stop" type="button" class="frame-rect" disabled>Stop</button>
+        </div>
+        <div class="music-info" style="font-size: 0.85em; opacity: 0.8; filter: url(#ballpoint-ink);">
+          <div id="music-file-name">No file loaded</div>
+          <div id="music-bpm">BPM: --</div>
+          <div id="music-status">Status: Idle</div>
+        </div>
+      </div>
       <div class="row" id="google-auth-row">
         <button id="google-sign-in" type="button" class="frame-rect">Sign in with Google</button>
         <span id="google-auth-status" style="margin-left: 8px; opacity: 0.7;"></span>
@@ -229,6 +256,120 @@
     <div id="fx-overlay" aria-hidden="true"></div>
 
     <script type="module">
+      // Music controller integration - MUST RUN BEFORE button conversion
+      let audioContext = null;
+      let audioBuffer = null;
+      let sourceNode = null;
+      let analyserNode = null;
+      let isPlaying = false;
+      let startTime = 0;
+      let pauseTime = 0;
+
+      const fileInput = document.getElementById('music-file-input');
+      const playBtn = document.getElementById('music-play');
+      const pauseBtn = document.getElementById('music-pause');
+      const stopBtn = document.getElementById('music-stop');
+      const fileNameEl = document.getElementById('music-file-name');
+      const bpmEl = document.getElementById('music-bpm');
+      const statusEl = document.getElementById('music-status');
+
+      function initAudioContext() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyserNode = audioContext.createAnalyser();
+          analyserNode.fftSize = 2048;
+          analyserNode.connect(audioContext.destination);
+        }
+      }
+
+      function playMusic() {
+        if (!audioBuffer || !audioContext) return;
+        
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+
+        if (sourceNode) {
+          sourceNode.stop();
+        }
+
+        sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(analyserNode);
+
+        const offset = pauseTime;
+        sourceNode.start(0, offset);
+        startTime = audioContext.currentTime - offset;
+        isPlaying = true;
+        statusEl.textContent = 'Status: Playing';
+
+        sourceNode.onended = () => {
+          if (isPlaying) {
+            isPlaying = false;
+            pauseTime = 0;
+            statusEl.textContent = 'Status: Ended';
+          }
+        };
+      }
+
+      function pauseMusic() {
+        if (!sourceNode || !isPlaying) return;
+        
+        sourceNode.stop();
+        pauseTime = audioContext.currentTime - startTime;
+        isPlaying = false;
+        statusEl.textContent = 'Status: Paused';
+      }
+
+      function stopMusic() {
+        if (sourceNode) {
+          sourceNode.stop();
+        }
+        pauseTime = 0;
+        isPlaying = false;
+        statusEl.textContent = 'Status: Stopped';
+      }
+
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        initAudioContext();
+        fileNameEl.textContent = `Loading: ${file.name}`;
+        statusEl.textContent = 'Status: Loading...';
+
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          fileNameEl.textContent = `Loaded: ${file.name}`;
+          statusEl.textContent = 'Status: Ready';
+          playBtn.disabled = false;
+          pauseBtn.disabled = false;
+          stopBtn.disabled = false;
+
+          bpmEl.textContent = 'BPM: ~120';
+
+          if (typeof window.enableMusicDrivenMode === 'function') {
+            window.enableMusicDrivenMode(true);
+          }
+        } catch (err) {
+          console.error('Error loading audio:', err);
+          fileNameEl.textContent = 'Error loading file';
+          statusEl.textContent = 'Status: Error';
+        }
+      });
+
+      // Attach handlers - these will work even after button conversion
+      playBtn.addEventListener('click', playMusic);
+      pauseBtn.addEventListener('click', pauseMusic);
+      stopBtn.addEventListener('click', stopMusic);
+
+      // Make handlers available globally for re-attachment after button conversion
+      window.musicHandlers = { playMusic, pauseMusic, stopMusic };
+    </script>
+
+    <script type="module">
       // Convert HUD buttons to hand-drawn SVG - runs immediately, before other scripts
       import { createHandDrawnButton } from './hand-drawn-rect.js';
       
@@ -271,6 +412,57 @@
       import { downloadLog } from './sessionLogger.js';
       window.downloadSessionLog = downloadLog;
     </script>
+    
+    <script type="module">
+      // RunnyVision Player with B2 authentication
+      import { RunnyVisionPlayer } from '/runnyvision/demo/player-auth.js';
+      
+      const videoA = document.getElementById('videoA');
+      const videoB = document.getElementById('videoB');
+      const statusDiv = document.getElementById('status');
+      const durationSelect = document.getElementById('duration');
+      const startBtn = document.getElementById('start');
+      
+      const player = new RunnyVisionPlayer(videoA, videoB, {
+        apiBase: 'http://localhost:4000',
+        onStatusChange: (msg) => {
+          if (statusDiv) statusDiv.textContent = msg;
+          console.log('[RunnyVision]', msg);
+        }
+      });
+      
+      // Auto-start on load
+      window.addEventListener('DOMContentLoaded', () => {
+        console.log('[RunnyVision] Starting player...');
+        const duration = durationSelect ? parseInt(durationSelect.value) : 10;
+        player.startRun(duration);
+        
+        // Re-attach music button handlers after button conversion
+        setTimeout(() => {
+          const musicPlay = document.getElementById('music-play');
+          const musicPause = document.getElementById('music-pause');
+          const musicStop = document.getElementById('music-stop');
+
+          if (window.musicHandlers) {
+            if (musicPlay) {
+              musicPlay.addEventListener('click', window.musicHandlers.playMusic);
+              console.log('[Music] Play handler attached');
+            }
+            if (musicPause) musicPause.addEventListener('click', window.musicHandlers.pauseMusic);
+            if (musicStop) musicStop.addEventListener('click', window.musicHandlers.stopMusic);
+          }
+        }, 100);
+      });
+      
+      // Manual start button
+      if (startBtn) {
+        startBtn.addEventListener('click', () => {
+          const duration = durationSelect ? parseInt(durationSelect.value) : 10;
+          player.startRun(duration);
+        });
+      }
+    </script>
+    
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="passport.js?v=7" type="module"></script>
     <script src="renderer.js?v=14" type="module"></script>

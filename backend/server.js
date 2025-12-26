@@ -105,6 +105,7 @@ import { logAudit } from './utils/auditLogger.js';
 import { saveSnapshot, loadSnapshot } from './utils/snapshots.js';
 import { getActiveRooms, startRelayServer } from './realtime/relay.js';
 import { TimelinePlayer } from './replay/timelinePlayer.js';
+import { proxyB2Request, getAuthToken } from './b2-proxy.js';
 
 /**
  * ------------------------------------------------------------
@@ -130,6 +131,90 @@ loadEnv();
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+
+// Health check
+app.get('/health', (req, res) => {
+  console.log('[HEALTH] Health check requested');
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Test endpoint
+app.get('/test', (req, res) => {
+  console.log('[TEST] Test endpoint hit');
+  res.json({ message: 'Backend is responding' });
+});
+
+// Add B2 proxy endpoints for RunnyVision
+app.get('/b2-proxy/*', async (req, res) => {
+  try {
+    const path = req.params[0];
+    const data = await proxyB2Request(`/${path}`);
+    res.set('Content-Type', 'application/json');
+    res.send(data);
+  } catch (error) {
+    logError('B2 proxy error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// RunnyVision planner endpoint
+app.get('/api/runnyvision/plan', async (req, res) => {
+  try {
+    console.log('[PLANNER] Request received');
+    const duration = parseInt(req.query.duration) || 10;
+    
+    // TEMPORARY: Mock response while debugging B2
+    const mockPlan = {
+      plan: [
+        {
+          url: '/b2-proxy/runnyvision/atoms/2024_08_22_04_45_34/chunk_0000_v1.json',
+          duration: 5,
+          video: '2024_08_22_04_45_34'
+        }
+      ],
+      duration: 5
+    };
+    
+    console.log('[PLANNER] Returning mock plan');
+    res.json(mockPlan);
+    return;
+    
+    /* B2 version - currently blocking
+    const manifestData = await proxyB2Request('/runnyvision/atoms/manifest_v1.json');
+    console.log('[PLANNER] Manifest fetched');
+    const manifest = JSON.parse(manifestData);
+    
+    const atoms = [];
+    
+    for (const [video, data] of Object.entries(manifest.videos || {})) {
+      for (let i = 0; i < (data.atom_count || 0); i++) {
+        atoms.push({
+          url: `/b2-proxy/runnyvision/atoms/${video}/chunk_${String(i).padStart(4, '0')}_v1.json`,
+          duration: manifest.chunk_seconds || 5,
+          video: video
+        });
+      }
+    }
+    
+    // Shuffle
+    atoms.sort(() => Math.random() - 0.5);
+    
+    const targetSeconds = duration * 60;
+    const plan = [];
+    let total = 0;
+    
+    while (total < targetSeconds && atoms.length > 0) {
+      const atom = atoms[plan.length % atoms.length];
+      plan.push(atom);
+      total += atom.duration;
+    }
+    
+    res.json({ plan, duration: total });
+  } catch (error) {
+    logError('Planner error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 const STREAM_IDLE_TIMEOUT_MS = 15_000;
 const STREAM_IDLE_CHECK_MS = 5_000;
