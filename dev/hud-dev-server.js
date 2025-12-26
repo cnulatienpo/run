@@ -38,6 +38,8 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '..', 'renderer')));
 // Serve shared assets (font + frame artwork)
 app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
+// Serve testsongs directory for music files
+app.use('/testsongs', express.static(path.join(__dirname, '..', 'testsongs')));
 // Serve rv-app directly so the Workahol button never lands on a blank page
 app.use('/rv', express.static(rvAppPath));
 app.get('/rv/*', (_req, res) => res.sendFile(path.join(rvAppPath, 'index.html')));

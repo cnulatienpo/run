@@ -175,6 +175,101 @@
         box-shadow: 0 28px 80px rgba(15, 23, 42, 0.6);
       }
 
+      #music-controller {
+        margin-bottom: 24px;
+        padding: 20px;
+        border-radius: 12px;
+        background-image: var(--frame-rectangle-img);
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: rgba(15, 23, 42, 0.65);
+        box-shadow: 
+          0 0 0 4px rgba(15, 23, 42, 0.3),
+          0 0 0 6px rgba(148, 163, 184, 0.15),
+          0 12px 32px rgba(0, 0, 0, 0.4);
+        font-family: var(--rv-font);
+      }
+
+      #music-controller * {
+        font-family: var(--rv-font);
+      }
+
+      #music-controller h2 {
+        margin: 0 0 16px;
+        font-size: 1.2rem;
+        color: #e63946;
+        filter: url(#ballpoint-ink) contrast(1.35) brightness(0.92);
+        text-shadow: 
+          1.5px 1.5px 3px rgba(0, 0, 0, 0.65),
+          -0.8px 0.8px 1.5px rgba(0, 0, 0, 0.45);
+        letter-spacing: 0.07em;
+        font-weight: 650;
+        transform: skewX(-2.5deg);
+        font-family: var(--rv-font);
+      }
+
+      #music-controller input[type="file"] {
+        display: block;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background-image: var(--frame-rectangle-img);
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: rgba(51, 65, 85, 0.5);
+        border: none;
+        color: #e2e8f0;
+        cursor: pointer;
+        filter: url(#ballpoint-ink) contrast(1.2) brightness(0.96);
+        font-family: var(--rv-font);
+      }
+
+      #music-controller button {
+        margin-right: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        background-image: var(--frame-rectangle-img);
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: rgba(59, 130, 246, 0.2);
+        border: none;
+        color: #bfdbfe;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        filter: url(#ballpoint-ink) contrast(1.3) brightness(0.95);
+        text-shadow: 
+          1px 1px 2px rgba(0, 0, 0, 0.5),
+          -0.5px 0.5px 1px rgba(0, 0, 0, 0.3);
+        font-family: var(--rv-font);
+      }
+
+      #music-controller button:hover {
+        opacity: 0.85;
+      }
+
+      #music-controller button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .music-info {
+        margin-top: 12px;
+        font-size: 0.9rem;
+        color: #94a3b8;
+        font-family: var(--rv-font);
+      }
+
+      .music-info div {
+        filter: url(#ballpoint-ink) contrast(1.25) brightness(0.96);
+        text-shadow: 
+          1px 1px 2px rgba(0, 0, 0, 0.4),
+          -0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+        font-family: var(--rv-font);
+      }
+
       header.hud-header {
         display: flex;
         align-items: baseline;
@@ -345,6 +440,21 @@
     <canvas id="fx-canvas" width="1920" height="1080"></canvas>
     <div id="app">
       <div id="hud">
+        <div id="music-controller">
+          <h2>🎵 Music Control</h2>
+          <input type="file" id="music-file-input" accept=".mp3,.wav,.ogg,.m4a" />
+          <div>
+            <button id="music-play" disabled>Play</button>
+            <button id="music-pause" disabled>Pause</button>
+            <button id="music-stop" disabled>Stop</button>
+          </div>
+          <div class="music-info">
+            <div id="music-file-name">No file loaded</div>
+            <div id="music-bpm">BPM: --</div>
+            <div id="music-status">Status: Idle</div>
+          </div>
+        </div>
+
         <header class="hud-header">
           <div>
             <h1 class="hud-title">Run Session HUD</h1>
@@ -385,7 +495,6 @@
       window.RUNNYVISION_BASE_URL = 'https://f005.backblazeb2.com/file/RunnyVisionSourceVideos';
     </script>
     <script src="./runnyvision/demo/player.js"></script>
-    <script type="module" src="./renderer.js"></script>
     <script>
       // Auto-start the player when page loads
       window.addEventListener('DOMContentLoaded', () => {
@@ -396,5 +505,122 @@
         }
       });
     </script>
+    <script type="module">
+      // Music controller integration
+      let audioContext = null;
+      let audioBuffer = null;
+      let sourceNode = null;
+      let analyserNode = null;
+      let isPlaying = false;
+      let startTime = 0;
+      let pauseTime = 0;
+
+      const fileInput = document.getElementById('music-file-input');
+      const playBtn = document.getElementById('music-play');
+      const pauseBtn = document.getElementById('music-pause');
+      const stopBtn = document.getElementById('music-stop');
+      const fileNameEl = document.getElementById('music-file-name');
+      const bpmEl = document.getElementById('music-bpm');
+      const statusEl = document.getElementById('music-status');
+
+      // Initialize audio context on first user interaction
+      function initAudioContext() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyserNode = audioContext.createAnalyser();
+          analyserNode.fftSize = 2048;
+          analyserNode.connect(audioContext.destination);
+        }
+      }
+
+      // Load audio file
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        initAudioContext();
+        fileNameEl.textContent = `Loading: ${file.name}`;
+        statusEl.textContent = 'Status: Loading...';
+
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          fileNameEl.textContent = `Loaded: ${file.name}`;
+          statusEl.textContent = 'Status: Ready';
+          playBtn.disabled = false;
+          pauseBtn.disabled = false;
+          stopBtn.disabled = false;
+
+          // Simple BPM detection (placeholder - you can integrate the TempoDetector here)
+          bpmEl.textContent = 'BPM: Detecting...';
+          setTimeout(() => {
+            bpmEl.textContent = 'BPM: ~120'; // Placeholder
+          }, 500);
+
+          // Enable music-driven mode if hallucinationEngine is available
+          if (typeof window.enableMusicDrivenMode === 'function') {
+            window.enableMusicDrivenMode(true);
+          }
+        } catch (err) {
+          console.error('Error loading audio:', err);
+          fileNameEl.textContent = 'Error loading file';
+          statusEl.textContent = 'Status: Error';
+        }
+      });
+
+      // Play
+      playBtn.addEventListener('click', () => {
+        if (!audioBuffer || !audioContext) return;
+        
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+
+        // Stop existing source if any
+        if (sourceNode) {
+          sourceNode.stop();
+        }
+
+        sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(analyserNode);
+
+        const offset = pauseTime;
+        sourceNode.start(0, offset);
+        startTime = audioContext.currentTime - offset;
+        isPlaying = true;
+        statusEl.textContent = 'Status: Playing';
+
+        sourceNode.onended = () => {
+          if (isPlaying) {
+            isPlaying = false;
+            pauseTime = 0;
+            statusEl.textContent = 'Status: Ended';
+          }
+        };
+      });
+
+      // Pause
+      pauseBtn.addEventListener('click', () => {
+        if (!sourceNode || !isPlaying) return;
+        
+        sourceNode.stop();
+        pauseTime = audioContext.currentTime - startTime;
+        isPlaying = false;
+        statusEl.textContent = 'Status: Paused';
+      });
+
+      // Stop
+      stopBtn.addEventListener('click', () => {
+        if (sourceNode) {
+          sourceNode.stop();
+        }
+        pauseTime = 0;
+        isPlaying = false;
+        statusEl.textContent = 'Status: Stopped';
+      });
+    </script>
+    <script type="module" src="./renderer.js"></script>
   </body>
 </html>
