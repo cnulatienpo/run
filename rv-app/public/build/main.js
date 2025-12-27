@@ -1,5 +1,11 @@
 import './ui/app-shell.js';
+export const BUILD_STAMP = {
+    builtAt: new Date().toISOString(),
+    commit: process.env.GIT_COMMIT || 'dev',
+};
+console.log('[RV BUILD]', BUILD_STAMP);
 /**
+ *
  * ------------------------------------------------------------
  *  WIRING ASSERTION A8 – PASS
  * ------------------------------------------------------------

@@ -1,14 +1,22 @@
 import { getCurrentMnemonic } from '../core/session.js';
+import { MusicController } from '../core/MusicController.js';
 class RVRunPage extends HTMLElement {
     constructor() {
         super(...arguments);
         this.video = document.createElement('video');
         this.sceneContainer = document.createElement('div');
         this.hud = document.createElement('div');
+        this.musicContainer = document.createElement('div');
     }
     connectedCallback() {
         this.className = 'panel';
         this.render();
+    }
+    disconnectedCallback() {
+        // Clean up music controller
+        if (this.musicController) {
+            this.musicController.destroy();
+        }
     }
     render() {
         this.innerHTML = '';
@@ -38,10 +46,19 @@ class RVRunPage extends HTMLElement {
             button.addEventListener('click', () => this.handleHUD(label));
             this.hud.appendChild(button);
         });
-        this.append(heading, this.video, this.sceneContainer, this.hud);
+        // Set up music container
+        this.musicContainer.style.marginTop = '1rem';
+        this.append(heading, this.video, this.sceneContainer, this.hud, this.musicContainer);
         this.controller.addEventListener('session', () => this.updateScene());
         this.controller.audio.attachVideo(this.video);
         this.updateScene();
+        // Initialize music controller
+        try {
+            this.musicController = new MusicController(this.musicContainer);
+        }
+        catch (error) {
+            console.warn('Music controller initialization failed:', error);
+        }
     }
     handleHUD(action) {
         switch (action) {
