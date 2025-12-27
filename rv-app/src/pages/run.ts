@@ -1,6 +1,7 @@
 import { RVController } from '../ui/controller.js';
 import { getCurrentMnemonic } from '../core/session.js';
 import { MusicController } from '../core/MusicController.js';
+import { createHandDrawnRectSVG } from '../ui/hand-drawn-rect';
 
 class RVRunPage extends HTMLElement {
   controller!: RVController;
@@ -26,11 +27,39 @@ class RVRunPage extends HTMLElement {
     this.innerHTML = '';
     const heading = document.createElement('h2');
     heading.textContent = 'Now The Fun Starts';
+
+    // Create SVG frame
+    const frameWidth = 480;
+    const frameHeight = 320;
+    const frameSVG = createHandDrawnRectSVG(frameWidth, frameHeight);
+
+    // Style and position video inside frame
+    const videoInset = 16; // px of margin between video and frame
     this.video.controls = true;
-    this.video.style.width = '100%';
-    this.video.style.maxHeight = '320px';
-    this.video.style.borderRadius = '24px';
+    this.video.style.width = `${frameWidth - videoInset * 2}px`;
+    this.video.style.height = `${frameHeight - videoInset * 2}px`;
+    this.video.style.position = 'absolute';
+    this.video.style.left = `${videoInset}px`;
+    this.video.style.top = `${videoInset}px`;
+    this.video.style.background = '#0a1723';
+    this.video.style.border = 'none';
     this.video.innerHTML = '<source src="" type="video/mp4" />';
+
+    // Container for frame and video
+    const frameContainer = document.createElement('div');
+    frameContainer.style.position = 'relative';
+    frameContainer.style.width = `${frameWidth}px`;
+    frameContainer.style.height = `${frameHeight}px`;
+    frameContainer.appendChild(frameSVG);
+    frameContainer.appendChild(this.video);
+
+    frameSVG.style.position = 'absolute';
+    frameSVG.style.left = '0';
+    frameSVG.style.top = '0';
+    frameSVG.style.pointerEvents = 'none';
+    frameSVG.style.zIndex = '2';
+    this.video.style.zIndex = '1';
+
     this.sceneContainer.style.padding = '1rem';
     this.sceneContainer.style.marginTop = '1rem';
     this.sceneContainer.style.borderRadius = '24px';
@@ -54,7 +83,7 @@ class RVRunPage extends HTMLElement {
     // Set up music container
     this.musicContainer.style.marginTop = '1rem';
     
-    this.append(heading, this.video, this.sceneContainer, this.hud, this.musicContainer);
+    this.append(heading, frameContainer, this.sceneContainer, this.hud, this.musicContainer);
     this.controller.addEventListener('session', () => this.updateScene());
     this.controller.audio.attachVideo(this.video);
     this.updateScene();
