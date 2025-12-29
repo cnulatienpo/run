@@ -13,6 +13,8 @@
     "build:rv": "tsc -p rv-app",
     "backend": "node start-backend.js api",
     "backend:legacy": "node start-backend.js legacy"
+    ,
+    "build": "npm run build:rv"
   },
   "author": "",
   "license": "ISC",
