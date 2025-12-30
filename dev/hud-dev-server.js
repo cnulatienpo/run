@@ -3,6 +3,21 @@ const path = require('path');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
+// 🦇 DEV SANITY MODE: proxy RV from backend (3001)
+// This makes port 3000 the ONLY door you ever use.
+
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+app.use(
+  '/rv',
+  createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+    ws: true,
+    logLevel: 'warn',
+  })
+);
+
 const PORT = 3000;
 const RV_BACKEND_TARGET = process.env.API_TARGET || 'http://localhost:3001';
 const rvAppPath = path.join(__dirname, '..', 'rv-app', 'public');

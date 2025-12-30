@@ -12,8 +12,7 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run rv:watch\" \"npm run rv:api\"",
     "build:rv": "tsc -p rv-app",
     "backend": "node start-backend.js api",
-    "backend:legacy": "node start-backend.js legacy"
-    ,
+    "backend:legacy": "node start-backend.js legacy",
     "build": "npm run build:rv"
   },
   "author": "",
@@ -36,7 +35,6 @@
     "electron-log": "^5.1.2",
     "express": "^4.19.2",
     "googleapis": "^131.0.0",
-    "http-proxy-middleware": "^3.0.3",
     "pixi.js": "^8.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -47,15 +45,16 @@
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.0",
     "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
+    "http-proxy-middleware": "^3.0.5",
     "http-server": "^14.1.1",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
-    "vitest": "^4.0.12",
-    "@vitejs/plugin-react": "^5.2.0",
-    "vite": "^6.0.2"
+    "vite": "^6.0.2",
+    "vitest": "^4.0.12"
   },
   "build": {
     "productName": "RunnyVision",
