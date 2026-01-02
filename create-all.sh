@@ -36,7 +36,7 @@ export class B2Adapter {
   async getManifest(videoId: string): Promise<any> { return { video_id: videoId, chunks: [], total_duration: 0 }; }
   async uploadFile(path: string, data: Buffer): Promise<string> { return 'mock-file-id'; }
 }
-export const b2 = new B2Adapter({ keyId: process.env.B2_KEY_ID, applicationKey: process.env.B2_APP_KEY, bucketName: process.env.B2_BUCKET });
+export const b2 = new B2Adapter({ keyId: undefined, applicationKey: undefined, bucketName: undefined });
 EOF
 
 # 4. architecture.md

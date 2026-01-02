@@ -10,43 +10,40 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const path = require("path");
 
 const app = express();
-const PORT = 3000;
-const RV_BACKEND_TARGET = "http://localhost:3001";
+// DEV ONLY — intentionally inert unless started manually.
 
-/* ------------------------------------------------------------
- * No caching (dev sanity)
- * ------------------------------------------------------------ */
-app.use((_req, res, next) => {
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
+const PORT = 3000;
+const RV_BACKEND_TARGET = process.env.API_TARGET || 'http://localhost:3001';
+
+// Disable all caching in development
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
   next();
 });
 
-/* ------------------------------------------------------------
- * ONE DOOR RULE
- * ------------------------------------------------------------ */
+// Serve renderer/ statically
+app.use(express.static(path.join(__dirname, '..', 'renderer')));
+// Serve shared assets (font + frame artwork)
+app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
+// Serve testsongs directory for music files
+app.use('/testsongs', express.static(path.join(__dirname, '..', 'testsongs')));
+// Proxy /api → RV API (port 3001)
+app.use('/api', createProxyMiddleware({
+  target: RV_BACKEND_TARGET,
+  changeOrigin: true,
+  ws: true,
+}));
 
-// RV UI → backend
-app.use(
-  "/rv",
-  createProxyMiddleware({
-    target: RV_BACKEND_TARGET,
-    changeOrigin: true,
-    ws: true,
-    logLevel: "warn",
-  })
-);
-
-// RV API → backend
-app.use(
-  "/api",
-  createProxyMiddleware({
-    target: RV_BACKEND_TARGET,
-    changeOrigin: true,
-    ws: true,
-  })
-);
+// Proxy /rv → backend (canonical UI host)
+app.use('/rv', createProxyMiddleware({
+  target: RV_BACKEND_TARGET,
+  changeOrigin: true,
+  ws: true,
+  logLevel: 'warn',
+}));
 
 /* ------------------------------------------------------------
  * HUD shell only (optional)
