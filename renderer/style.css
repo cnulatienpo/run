@@ -390,6 +390,32 @@ svg.hand-drawn-button {
   pointer-events: none;
 }
 
+/* Atom video crossfading system */
+.atom-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.atom-video.active {
+  opacity: 1;
+}
+
+.atom-video.dark {
+  filter: brightness(0.7) contrast(1.2);
+}
+
+.atom-video.light {
+  filter: brightness(1.2) saturate(1.1);
+}
+
+/* Legacy single video player (kept for compatibility) */
 #video-player {
   width: 50%;
   height: 50%;

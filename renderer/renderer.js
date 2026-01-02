@@ -329,16 +329,19 @@ initTags(handleTagChange);
 startTimer();
 
 document.addEventListener('DOMContentLoaded', () => {
-  cacheDom();
-  setupHudToggle();
-  loadStoredPreferences();
-  setupEventListeners();
-  initializeVideoPlayer();
-  initializeGoogleAuth();
-  // Disabled: step server not running in dev environment
-  // connectStepServerFallback();
-  populateHardcodedPlaylists();
-  initializeHallucinationEngine();
+  // Delay initialization slightly to allow button SVG conversion to complete
+  setTimeout(() => {
+    cacheDom();
+    setupHudToggle();
+    loadStoredPreferences();
+    setupEventListeners();
+    initializeVideoPlayer();
+    initializeGoogleAuth();
+    // Disabled: step server not running in dev environment
+    // connectStepServerFallback();
+    populateHardcodedPlaylists();
+    initializeHallucinationEngine();
+  }, 100);
 });
 
 /**
@@ -375,6 +378,10 @@ function cacheDom() {
   elements.playButton = document.getElementById('video-play');
   elements.pauseButton = document.getElementById('video-pause');
   elements.stopButton = document.getElementById('video-stop');
+
+  console.log('[DOM] Play button element:', elements.playButton);
+  console.log('[DOM] Pause button element:', elements.pauseButton);
+  console.log('[DOM] Stop button element:', elements.stopButton);
 
   if (elements.openRVApp) {
     elements.openRVApp.textContent = 'Open Workahol Enabler';
@@ -457,16 +464,24 @@ function setupEventListeners() {
   });
 
   elements.playButton?.addEventListener('click', async () => {
+    console.log('[Play Button] Clicked');
     userRequestedPlay = true;
     
     // If atoms not loaded, load them first
     if (!atomsLoaded && !currentPlaylist.length) {
-      await loadAtomsFromBackblaze(5); // Default 5 minutes
+      console.log('[Play Button] Loading atoms from Backblaze');
+      try {
+        await loadAtomsFromBackblaze(5); // Default 5 minutes
+      } catch (err) {
+        console.error('[Play Button] Error loading atoms:', err);
+        setPlaylistStatus('Failed to load atoms', '#f66');
+      }
       return;
     }
     
     // If atoms are loaded, play atoms
     if (atomsLoaded) {
+      console.log('[Play Button] Playing atoms');
       if (!videoPlayer?.src) {
         playAtomAt(atomIndex);
       } else if (videoPlayer.paused) {
@@ -479,6 +494,7 @@ function setupEventListeners() {
     }
     
     // Otherwise use playlist system
+    console.log('[Play Button] Using playlist system');
     if (!currentPlaylist.length && currentPlaylistId) {
       loadPlaylist(currentPlaylistId);
     }
