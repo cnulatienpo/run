@@ -468,47 +468,13 @@ function setupEventListeners() {
     console.log('[Play Button] Clicked');
     userRequestedPlay = true;
     
-    // If atoms not loaded, load them first
-    if (!atomsLoaded && !currentPlaylist.length) {
-      console.log('[Play Button] Loading atoms from Backblaze');
-      try {
-        await loadAtomsFromBackblaze(5); // Default 5 minutes
-      } catch (err) {
-        console.error('[Play Button] Error loading atoms:', err);
-        setPlaylistStatus('Failed to load atoms', '#f66');
-      }
-      return;
-    }
-    
-    // If atoms are loaded, play atoms
-    if (atomsLoaded) {
-      console.log('[Play Button] Playing atoms');
-      if (!videoPlayer?.src) {
-        playAtomAt(atomIndex);
-      } else if (videoPlayer.paused) {
-        const playPromise = videoPlayer.play();
-        if (playPromise?.catch) {
-          playPromise.catch((error) => console.warn('[Video] Playback blocked:', error));
-        }
-      }
-      return;
-    }
-    
-    // Otherwise use playlist system
-    console.log('[Play Button] Using playlist system');
-    if (!currentPlaylist.length && currentPlaylistId) {
-      loadPlaylist(currentPlaylistId);
-    }
-    if (!currentPlaylist.length && !videoPlayer?.src) {
-      return;
-    }
-    if (videoPlayer?.src && videoPlayer.paused) {
-      const playPromise = videoPlayer.play();
-      if (playPromise?.catch) {
-        playPromise.catch((error) => console.warn('[Video] Playback blocked:', error));
-      }
-    } else if (currentPlaylist.length) {
-      playClipAt(currentClipIndex);
+    // ALWAYS load atoms, never use the old playlist system
+    console.log('[Play Button] Loading atoms from Backblaze');
+    try {
+      await loadAtomsFromBackblaze(5); // Default 5 minutes
+    } catch (err) {
+      console.error('[Play Button] Error loading atoms:', err);
+      setPlaylistStatus('Failed to load atoms', '#f66');
     }
   });
 
@@ -571,16 +537,15 @@ function initializeVideoPlayer() {
   }
 
   setVideoAttributes();
-  bindVideoEvents();
+  // Don't bind video events - atoms system handles everything
   playerReady = true;
 
   if (Number.isFinite(desiredVolume)) {
     setVideoVolume(desiredVolume);
   }
 
-  if (currentPlaylistId) {
-    loadPlaylist(currentPlaylistId);
-  }
+  // Don't auto-load playlists - we're using atoms only
+  console.log('[Video] Player initialized for atom playback');
 }
 
 function setVideoAttributes() {

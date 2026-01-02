@@ -392,7 +392,7 @@ svg.hand-drawn-button {
 
 /* Atom video crossfading system */
 .atom-video {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -402,7 +402,8 @@ svg.hand-drawn-button {
   opacity: 0;
   transition: opacity 0.5s ease;
   pointer-events: auto;
-  z-index: 1002;
+  z-index: 10000;
+  background: #000;
 }
 
 .atom-video.active {
@@ -429,14 +430,14 @@ svg.hand-drawn-button {
 }
 
 #video-controls {
-  position: absolute;
+  position: fixed;
   top: 20%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   gap: 12px;
   pointer-events: auto;
-  z-index: 1001;
+  z-index: 10001;
 }
 
 .hud-header {

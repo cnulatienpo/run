@@ -30,8 +30,11 @@ app.use(express.static(path.join(__dirname, '..', 'renderer')));
 app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
 // Serve testsongs directory for music files
 app.use('/testsongs', express.static(path.join(__dirname, '..', 'testsongs')));
-// Proxy /api → RV API (port 3001)
-app.use('/api', createProxyMiddleware({
+// Proxy /api → RV API (port 3001) - preserve full path including /api
+app.use('/api', (req, res, next) => {
+  req.url = '/api' + req.url;  // Prepend /api back
+  next();
+}, createProxyMiddleware({
   target: RV_BACKEND_TARGET,
   changeOrigin: true,
   ws: true,
