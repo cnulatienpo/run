@@ -35,13 +35,15 @@ function scheduleNext() {
 async function playAtom(atom) {
   const meta = await fetch(atom.url).then(r => r.json());
 
-  const startSec = meta.start_frame / meta.fps;
-  const endSec = meta.end_frame / meta.fps;
+  // Get the signed video URL from the atom metadata
+  const videoUrl = meta.signed_url;
+  
+  if (!videoUrl) {
+    console.error('[runEngine] No signed_url in atom metadata:', meta);
+    return;
+  }
 
-  standby.src =
-    `https://f005.backblazeb2.com/file/RunnyVisionSourceVideos/` +
-    `${meta.video}#t=${startSec},${endSec}`;
-
+  standby.src = videoUrl;
   standby.playbackRate = 1 / (atom.stretch || 1);
   standby.className = "atom-video " + (Math.random() > 0.5 ? "dark" : "light");
 
