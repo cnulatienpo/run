@@ -3,7 +3,11 @@
 const { buildNoodle } = require('../src/buildNoodle');
 const { syntheticPass } = require('../src/syntheticPass');
 const { validateNoodle } = require('../src/validateNoodle');
-const { uploadToB2 } = require('../src/uploadToB2');
+
+async function getUploadToB2() {
+  const mod = await import('../backend/uploadToB2.js');
+  return mod.uploadToB2;
+}
 
 async function run() {
   try {
@@ -32,6 +36,7 @@ async function run() {
       },
     };
 
+    const uploadToB2 = await getUploadToB2();
     const noodle = buildNoodle(rawData);
     validateNoodle(noodle);
     console.log('Real noodle object is valid. Uploading to Backblaze B2...');

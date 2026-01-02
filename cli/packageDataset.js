@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const archiver = require('archiver');
-const B2 = require('backblaze-b2');
 
 const { buildFeatureVector } = require('../tools/featureVector');
 const { ensurePrivacyLedger } = require('../src/privacyLedger');
@@ -373,84 +372,33 @@ async function zipDirectory(sourceDir, zipPath) {
   });
 }
 
-let b2Client = null;
-let b2Authorization = 0;
-let cachedBucketId = null;
-const B2_AUTH_DURATION = 1000 * 60 * 60 * 23;
+let uploadBufferToB2 = null;
 
-function ensureB2Client() {
-  if (!process.env.B2_APPLICATION_KEY_ID || !process.env.B2_APPLICATION_KEY) {
-    throw new Error('Backblaze B2 credentials are required for upload.');
+async function getUploadBufferToB2() {
+  if (!uploadBufferToB2) {
+    const mod = await import('../backend/uploadToB2.js');
+    uploadBufferToB2 = mod.uploadBufferToB2;
   }
-  if (!b2Client) {
-    b2Client = new B2({
-      applicationKeyId: process.env.B2_APPLICATION_KEY_ID,
-      applicationKey: process.env.B2_APPLICATION_KEY,
-    });
-  }
-  return b2Client;
-}
-
-async function authorizeB2IfNeeded(client) {
-  const now = Date.now();
-  if (now - b2Authorization > B2_AUTH_DURATION) {
-    await client.authorize();
-    b2Authorization = now;
-  }
-}
-
-async function resolveBucketId(client) {
-  if (cachedBucketId) {
-    return cachedBucketId;
-  }
-  if (process.env.B2_BUCKET_ID) {
-    cachedBucketId = process.env.B2_BUCKET_ID;
-    return cachedBucketId;
-  }
-  if (!process.env.B2_BUCKET_NAME) {
-    throw new Error('Provide B2_BUCKET_ID or B2_BUCKET_NAME in environment for uploads.');
-  }
-  const response = await client.getBucket({ bucketName: process.env.B2_BUCKET_NAME });
-  if (response?.data?.bucketId) {
-    cachedBucketId = response.data.bucketId;
-  } else if (Array.isArray(response?.data?.buckets) && response.data.buckets.length > 0) {
-    cachedBucketId = response.data.buckets[0].bucketId;
-  }
-  if (!cachedBucketId) {
-    throw new Error(`Unable to resolve bucket ID for ${process.env.B2_BUCKET_NAME}`);
-  }
-  return cachedBucketId;
+  return uploadBufferToB2;
 }
 
 async function uploadFileToB2(localPath, remotePath) {
-  const client = ensureB2Client();
-  await authorizeB2IfNeeded(client);
-  const bucketId = await resolveBucketId(client);
-  const uploadUrlResponse = await client.getUploadUrl({ bucketId });
-  const { uploadUrl, authorizationToken } = uploadUrlResponse.data;
-  const dataStream = fs.createReadStream(localPath);
-  const stat = fs.statSync(localPath);
-  const uploadResponse = await client.uploadFile({
-    uploadUrl,
-    uploadAuthToken: authorizationToken,
+  const uploader = await getUploadBufferToB2();
+  const data = fs.readFileSync(localPath);
+  const uploadResponse = await uploader({
+    buffer: data,
     fileName: remotePath,
-    data: dataStream,
-    mime: 'application/zip',
-    contentLength: stat.size,
+    contentType: 'application/zip',
+    info: {
+      size: String(data.length),
+    },
   });
-
-  const downloadUrl = client.downloadUrl || client._downloadUrl || null;
-  const baseUrl = downloadUrl || process.env.B2_DOWNLOAD_URL || null;
-  let publicUrl = null;
-  if (baseUrl && process.env.B2_BUCKET_NAME) {
-    publicUrl = `${baseUrl.replace(/\/$/, '')}/file/${process.env.B2_BUCKET_NAME}/${remotePath}`;
-  }
 
   return {
     fileName: remotePath,
-    size: stat.size,
-    response: uploadResponse.data,
-    url: publicUrl,
+    size: data.length,
+    response: uploadResponse.raw,
+    url: uploadResponse.url,
   };
 }
 
