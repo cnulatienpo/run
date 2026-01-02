@@ -37,7 +37,7 @@ export class B2Adapter {
 
 // Singleton for convenience
 export const b2 = new B2Adapter({
-  keyId: process.env.B2_KEY_ID,
-  applicationKey: process.env.B2_APP_KEY,
-  bucketName: process.env.B2_BUCKET,
+  keyId: undefined,
+  applicationKey: undefined,
+  bucketName: undefined,
 });

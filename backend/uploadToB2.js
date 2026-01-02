@@ -1,3 +1,4 @@
+// This is the sole Backblaze integration point for RunnyVision.
 //**
  * 🦇 THE BATCAVE (Backblaze Edition)
  *
