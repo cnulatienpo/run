@@ -456,8 +456,29 @@ function setupEventListeners() {
     testClipAPI();
   });
 
-  elements.playButton?.addEventListener('click', () => {
+  elements.playButton?.addEventListener('click', async () => {
     userRequestedPlay = true;
+    
+    // If atoms not loaded, load them first
+    if (!atomsLoaded && !currentPlaylist.length) {
+      await loadAtomsFromBackblaze(5); // Default 5 minutes
+      return;
+    }
+    
+    // If atoms are loaded, play atoms
+    if (atomsLoaded) {
+      if (!videoPlayer?.src) {
+        playAtomAt(atomIndex);
+      } else if (videoPlayer.paused) {
+        const playPromise = videoPlayer.play();
+        if (playPromise?.catch) {
+          playPromise.catch((error) => console.warn('[Video] Playback blocked:', error));
+        }
+      }
+      return;
+    }
+    
+    // Otherwise use playlist system
     if (!currentPlaylist.length && currentPlaylistId) {
       loadPlaylist(currentPlaylistId);
     }
@@ -557,7 +578,12 @@ function bindVideoEvents() {
   if (!videoPlayer) return;
   videoPlayer.addEventListener('ended', () => {
     if (!videoPlayer.loop && userRequestedPlay) {
-      playNextClip(true);
+      // If atoms are loaded, play next atom, otherwise play next clip
+      if (atomsLoaded) {
+        playNextAtom();
+      } else {
+        playNextClip(true);
+      }
     }
   });
 }
@@ -640,6 +666,123 @@ function setVideoVolume(volume) {
   if (!videoPlayer) return;
   videoPlayer.volume = normalized / 100;
   videoPlayer.muted = normalized === 0;
+}
+
+/* ------------------------------------------------------------
+ * Atom Player – Backblaze B2 Integration
+ * ------------------------------------------------------------ */
+
+let atomManifest = null;
+let atomPlan = [];
+let atomIndex = 0;
+let atomsLoaded = false;
+
+async function loadAtomsFromBackblaze(durationMinutes = 5) {
+  try {
+    setPlaylistStatus('Loading atoms from Backblaze...', '#4CAF50');
+    
+    // Fetch manifest
+    const manifestRes = await fetch('/api/media/manifest');
+    if (!manifestRes.ok) {
+      throw new Error('Failed to fetch manifest');
+    }
+    atomManifest = await manifestRes.json();
+    
+    // Build plan
+    atomPlan = await buildAtomPlan(atomManifest, durationMinutes);
+    atomIndex = 0;
+    atomsLoaded = true;
+    
+    setPlaylistStatus(`Loaded ${atomPlan.length} atoms (${durationMinutes} min)`, '#4CAF50');
+    
+    // Play first atom
+    if (playerReady && userRequestedPlay) {
+      playAtomAt(0);
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('[Atoms] Failed to load:', err);
+    setPlaylistStatus('Failed to load atoms', '#f66');
+    return false;
+  }
+}
+
+async function buildAtomPlan(manifest, minutes) {
+  const DEFAULT_ATOM_SECONDS = 5;
+  const targetSeconds = minutes * 60;
+  
+  // Handle manifest structure: videos is an object with video names as keys
+  const videosObj = manifest.videos || {};
+  const videoNames = Object.keys(videosObj);
+  
+  if (!videoNames.length) {
+    throw new Error('Manifest has no videos');
+  }
+  
+  // Pick first video
+  const stem = videoNames[0];
+  const atomCount = videosObj[stem].atom_count || 0;
+  
+  if (!atomCount) {
+    throw new Error('Video has no atoms');
+  }
+  
+  const plan = [];
+  let estimate = 0;
+  let index = 1;
+  
+  while (estimate < targetSeconds) {
+    const padded = String(index).padStart(4, '0');
+    const atomPath = `atoms/${stem}/chunk_${padded}_v1.json`;
+    plan.push({ stem, atomPath, index });
+    estimate += DEFAULT_ATOM_SECONDS;
+    index = index >= atomCount ? 1 : index + 1;
+  }
+  
+  return plan;
+}
+
+async function playAtomAt(index) {
+  if (!videoPlayer || !atomPlan.length) return;
+  
+  const nextIndex = (index + atomPlan.length) % atomPlan.length;
+  const atom = atomPlan[nextIndex];
+  
+  try {
+    // Fetch atom metadata
+    const atomRes = await fetch(`/api/media/atom?path=${encodeURIComponent(atom.atomPath)}`);
+    if (!atomRes.ok) {
+      throw new Error('Failed to fetch atom');
+    }
+    
+    const atomMeta = await atomRes.json();
+    const videoUrl = atomMeta.signed_url;
+    
+    if (!videoUrl) {
+      throw new Error('Atom has no video URL');
+    }
+    
+    atomIndex = nextIndex;
+    videoPlayer.dataset.title = `Atom ${atom.index} - ${atom.stem}`;
+    videoPlayer.src = videoUrl;
+    videoPlayer.currentTime = 0;
+    
+    if (userRequestedPlay) {
+      const playPromise = videoPlayer.play();
+      if (playPromise?.catch) {
+        playPromise.catch((error) => console.warn('[Atoms] Autoplay blocked:', error));
+      }
+    }
+  } catch (err) {
+    console.error('[Atoms] Failed to play:', err);
+    setPlaylistStatus('Failed to play atom', '#f66');
+  }
+}
+
+function playNextAtom() {
+  if (!atomsLoaded) return;
+  playAtomAt(atomIndex + 1);
 }
 
 function initializeGoogleAuth() {

@@ -1,4 +1,5 @@
 // RunnyVision backend serves the UI, APIs, and Backblaze access.
+import "dotenv/config";
 import express from "express";
 import path from "path";
 
@@ -10,6 +11,7 @@ import healthRouter from "./routes/health";
 import clipsRouter from "./routes/clips";
 import usersRouter from "./routes/users";
 import runSessionsRouter from "./routes/runSessions";
+import mediaRouter from "./routes/media";
 
 /**
  * ============================================================
@@ -132,6 +134,7 @@ app.use("/api/clips", clipsRouter);
 app.use("/api/run-sessions", runSessionsRouter);
 app.use("/api/passport", passportRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/media", mediaRouter);
 
 /* ------------------------------------------------------------
  * Server Start

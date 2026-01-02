@@ -103,4 +103,3 @@ export async function getSignedDownloadUrl(
   return `${downloadUrl}/file/${B2_BUCKET_NAME}/${fileName}?Authorization=${token}`;
 }
 
-Bucket ID:75c3a9c0652d543096b30716
