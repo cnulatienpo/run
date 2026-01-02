@@ -8,8 +8,19 @@ let standby = null;
 export function initVideos() {
   A = document.getElementById("v1");
   B = document.getElementById("v2");
+  console.log('[runEngine] Initialized videos:', { A: A?.id, B: B?.id });
+  
+  if (!A || !B) {
+    console.error('[runEngine] Video elements not found! v1:', A, 'v2:', B);
+    return;
+  }
+  
   active = A;
   standby = B;
+  
+  // Ensure initial visibility
+  active.classList.add('active');
+  console.log('[runEngine] Active video set to:', active.id);
 }
 
 export async function startRun(planInput) {

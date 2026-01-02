@@ -693,15 +693,15 @@ let atomsLoaded = false;
 
 async function loadAtomsFromBackblaze(durationMinutes = 5) {
   try {
-    setPlaylistStatus('Loading atoms from Backblaze...', '#4CAF50');
+    setPlaylistStatus('Loading atoms from local manifest...', '#4CAF50');
     
     // Initialize video elements for crossfading
     initVideos();
     
-    // Fetch manifest
+    // Fetch manifest from local backend
     const manifestRes = await fetch('/api/media/manifest');
     if (!manifestRes.ok) {
-      throw new Error('Failed to fetch manifest');
+      throw new Error('Failed to fetch local manifest');
     }
     atomManifest = await manifestRes.json();
     

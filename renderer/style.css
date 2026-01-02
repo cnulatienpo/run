@@ -310,7 +310,7 @@ svg.hand-drawn-button {
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  z-index: -1;
+  z-index: 50100;
   mix-blend-mode: screen;
   opacity: 0;
   transition: opacity 160ms ease-out;
@@ -402,7 +402,7 @@ svg.hand-drawn-button {
   opacity: 0;
   transition: opacity 0.5s ease;
   pointer-events: auto;
-  z-index: 10000;
+  z-index: 50000;
   background: #000;
 }
 
@@ -437,7 +437,7 @@ svg.hand-drawn-button {
   display: flex;
   gap: 12px;
   pointer-events: auto;
-  z-index: 10001;
+  z-index: 50200;
 }
 
 .hud-header {

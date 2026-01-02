@@ -92,14 +92,17 @@ export async function getSignedDownloadUrl(
   await authorizeIfNeeded();
   if (!b2 || !downloadUrl) throw new Error("B2 not initialized");
 
+  // Use empty prefix to authorize access to entire bucket
+  // This avoids issues with special characters in the fileNamePrefix
   const authResponse = await b2.getDownloadAuthorization({
     bucketId: B2_BUCKET_ID,
-    fileNamePrefix: fileName,
+    fileNamePrefix: "",
     validDurationInSeconds: validSeconds,
   });
 
   const token = authResponse.data.authorizationToken;
+  const encodedFileName = encodeURIComponent(fileName);
 
-  return `${downloadUrl}/file/${B2_BUCKET_NAME}/${fileName}?Authorization=${token}`;
+  return `${downloadUrl}/file/${B2_BUCKET_NAME}/${encodedFileName}?Authorization=${token}`;
 }
 

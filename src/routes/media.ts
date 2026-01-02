@@ -7,6 +7,8 @@
 
 import { Router, Request, Response } from "express";
 import { getSignedDownloadUrl } from "../storage/b2Client";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const router = Router();
 
@@ -39,25 +41,21 @@ router.get("/download-url", async (req: Request, res: Response) => {
 /**
  * GET /api/media/manifest
  *
- * Fetches the manifest_v1.json file from the bucket root
+ * Serves the local manifest_v1.json file from backend/
  */
-router.get("/manifest", async (_req: Request, res: Response) => {
+router.get("/manifest", (_req: Request, res: Response) => {
   try {
-    const manifestPath = "manifest_v1.json";
-    const url = await getSignedDownloadUrl(manifestPath, 60);
+    // Read manifest from local backend directory
+    const manifestPath = join(__dirname, "../../backend/manifest_v1.json");
+    const manifestData = readFileSync(manifestPath, "utf-8");
+    const manifest = JSON.parse(manifestData);
     
-    // Fetch the manifest content
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch manifest: ${response.statusText}`);
-    }
-    
-    const manifest = await response.json();
     return res.json(manifest);
   } catch (err: any) {
     console.error("[media] manifest error:", err);
     return res.status(500).json({
-      error: "Failed to fetch manifest",
+      error: "Failed to read local manifest",
+      details: err.message,
     });
   }
 });
