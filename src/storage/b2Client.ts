@@ -1,10 +1,10 @@
 // src/storage/b2Client.ts
 // ============================================================
-// RunnyVision — Sole Backblaze B2 integration point
+// RunnyVision — Sole Backblaze B2 integration point (PRIVATE)
 // This file is the ONLY place that:
 // - reads B2 credentials
 // - authorizes with Backblaze
-// - constructs upload or download URLs
+// - generates signed download URLs
 // ============================================================
 
 import B2 from "backblaze-b2";
@@ -82,12 +82,25 @@ export async function uploadVideo(
 }
 
 /* ------------------------------------------------------------
- * Download URL (public bucket assumed)
+ * Private download: signed URL
  * ------------------------------------------------------------ */
 
-export async function getDownloadUrl(fileName: string) {
+export async function getSignedDownloadUrl(
+  fileName: string,
+  validSeconds = 60
+) {
   await authorizeIfNeeded();
-  if (!downloadUrl) throw new Error("Missing downloadUrl");
+  if (!b2 || !downloadUrl) throw new Error("B2 not initialized");
 
-  return `${downloadUrl}/file/${B2_BUCKET_NAME}/${fileName}`;
+  const authResponse = await b2.getDownloadAuthorization({
+    bucketId: B2_BUCKET_ID,
+    fileNamePrefix: fileName,
+    validDurationInSeconds: validSeconds,
+  });
+
+  const token = authResponse.data.authorizationToken;
+
+  return `${downloadUrl}/file/${B2_BUCKET_NAME}/${fileName}?Authorization=${token}`;
 }
+
+Bucket ID:75c3a9c0652d543096b30716
