@@ -3,7 +3,7 @@
  * HUD NAVIGATION NOTES
  * ------------------------------------------------------------
  * The HUD does not mount <rv-app>.
- * The “Open Workahol Enabler” button opens rv-app in a new window/tab.
+ * The “Open default” button opens rv-app in a new window/tab.
  * rv-app is served at:
  *      DEV: http://localhost:3000/rv (proxied to :3001)
  *      PROD: /rv
@@ -89,7 +89,7 @@ const DEFAULT_HALLUCINATION_SETTINGS = {
   stepRate: 0,
 };
 
-// Curated scenic / exploration clips for "Workahol Enabler"
+// Curated scenic / exploration clips for "default"
 // Now mapped to direct MP4/WebM sources for the native video element.
 const WORKAHOL_ENABLER_CLIPS = [
   {
@@ -144,7 +144,7 @@ const WORKAHOL_ENABLER_PLAYLIST_ID = 'workahol_enabler';
 const PLAYLIST_REGISTRY = [
   {
     id: WORKAHOL_ENABLER_PLAYLIST_ID,
-    name: 'Workahol Enabler – Scenic / Urban / Urbex',
+    name: 'default – Scenic / Urban / Urbex',
     source: 'local',
     items: WORKAHOL_ENABLER_CLIPS,
   },
@@ -388,7 +388,7 @@ function cacheDom() {
   console.log('[DOM] Stop button element:', elements.stopButton);
 
   if (elements.openRVApp) {
-    elements.openRVApp.textContent = 'Open Workahol Enabler';
+    elements.openRVApp.textContent = 'Open default';
   }
 }
 

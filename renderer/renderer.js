@@ -3,7 +3,7 @@
  * HUD NAVIGATION NOTES
  * ------------------------------------------------------------
  * The HUD does not mount <rv-app>.
- * The “Open Workahol Enabler” button opens rv-app in a new window/tab.
+ * The “Open default” button opens rv-app in a new window/tab.
  * rv-app is served at:
  *      DEV: http://localhost:3000/rv (proxied to :3001)
  *      PROD: /rv
@@ -336,7 +336,7 @@ function cacheDom() {
   console.log('[DOM] Stop button element:', elements.stopButton);
 
   if (elements.openRVApp) {
-    elements.openRVApp.textContent = 'Open Workahol Enabler';
+    elements.openRVApp.textContent = 'Open default';
   }
 }
 

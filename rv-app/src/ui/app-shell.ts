@@ -45,7 +45,7 @@ export class RVAppShell extends HTMLElement {
     header.innerHTML = `
       <div style="padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-size:1.8rem;font-weight:800">Workahol Enabler</div>
+          <div style="font-size:1.8rem;font-weight:800">default</div>
           <div style="font-size:0.9rem;color:var(--muted)">Productivity Upgrade Machine</div>
         </div>
         <button class="large-btn" id="prep-seed">Load Fixtures</button>

@@ -19,7 +19,7 @@ function Header() {
           to="/workahol"
           aria-current={location.pathname === "/workahol" ? "page" : undefined}
         >
-          Workahol Enabler
+          default
         </Link>
       </nav>
     </header>

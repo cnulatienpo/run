@@ -32,7 +32,7 @@ export default function RouteSelector({ onSelect }: Props) {
 
   if (loading) return <p>Loading routes...</p>;
   if (error) return <p>{error}</p>;
-  if (!routes.length) return <p>No routes yet. Visit Workahol Enabler to add some.</p>;
+  if (!routes.length) return <p>No routes yet. Visit default to add some.</p>;
 
   return (
     <div className="form-grid">
