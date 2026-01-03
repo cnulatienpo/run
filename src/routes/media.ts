@@ -85,8 +85,8 @@ router.get("/atom", async (req: Request, res: Response) => {
     
     const atomMeta = await response.json();
     
-    // If atom has a video_url or similar field, generate a signed URL for it
-    const videoFileName = atomMeta?.video_url || atomMeta?.videoUrl || atomMeta?.segment_url;
+    // Generate signed URL for the video file referenced in the atom
+    const videoFileName = atomMeta?.video || atomMeta?.video_url || atomMeta?.videoUrl || atomMeta?.segment_url;
     if (videoFileName) {
       atomMeta.signed_url = await getSignedDownloadUrl(videoFileName, 300); // 5 minute expiry for video
     }

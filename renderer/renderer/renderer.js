@@ -738,32 +738,56 @@ async function buildAtomPlanForEngine(manifest, minutes) {
     throw new Error('Manifest has no videos');
   }
   
-  // Pick first video
-  const stem = videoNames[0];
-  const atomCount = videosObj[stem].atom_count || 0;
-  
-  if (!atomCount) {
-    throw new Error('Video has no atoms');
-  }
-  
+  // Build plan from ALL videos in manifest, not just the first one
   const plan = [];
   let estimate = 0;
-  let index = 1;
   
-  while (estimate < targetSeconds) {
-    const padded = String(index).padStart(4, '0');
-    const atomPath = `atoms/${stem}/chunk_${padded}_v1.json`;
+  console.log('[buildAtomPlan] Building from manifest with videos:', videoNames);
+  
+  // Collect all atoms from all videos
+  for (const stem of videoNames) {
+    const atomCount = videosObj[stem].atom_count || 0;
     
-    // Build plan item with structure expected by runEngine
-    plan.push({
-      url: `/api/media/atom?path=${encodeURIComponent(atomPath)}`,
-      effectiveDuration: DEFAULT_ATOM_SECONDS,
-      stretch: 1,
-    });
+    console.log(`[buildAtomPlan] Video ${stem} has ${atomCount} atoms`);
     
-    estimate += DEFAULT_ATOM_SECONDS;
-    index = index >= atomCount ? 1 : index + 1;
+    if (!atomCount) {
+      console.warn(`[Atoms] Video ${stem} has no atoms, skipping`);
+      continue;
+    }
+    
+    // Add all atoms from this video
+    for (let index = 1; index <= atomCount; index++) {
+      const padded = String(index).padStart(4, '0');
+      const atomPath = `atoms/${stem}/chunk_${padded}_v1.json`;
+      
+      // Build plan item with structure expected by runEngine
+      plan.push({
+        url: `/api/media/atom?path=${encodeURIComponent(atomPath)}`,
+        effectiveDuration: DEFAULT_ATOM_SECONDS,
+        stretch: 1,
+        stem: stem,
+        index: index,
+      });
+      
+      estimate += DEFAULT_ATOM_SECONDS;
+    }
   }
+  
+  console.log('[buildAtomPlan] Collected', plan.length, 'unique atoms');
+  console.log('[buildAtomPlan] First 3 atoms:', plan.slice(0, 3));
+  
+  // If we need more duration, loop through the atoms again
+  if (estimate < targetSeconds) {
+    const originalPlanLength = plan.length;
+    console.log('[buildAtomPlan] Need to repeat atoms, original length:', originalPlanLength);
+    while (estimate < targetSeconds) {
+      const atomToRepeat = plan[plan.length % originalPlanLength];
+      plan.push({ ...atomToRepeat });
+      estimate += DEFAULT_ATOM_SECONDS;
+    }
+  }
+  
+  console.log('[buildAtomPlan] Final plan length:', plan.length);
   
   return plan;
 }
