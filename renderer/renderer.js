@@ -64,7 +64,7 @@ import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';
 import { createNetworkClient } from './network.js';
 import { getPassportStamps, computePassportStats } from './passport.js';
-import { startRun, initVideos } from './renderer/runEngine.js';
+import { startRun, initVideos, pauseRun, stopRun, getRunState } from './renderer/runEngine.js';
 
 const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/fitness.activity.read'].join(' ');
 const GOOGLE_TOKEN_KEY = 'rtw.google.oauthToken';
@@ -469,9 +469,24 @@ function setupEventListeners() {
     testClipAPI();
   });
 
+  // Transport controls only command the atom engine; legacy background players (#videoA/#videoB, RunnyVisionPlayer)
+  // stay untouched to keep atom playback as the single authority for HUD video.
   elements.playButton?.addEventListener('click', async () => {
     console.log('[Play Button] Clicked');
     userRequestedPlay = true;
+    const engineState = getRunState();
+
+    if (atomsLoaded) {
+      if (engineState === 'paused') {
+        setPlaylistStatus('Resuming atom engine...', '#4CAF50');
+        await startRun();
+        return;
+      }
+      if (engineState === 'running') {
+        setPlaylistStatus('Atom engine already running', '#aaa');
+        return;
+      }
+    }
     
     // ALWAYS load atoms, never use the old playlist system
     console.log('[Play Button] Loading atoms from Backblaze');
@@ -484,17 +499,14 @@ function setupEventListeners() {
   });
 
   elements.pauseButton?.addEventListener('click', () => {
-    if (videoPlayer) {
-      videoPlayer.pause();
-    }
+    pauseRun();
+    setPlaylistStatus('Atom engine paused (v1 + v2 held)', '#aaa');
   });
 
   elements.stopButton?.addEventListener('click', () => {
-    if (videoPlayer) {
-      videoPlayer.pause();
-      videoPlayer.currentTime = 0;
-    }
+    stopRun();
     userRequestedPlay = false;
+    setPlaylistStatus('Atom engine stopped and reset', '#aaa');
   });
 
   elements.volumeSlider?.addEventListener('input', (event) => {
@@ -544,6 +556,7 @@ function initializeVideoPlayer() {
   setVideoAttributes();
   // Don't bind video events - atoms system handles everything
   playerReady = true;
+  // Atom engine stays idle until the user presses Play; there is no hidden autoplay on load.
 
   if (Number.isFinite(desiredVolume)) {
     setVideoVolume(desiredVolume);
