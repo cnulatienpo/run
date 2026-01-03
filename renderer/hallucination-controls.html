@@ -234,7 +234,7 @@
     <div id="hud-controls-panel" style="margin-bottom: 2rem; padding: 1.25rem; border-radius: 12px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
       <h2 style="margin-top: 0; margin-bottom: 1rem; color: #e63946; filter: url(#ballpoint-ink);">HUD Controls</h2>
       <div id="music-controller" class="row" style="margin-bottom: 12px; padding: 16px; border-radius: 12px; background: rgba(15, 23, 42, 0.65);">
-        <h3 style="margin: 0 0 12px; font-size: 1.1rem; color: #e63946; filter: url(#ballpoint-ink);">🎵 Music Control</h3>
+        <h3 style="margin: 0 0 12px; font-size: 1.1rem; color: #e63946; filter: url(#ballpoint-ink);">🎵 Music Control (Audio-only)</h3>
         <!-- Audio uploads below feed ONLY the music system (not video atoms or playlists). -->
         <input multiple type="file" id="music-file-input" accept=".mp3,.wav,.ogg,.m4a" style="display: block; margin-bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); color: #e2e8f0; cursor: pointer; font-size: 0.9rem;" />
         <div style="margin-bottom: 10px;">
@@ -270,6 +270,7 @@
         <button data-tag="Ambient" class="frame-rect">Ambient</button>
         <button data-tag="Urban" class="frame-rect">Urban</button>
         <span id="current-tag" style="margin-left:12px; opacity: 0.6;">None</span>
+        <span id="tag-visual-only" style="opacity: 0.6;">(visuals only, no playlist changes)</span>
       </div>
       <div class="row" id="fit-status-row" style="font-size: 0.85em; opacity: 0.75; display: flex; align-items: center; gap: 12px;">
         <span id="fit-status">Google Fit inactive on this page</span>
@@ -304,6 +305,12 @@
     const fileNameEl = document.getElementById('music-file-name');
     const bpmEl = document.getElementById('music-bpm');
     const statusEl = document.getElementById('music-status');
+    const audioOnlyNote = ' (audio only; visuals unchanged)';
+
+    function setMusicStatus(message) {
+      if (!statusEl) return;
+      statusEl.textContent = `Status: ${message}${audioOnlyNote}`;
+    }
 
     function initAudioContext() {
       if (!audioContext) {
@@ -367,12 +374,12 @@
       activeSource.start(0, offset);
       startTime = audioContext.currentTime - offset;
       isPlaying = true;
-      statusEl.textContent = 'Status: Playing';
+      setMusicStatus('Playing');
 
       activeSource.onended = () => {
         if (isPlaying) {
           stopActiveSource(true);
-          statusEl.textContent = 'Status: Ended';
+          setMusicStatus('Ended');
         }
       };
     }
@@ -381,12 +388,12 @@
       if (!activeSource || !isPlaying || !audioContext) return;
       pauseTime = audioContext.currentTime - startTime;
       stopActiveSource(false);
-      statusEl.textContent = 'Status: Paused';
+      setMusicStatus('Paused');
     }
 
     function stopMusic() {
       stopActiveSource(true);
-      statusEl.textContent = 'Status: Stopped';
+      setMusicStatus('Stopped');
     }
 
     if (fileInput) {
@@ -395,7 +402,7 @@
         if (!files.length) return;
 
         initAudioContext();
-        statusEl.textContent = `Status: Loading ${files.length} file(s)...`;
+        setMusicStatus(`Loading ${files.length} file(s)...`);
 
         let loadedCount = 0;
         for (const file of files) {
@@ -418,13 +425,13 @@
             currentTrackIndex = 0;
           }
           updateTrackDisplay();
-          statusEl.textContent = `Status: Ready (${localPlaylist.length} queued)`;
+          setMusicStatus(`Ready (${localPlaylist.length} queued)`);
           updateControlsAvailability();
 
           bpmEl.textContent = 'BPM: ~120';
         } else {
           fileNameEl.textContent = 'Error loading file(s)';
-          statusEl.textContent = 'Status: Error';
+          setMusicStatus('Error');
         }
       });
     }
@@ -436,12 +443,16 @@
     // Tag buttons
     const tagButtons = document.querySelectorAll('button[data-tag]');
     const tagDisplay = document.getElementById('current-tag');
+    const tagScopeNote = document.getElementById('tag-visual-only');
     tagButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         const tag = btn.dataset.tag;
         if (!tag) return;
         if (tagDisplay) {
-          tagDisplay.textContent = tag;
+          tagDisplay.textContent = `${tag} (visuals only)`;
+        }
+        if (tagScopeNote) {
+          tagScopeNote.textContent = 'Adjusting hallucination visuals; playlists stay fixed.';
         }
         recordTag(tag, 'HUD Controls');
         localStorage.setItem('selectedTag', tag);
@@ -449,10 +460,11 @@
     });
     const saved = localStorage.getItem('selectedTag');
     if (saved && tagDisplay) {
-      tagDisplay.textContent = saved;
+      tagDisplay.textContent = `${saved} (visuals only)`;
     }
 
     // Fit status timer (display only)
+    setMusicStatus('Idle');
     startTimer(document.getElementById('session-time'));
   </script>
 

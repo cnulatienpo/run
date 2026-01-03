@@ -205,12 +205,17 @@ export function initHUD({
   const tagsRow = document.createElement('div');
   tagsRow.className = 'control-row tags-row';
   const tagsLabel = document.createElement('label');
-  tagsLabel.textContent = 'Tags';
+  tagsLabel.textContent = 'Tags (visual weighting only)';
   tagsRow.appendChild(tagsLabel);
 
   const tagsContainer = document.createElement('div');
   tagsContainer.className = 'tag-buttons';
   tagsRow.appendChild(tagsContainer);
+
+  const tagsStatus = document.createElement('div');
+  tagsStatus.className = 'tag-status';
+  tagsStatus.textContent = 'Tags steer hallucination visuals only (no playlist changes).';
+  tagsRow.appendChild(tagsStatus);
 
   const availableTags = effectMap.labels ? Object.entries(effectMap.labels) : [];
   availableTags.forEach(([key, label]) => {
@@ -232,6 +237,11 @@ export function initHUD({
         onTagToggle?.(key, true, { label });
       }
       updateFloatingHUD();
+      if (tagsStatus) {
+        tagsStatus.textContent = selectedTags.size
+          ? `Visuals weighted by: ${formatTagDisplay()}`
+          : 'Tags steer hallucination visuals only (no playlist changes).';
+      }
     });
     tagsContainer.appendChild(button);
   });

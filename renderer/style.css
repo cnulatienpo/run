@@ -299,23 +299,6 @@ svg.hand-drawn-button {
   opacity: 0;
 }
 
-#fx-canvas {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 50100;
-  mix-blend-mode: screen;
-  opacity: 0;
-  transition: opacity 160ms ease-out;
-}
-
-#fx-canvas.fx-visible {
-  opacity: 0.3;
-}
-
 /* Music controller styling */
 #music-controller {
   background-image: var(--frame-rectangle-img) !important;
