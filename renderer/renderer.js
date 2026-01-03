@@ -65,22 +65,31 @@ import { startTimer } from './timer.js';
 import { initTags } from './tagManager.js';
 import { createNetworkClient } from './network.js';
 import { getPassportStamps, computePassportStats } from './passport.js';
-import { startRun, initVideos, pauseRun, stopRun, getRunState } from './renderer/runEngine.js';
+import {
+  start as startAtomEngine,
+  stop as stopAtomEngine,
+  pause as pauseAtomEngine,
+  next as nextAtom,
+  prev as prevAtom,
+  getState as getAtomEngineState,
+  setPlan as setAtomPlan,
+  setVolume as setAtomVolume,
+  setPlaybackRate as setAtomPlaybackRate,
+} from './renderer/runEngine.js';
 
 const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/fitness.activity.read'].join(' ');
 const GOOGLE_TOKEN_KEY = 'rtw.google.oauthToken';
 const GOOGLE_TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
 const FIT_POLL_INTERVAL_MS = 5000;
 const FIT_WINDOW_MS = 30000;
-const PLAYLIST_STORAGE_KEY = 'rtw.video.selectedPlaylist';
 const VOLUME_STORAGE_KEY = 'rtw.video.volume';
 const HALLUCINATION_SETTINGS_KEY = 'rv.hallucination.settings';
 const RV_APP_BASE_PATH = '/rv/';
 const RV_APP_DEV_URL = RV_APP_BASE_PATH;
 const RV_APP_PROD_URL = RV_APP_BASE_PATH;
-const IDLE_POSTER_SRC = '/assets/frame-rectangle.jpg';
 const STARTUP_READY_STATUS = 'Ready — press Play';
 const ATOM_MODE_STATUS = 'Atoms mode active — playlist controls disabled';
+const PLAYLIST_DISABLED_STATUS = 'Atoms mode active — playlists disabled';
 
 const DEFAULT_HALLUCINATION_SETTINGS = {
   selectedPacks: ['default'],
@@ -93,78 +102,11 @@ const DEFAULT_HALLUCINATION_SETTINGS = {
   stepRate: 0,
 };
 
-// Curated scenic / exploration clips for "Workahol Enabler"
-// Now mapped to direct MP4/WebM sources for the native video element.
-const WORKAHOL_ENABLER_CLIPS = [
-  {
-    id: 'rural_canada_virtual_run',
-    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    title: 'Virtual Running – Rural Canada 4K (Treadmill Scenery)',
-    location: 'Rural Canada',
-    vibe: 'open road / countryside run',
-    environments: ['OUTDOOR', 'NATURE', 'RURAL'],
-    peopleDensity: 'LOW',
-    tags: ['virtual run', 'treadmill scenery', '4k', 'nature', 'canada', 'running'],
-  },
-
-  {
-    id: 'haut_gorges_fall_run',
-    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    title: '[4K] Treadmill Scenery – Fall Foliage Run (Hautes-Gorges, Canada)',
-    location: 'Hautes-Gorges, Quebec',
-    vibe: 'fall colors / cozy cardio',
-    environments: ['OUTDOOR', 'NATURE', 'MOUNTAIN'],
-    peopleDensity: 'LOW',
-    tags: ['treadmill', 'virtual run', '4k', 'autumn', 'fall foliage', 'river', 'mountains'],
-  },
-
-  {
-    id: 'nyc_night_walk',
-    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    title: 'NEW YORK CITY Walking Tour at Night – 4K UHD',
-    location: 'New York City, USA',
-    vibe: 'city lights / busy streets / “city that never sleeps”',
-    environments: ['OUTDOOR', 'CITY', 'URBAN'],
-    peopleDensity: 'HIGH',
-    tags: ['walking tour', 'NYC', 'Times Square', 'night city', '4k', 'manhattan', 'city walk'],
-  },
-
-  {
-    id: 'hong_kong_harbor_night',
-    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    title: 'Hong Kong City Walking Tour – Tsim Sha Tsui Waterfront 4K',
-    location: 'Hong Kong – Tsim Sha Tsui / Victoria Harbour',
-    vibe: 'waterfront skyline / neon reflections',
-    environments: ['OUTDOOR', 'CITY', 'WATERFRONT'],
-    peopleDensity: 'MEDIUM',
-    tags: ['hong kong', 'tsim sha tsui', '4k walk', 'harbourfront', 'city walking tour', 'night walk'],
-  },
-];
-
-const WORKAHOL_ENABLER_PLAYLIST_ID = 'workahol_enabler';
-
-// Playlist registry defines media sources only.
-// Tags (Dreamcore / Ambient / Urban) influence hallucination weighting, not playlist membership.
-const PLAYLIST_REGISTRY = [
-  {
-    id: WORKAHOL_ENABLER_PLAYLIST_ID,
-    name: 'Workahol Enabler – Scenic / Urban / Urbex',
-    source: 'local',
-    items: WORKAHOL_ENABLER_CLIPS,
-  },
-];
-
 let googleTokenClient;
 let googleAccessToken = null;
 let tokenRefreshTimer;
 let fitPollTimer;
-let videoPlayer;
-let playerReady = false;
 let userRequestedPlay = false;
-let idlePosterAssigned = false;
-let currentPlaylistId = PLAYLIST_REGISTRY[0]?.id || null;
-let currentPlaylist = PLAYLIST_REGISTRY[0]?.items || [];
-let currentClipIndex = 0;
 let desiredVolume = 50;
 let latestCadence;
 let latestSteps;
@@ -302,11 +244,12 @@ function bindActivityListeners() {
 }
 
 function getCurrentVideoTitle() {
-  const clip = currentPlaylist?.[currentClipIndex];
-  if (clip?.title) {
-    return clip.title;
+  const state = getAtomEngineState();
+  if (state?.running && Number.isInteger(state.currentAtomIndex)) {
+    const total = Number.isFinite(state.totalAtoms) ? state.totalAtoms : '??';
+    return `Atom ${state.currentAtomIndex + 1} / ${total}`;
   }
-  return document.title || '';
+  return 'Atoms idle — press Play';
 }
 
 function exposeHallucinationControls() {
@@ -418,13 +361,6 @@ function setupHudToggle() {
 }
 
 function loadStoredPreferences() {
-  const storedPlaylist = safeReadLocalStorage(PLAYLIST_STORAGE_KEY);
-  if (storedPlaylist && typeof storedPlaylist === 'string') {
-    syncCurrentPlaylistSelection(storedPlaylist);
-  } else {
-    syncCurrentPlaylistSelection();
-  }
-
   const storedVolume = Number(safeReadLocalStorage(VOLUME_STORAGE_KEY));
   if (!Number.isNaN(storedVolume) && storedVolume >= 0 && storedVolume <= 100) {
     desiredVolume = storedVolume;
@@ -440,105 +376,57 @@ function setupEventListeners() {
     requestGoogleAccessToken('consent');
   });
 
-  elements.playlistSelect?.addEventListener('change', () => {
-    const playlistId = elements.playlistSelect.value;
-    if (playlistId) {
-      loadPlaylist(playlistId);
-    }
-  });
+  const warnPlaylistDisabled = () => {
+    console.warn('[Playlist] Controls disabled in atom mode');
+    const state = getAtomEngineState();
+    const position = Number.isInteger(state.currentAtomIndex) ? `${state.currentAtomIndex + 1}/${state.totalAtoms || '?'}` : 'idle';
+    const status = state.running ? 'running' : 'idle';
+    setPlaylistStatus(`${PLAYLIST_DISABLED_STATUS} (${status} ${position})`, '#ccc');
+  };
 
-  elements.playlistLoad?.addEventListener('click', () => {
-    if (elements.playlistSelect?.value) {
-      loadPlaylist(elements.playlistSelect.value);
-    }
-  });
-
-  elements.playlistPrev?.addEventListener('click', () => {
-    if (atomsLoaded) {
-      setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
-      return;
-    }
-    playPreviousClip();
-  });
-
-  elements.playlistNext?.addEventListener('click', () => {
-    if (atomsLoaded) {
-      setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
-      return;
-    }
-    playNextClip();
-  });
-
+  elements.playlistSelect?.addEventListener('change', warnPlaylistDisabled);
+  elements.playlistLoad?.addEventListener('click', warnPlaylistDisabled);
+  elements.playlistRefresh?.addEventListener('click', warnPlaylistDisabled);
   elements.playlistShuffle?.addEventListener('click', () => {
-    if (atomsLoaded) {
-      setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
-      return;
-    }
-    shuffleCurrentPlaylist();
-  });
-
-  elements.playlistRefresh?.addEventListener('click', () => {
-    renderPlaylistRegistry();
-    setPlaylistStatus('Playlist dropdown refreshed from registry', '#4CAF50');
+    warnPlaylistDisabled();
+    console.warn('[Playlist] Shuffle disabled — no truthful implementation available');
   });
 
   elements.testClipApi?.addEventListener('click', () => {
     testClipAPI();
   });
 
-  // Transport controls only command the atom engine; legacy background players (#videoA/#videoB, RunnyVisionPlayer)
-  // stay untouched to keep atom playback as the single authority for HUD video.
   elements.playButton?.addEventListener('click', async () => {
     console.log('[Play Button] Clicked');
     userRequestedPlay = true;
     updateHallucinationVisibility();
-    const engineState = getRunState();
-
-    if (atomsLoaded) {
-      if (engineState === 'paused') {
-        setPlaylistStatus('Resuming atom engine...', '#4CAF50');
-        await startRun();
-        return;
-      }
-      if (engineState === 'running') {
-        setPlaylistStatus('Atom engine already running', '#aaa');
-        return;
-      }
-    }
-    
-    // ALWAYS load atoms, never use the old playlist system
-    console.log('[Play Button] Loading atoms from Backblaze');
-    try {
-      const loaded = await loadAtomsFromBackblaze(5); // Default 5 minutes
-      if (!loaded) {
-        userRequestedPlay = false;
-        updateHallucinationVisibility();
-        setIdleReadyStatus();
-      }
-    } catch (err) {
-      console.error('[Play Button] Error loading atoms:', err);
-      setPlaylistStatus('Failed to load atoms', '#f66');
-      userRequestedPlay = false;
-      updateHallucinationVisibility();
-      setIdleReadyStatus();
-    }
+    await startAtomTransport();
   });
 
   elements.pauseButton?.addEventListener('click', () => {
-    const state = getRunState();
-    if (state === 'idle') {
-      setPlaylistStatus('Atom engine idle — press Play to start', '#aaa');
-      return;
-    }
-    pauseRun();
-    setPlaylistStatus('Atom engine paused (v1 + v2 held)', '#aaa');
+    pauseAtomEngine();
+    setPlaylistStatus('Atom engine paused (pause behaves like stop; press Play to restart)', '#aaa');
+    updateTransportStatus();
   });
 
   elements.stopButton?.addEventListener('click', () => {
-    stopRun();
+    stopAtomEngine();
     userRequestedPlay = false;
     updateHallucinationVisibility();
     setPlaylistStatus('Atom engine stopped — press Play to restart', '#aaa');
+    updateTransportStatus();
+  });
+
+  elements.playlistNext?.addEventListener('click', () => {
+    console.log('[Transport] Next atom requested');
+    nextAtom();
+    updateTransportStatus();
+  });
+
+  elements.playlistPrev?.addEventListener('click', () => {
+    console.log('[Transport] Previous atom requested');
+    prevAtom();
+    updateTransportStatus();
   });
 
   elements.volumeSlider?.addEventListener('input', (event) => {
@@ -546,7 +434,7 @@ function setupEventListeners() {
     if (Number.isFinite(value)) {
       desiredVolume = Math.max(0, Math.min(100, value));
       safeWriteLocalStorage(VOLUME_STORAGE_KEY, String(desiredVolume));
-      setVideoVolume(desiredVolume);
+      setAtomVolume(desiredVolume);
     }
   });
 
@@ -578,180 +466,38 @@ async function testClipAPI() {
 }
 
 function initializeVideoPlayer() {
-  // Use the first video element (v1) as the primary player for legacy code
-  videoPlayer = document.getElementById('v1');
-  if (!videoPlayer) {
-    console.warn('[Video] Player element not found');
-    playerReady = false;
-    return;
-  }
-
-  setVideoAttributes();
-  idlePosterAssigned = applyIdlePoster();
-  playerReady = hasVisibleVideoSurface();
+  setAtomVolume(desiredVolume);
+  lockPlaylistControlsForAtoms();
+  updateTransportStatus();
+  setPlaylistStatus(STARTUP_READY_STATUS, '#ccc');
   updateHallucinationVisibility();
-
-  if (!playerReady) {
-    setPlaylistStatus('Preparing idle surface...', '#aaa');
-    return;
-  }
-  // Atom engine stays idle until the user presses Play; there is no hidden autoplay on load.
-
-  if (Number.isFinite(desiredVolume)) {
-    setVideoVolume(desiredVolume);
-  }
-
-  setIdleReadyStatus();
-  // Don't auto-load playlists - we're using atoms only
-  console.log('[Video] Player initialized for atom playback');
-}
-
-function setVideoAttributes() {
-  if (!videoPlayer) return;
-  videoPlayer.setAttribute('playsinline', '');
-  videoPlayer.autoplay = false;
-  videoPlayer.loop = false;
-  videoPlayer.muted = false;
-  videoPlayer.controls = false;
-  videoPlayer.preload = 'none';
-}
-
-function applyIdlePoster() {
-  if (!videoPlayer) return false;
-  try {
-    videoPlayer.poster = IDLE_POSTER_SRC;
-    videoPlayer.preload = 'none';
-    if (!videoPlayer.src) {
-      videoPlayer.removeAttribute('src');
-      videoPlayer.load();
-    }
-    idlePosterAssigned = Boolean(videoPlayer.poster);
-    return idlePosterAssigned;
-  } catch (error) {
-    console.warn('[Video] Failed to set idle poster', error);
-    idlePosterAssigned = false;
-    return false;
-  }
-}
-
-function hasVisibleVideoSurface() {
-  if (!videoPlayer) return false;
-  const hasPoster = Boolean(videoPlayer.poster);
-  const hasSource = Boolean(videoPlayer.currentSrc || videoPlayer.src);
-  return hasPoster || hasSource;
+  console.log('[Video] Transport UI initialized for atom playback');
 }
 
 function updateHallucinationVisibility() {
-  const allowHallucination = userRequestedPlay || (hasVisibleVideoSurface() && !idlePosterAssigned);
+  const state = getAtomEngineState();
+  const allowHallucination = userRequestedPlay || state.running;
   setHallucinationVisibility(allowHallucination);
 }
 
-function bindVideoEvents() {
-  if (!videoPlayer) return;
-  videoPlayer.addEventListener('ended', () => {
-    if (!videoPlayer.loop && userRequestedPlay) {
-      // If atoms are loaded, play next atom, otherwise play next clip
-      if (atomsLoaded) {
-        playNextAtom();
-      } else {
-        playNextClip(true);
-      }
+function disablePlaylistUi() {
+  if (elements.playlistSelect) {
+    elements.playlistSelect.disabled = true;
+    elements.playlistSelect.title = PLAYLIST_DISABLED_STATUS;
+  }
+  const disabledControls = [
+    elements.playlistLoad,
+    elements.playlistPrev,
+    elements.playlistNext,
+    elements.playlistShuffle,
+    elements.playlistRefresh,
+  ];
+  disabledControls.forEach((control) => {
+    if (control) {
+      control.disabled = true;
+      control.title = PLAYLIST_DISABLED_STATUS;
     }
   });
-}
-
-function getPlaylistFromRegistry(playlistId) {
-  if (!playlistId) return undefined;
-  return PLAYLIST_REGISTRY.find((entry) => entry.id === playlistId);
-}
-
-function syncCurrentPlaylistSelection(preferredId) {
-  const playlist = getPlaylistFromRegistry(preferredId) || PLAYLIST_REGISTRY[0];
-  if (playlist) {
-    currentPlaylistId = playlist.id;
-    currentPlaylist = Array.isArray(playlist.items) ? playlist.items : [];
-    return playlist;
-  }
-
-  currentPlaylistId = null;
-  currentPlaylist = [];
-  return null;
-}
-
-function loadPlaylist(playlistId) {
-  if (!playlistId || atomsLoaded) return; // Don't load playlists if atoms are active
-
-  const playlist = getPlaylistFromRegistry(playlistId);
-  if (!playlist) {
-    setPlaylistStatus('Playlist not found', '#f66');
-    return;
-  }
-
-  currentPlaylistId = playlistId;
-  currentPlaylist = Array.isArray(playlist.items) ? playlist.items : [];
-  currentClipIndex = 0;
-  safeWriteLocalStorage(PLAYLIST_STORAGE_KEY, playlistId);
-
-  if (elements.playlistSelect) {
-    elements.playlistSelect.value = playlistId;
-  }
-
-  // Don't auto-play, just set status
-  setPlaylistStatus('Playlist ready', '#aaa');
-}
-
-function playClipAt(index) {
-  if (!videoPlayer || !currentPlaylist.length) return;
-  const nextIndex = (index + currentPlaylist.length) % currentPlaylist.length;
-  const clip = currentPlaylist[nextIndex];
-  if (!clip?.src) {
-    setPlaylistStatus('Clip missing source', '#f66');
-    return;
-  }
-
-  currentClipIndex = nextIndex;
-  if (clip.title) {
-    videoPlayer.dataset.title = clip.title;
-  } else {
-    delete videoPlayer.dataset.title;
-  }
-  videoPlayer.src = clip.src;
-  videoPlayer.currentTime = 0;
-  if (userRequestedPlay) {
-    const playPromise = videoPlayer.play();
-    if (playPromise?.catch) {
-      playPromise.catch((error) => console.warn('[Video] Autoplay blocked:', error));
-    }
-  }
-}
-
-function playNextClip(autoTriggered = false) {
-  if (!currentPlaylist.length) return;
-  playClipAt(currentClipIndex + 1);
-  if (!autoTriggered) {
-    setPlaylistStatus('Skipped to next clip', '#4CAF50');
-  }
-}
-
-function playPreviousClip() {
-  if (!currentPlaylist.length) return;
-  playClipAt(currentClipIndex - 1);
-  setPlaylistStatus('Went to previous clip', '#4CAF50');
-}
-
-function shuffleCurrentPlaylist() {
-  if (!currentPlaylist.length) return;
-  const randomIndex = Math.floor(Math.random() * currentPlaylist.length);
-  playClipAt(randomIndex);
-  setPlaylistStatus('Shuffled playlist', '#4CAF50');
-}
-
-function setVideoVolume(volume) {
-  const normalized = Math.max(0, Math.min(100, volume));
-  desiredVolume = normalized;
-  if (!videoPlayer) return;
-  videoPlayer.volume = normalized / 100;
-  videoPlayer.muted = normalized === 0;
 }
 
 /* ------------------------------------------------------------
@@ -760,43 +506,60 @@ function setVideoVolume(volume) {
 
 let atomManifest = null;
 let atomPlan = [];
-let atomIndex = 0;
 let atomsLoaded = false;
-let playlistControlsLocked = false;
+
+async function startAtomTransport() {
+  const engineState = getAtomEngineState();
+  if (engineState.running) {
+    setPlaylistStatus('Atom engine already running', '#aaa');
+    updateTransportStatus();
+    return;
+  }
+
+  if (!atomsLoaded) {
+    const loaded = await loadAtomsFromBackblaze(5);
+    if (!loaded) {
+      userRequestedPlay = false;
+      updateHallucinationVisibility();
+      return;
+    }
+  }
+
+  await startAtomEngine(atomPlan);
+  setPlaylistStatus('Atom engine starting…', '#4CAF50');
+  updateTransportStatus();
+  updateHallucinationVisibility();
+}
 
 async function loadAtomsFromBackblaze(durationMinutes = 5) {
   try {
     setPlaylistStatus('Loading atoms from Backblaze...', '#4CAF50');
-    
-    // Initialize video elements for crossfading
-    initVideos();
-    
-    // Fetch manifest
+
     const manifestRes = await fetch('/api/media/manifest');
     if (!manifestRes.ok) {
       throw new Error('Failed to fetch manifest');
     }
     atomManifest = await manifestRes.json();
-    
-    // Build plan with proper structure for runEngine
+
     atomPlan = await buildAtomPlanForEngine(atomManifest, durationMinutes);
-    atomIndex = 0;
     atomsLoaded = true;
-    playlistControlsLocked = true;
     lockPlaylistControlsForAtoms();
-    
-    setPlaylistStatus(`Atoms mode active — loaded ${atomPlan.length} atoms (${durationMinutes} min)`, '#4CAF50');
-    
-    // Start playing using runEngine
-    if (playerReady && userRequestedPlay) {
-      await startRun(atomPlan);
+    setAtomPlan(atomPlan);
+
+    console.log(`[Atoms] Plan ready with ${atomPlan.length} atoms for ~${durationMinutes} minutes`);
+    updateTransportStatus();
+
+    if (userRequestedPlay) {
+      await startAtomEngine(atomPlan);
       setPlaylistStatus('Starting atom engine...', '#4CAF50');
+      updateTransportStatus();
     }
-    
+
     return true;
   } catch (err) {
     console.error('[Atoms] Failed to load:', err);
     setPlaylistStatus('Failed to load atoms', '#f66');
+    atomsLoaded = false;
     return false;
   }
 }
@@ -860,48 +623,6 @@ async function buildAtomPlanForEngine(manifest, minutes) {
   }
   
   return plan;
-}
-
-async function playAtomAt(index) {
-  if (!videoPlayer || !atomPlan.length) return;
-  
-  const nextIndex = (index + atomPlan.length) % atomPlan.length;
-  const atom = atomPlan[nextIndex];
-  
-  try {
-    // Fetch atom metadata
-    const atomRes = await fetch(`/api/media/atom?path=${encodeURIComponent(atom.atomPath)}`);
-    if (!atomRes.ok) {
-      throw new Error('Failed to fetch atom');
-    }
-    
-    const atomMeta = await atomRes.json();
-    const videoUrl = atomMeta.signed_url;
-    
-    if (!videoUrl) {
-      throw new Error('Atom has no video URL');
-    }
-    
-    atomIndex = nextIndex;
-    videoPlayer.dataset.title = `Atom ${atom.index} - ${atom.stem}`;
-    videoPlayer.src = videoUrl;
-    videoPlayer.currentTime = 0;
-    
-    if (userRequestedPlay) {
-      const playPromise = videoPlayer.play();
-      if (playPromise?.catch) {
-        playPromise.catch((error) => console.warn('[Atoms] Autoplay blocked:', error));
-      }
-    }
-  } catch (err) {
-    console.error('[Atoms] Failed to play:', err);
-    setPlaylistStatus('Failed to play atom', '#f66');
-  }
-}
-
-function playNextAtom() {
-  if (!atomsLoaded) return;
-  playAtomAt(atomIndex + 1);
 }
 
 function initializeGoogleAuth() {
@@ -1025,7 +746,7 @@ function applyToken(token) {
   googleAccessToken = token.accessToken;
   safeWriteLocalStorage(GOOGLE_TOKEN_KEY, JSON.stringify(token));
   setAuthStatus('Signed in with Google', '#4CAF50');
-  setPlaylistControlsEnabled(true);
+  setPlaylistControlsEnabled();
   onAuthenticated();
 }
 
@@ -1082,109 +803,27 @@ function isTokenValid(token) {
   return token.expiry - Date.now() > GOOGLE_TOKEN_REFRESH_MARGIN_MS;
 }
 
-function populatePlaylistDropdown(playlists) {
-  if (!elements.playlistSelect) {
-    return;
-  }
-
-  elements.playlistSelect.innerHTML = '';
-  if (!playlists.length) {
-    currentPlaylistId = null;
-    currentPlaylist = [];
-    const option = document.createElement('option');
-    option.value = '';
-    option.textContent = 'No playlists available';
-    elements.playlistSelect.appendChild(option);
-    elements.playlistSelect.disabled = true;
-    return;
-  }
-
-  elements.playlistSelect.disabled = false;
-
-  for (const playlist of playlists) {
-    const option = document.createElement('option');
-    option.value = playlist.id;
-    option.textContent = playlist.name;
-    elements.playlistSelect.appendChild(option);
-  }
-
-  const active = syncCurrentPlaylistSelection(currentPlaylistId) || playlists[0];
-  if (active) {
-    elements.playlistSelect.value = active.id;
-  }
-
-  if (playlists.length === 1) {
-    elements.playlistSelect.title = `Single playlist available: ${playlists[0].name}`;
-  } else {
-    elements.playlistSelect.title = 'Select a playlist';
-  }
-}
-
-function setIdleReadyStatus() {
-  if (!playerReady || userRequestedPlay) {
-    return;
-  }
-  setPlaylistStatus(STARTUP_READY_STATUS, '#ccc');
-}
-
 function renderPlaylistRegistry() {
-  populatePlaylistDropdown(PLAYLIST_REGISTRY);
-  const hasPlaylists = PLAYLIST_REGISTRY.length > 0;
-  setPlaylistControlsEnabled(hasPlaylists);
-
-  if (!hasPlaylists) {
-    setPlaylistStatus('No playlists available', '#f66');
-    return;
+  disablePlaylistUi();
+  if (elements.playlistStatus) {
+    elements.playlistStatus.title = PLAYLIST_DISABLED_STATUS;
   }
-
-  if (playlistControlsLocked) {
-    setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
-    return;
-  }
-
-  if (!playerReady) {
-    setPlaylistStatus('Preparing idle surface...', '#aaa');
-    return;
-  }
-
-  if (playerReady && !userRequestedPlay && !atomsLoaded) {
-    setIdleReadyStatus();
-    return;
-  }
-
-  if (PLAYLIST_REGISTRY.length === 1) {
-    setPlaylistStatus(`Single playlist available: ${PLAYLIST_REGISTRY[0].name}`, '#ccc');
-  } else {
-    setPlaylistStatus('Select a playlist', '#ccc');
-  }
+  updateTransportStatus();
 }
 
-function setPlaylistControlsEnabled(enabled) {
-  const nextEnabled = playlistControlsLocked ? false : enabled;
-  const controls = [
-    elements.playlistSelect,
-    elements.playlistLoad,
-    elements.playlistPrev,
-    elements.playlistNext,
-    elements.playlistShuffle,
-    elements.playlistRefresh,
-    elements.volumeSlider,
-  ];
-
-  for (const control of controls) {
-    if (control) {
-      control.disabled = !nextEnabled;
-      if (playlistControlsLocked) {
-        control.title = 'Atom engine active — playlist controls are disabled';
-      }
-    }
+function setPlaylistControlsEnabled() {
+  disablePlaylistUi();
+  if (elements.volumeSlider) {
+    elements.volumeSlider.disabled = false;
   }
 }
 
 function lockPlaylistControlsForAtoms() {
-  playlistControlsLocked = true;
-  setPlaylistControlsEnabled(false);
-  setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
+  setPlaylistControlsEnabled();
+  if (elements.playlistStatus) {
+    elements.playlistStatus.title = ATOM_MODE_STATUS;
+  }
+  updateTransportStatus();
 }
 
 function setAuthStatus(message, color) {
@@ -1201,6 +840,31 @@ function setPlaylistStatus(message, color) {
   }
   elements.playlistStatus.textContent = message;
   elements.playlistStatus.style.color = color || '#fff';
+}
+
+function updateTransportStatus() {
+  const state = getAtomEngineState();
+  const playlistNote = ' — playlists disabled';
+  const total = Number.isFinite(state.totalAtoms) ? state.totalAtoms : '?';
+  if (!atomsLoaded) {
+    setPlaylistStatus(`${STARTUP_READY_STATUS}${playlistNote}`, '#ccc');
+    return;
+  }
+
+  if (state.running) {
+    const position = Number.isInteger(state.currentAtomIndex) ? state.currentAtomIndex + 1 : '?';
+    setPlaylistStatus(`Atoms running (${position} / ${total})${playlistNote}`, '#4CAF50');
+    return;
+  }
+
+  if (Number.isInteger(state.currentAtomIndex)) {
+    const position = state.currentAtomIndex + 1;
+    setPlaylistStatus(`Paused at atom ${position} / ${total}${playlistNote}`, '#aaa');
+    return;
+  }
+
+  const readyPrefix = total !== '?' ? `${total} atoms ready — ` : '';
+  setPlaylistStatus(`${readyPrefix}Idle — press Play${playlistNote}`, '#ccc');
 }
 
 function startFitPolling() {
@@ -1304,12 +968,8 @@ function extractFitMetrics(payload) {
 }
 
 function applyCadenceToPlayer(cadence) {
-  if (!playerReady || !videoPlayer) {
-    return;
-  }
-
   const rate = cadenceToPlaybackRate(cadence);
-  videoPlayer.playbackRate = rate;
+  setAtomPlaybackRate(rate);
 }
 
 function cadenceToPlaybackRate(cadence) {
@@ -1350,7 +1010,7 @@ function handleGoogleAuthExpiry(message) {
   stopFitPolling();
   clearStoredToken();
   setAuthStatus(message, '#f66');
-  setPlaylistControlsEnabled(true);
+  setPlaylistControlsEnabled();
   if (elements.googleSignIn) {
     elements.googleSignIn.disabled = false;
     elements.googleSignIn.textContent = 'Sign in with Google';

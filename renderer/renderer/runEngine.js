@@ -1,5 +1,6 @@
 let plan = [];
 let cursor = 0;
+let currentAtomIndex = null;
 let A = null;
 let B = null;
 let active = null;
@@ -10,43 +11,72 @@ let lastVideoUrl = null;
 let engineState = 'idle'; // idle | running | paused
 let pendingLoadController = null;
 let backgroundStartIssueLogged = false;
+const timers = new Set();
+const history = [];
+
 // HUD transport controls talk exclusively to this atom engine; legacy background players stay isolated.
 
 export function initVideos() {
-  A = document.getElementById("v1");
-  B = document.getElementById("v2");
+  A = document.getElementById('v1');
+  B = document.getElementById('v2');
   console.log('[runEngine] Initialized videos:', { A: A?.id, B: B?.id });
-  
+
   if (!A || !B) {
     console.error('[runEngine] Video elements not found! v1:', A, 'v2:', B);
     return;
   }
-  
+
   active = A;
   standby = B;
-  
+
   // Ensure initial visibility
   active.classList.add('active');
+  standby.classList.remove('active');
   console.log('[runEngine] Active video set to:', active.id);
 }
 
-export async function startRun(planInput) {
-  if (Array.isArray(planInput) && planInput.length) {
-    plan = planInput;
-    cursor = 0;
-    lastVideoUrl = null;
-  }
-  backgroundStartIssueLogged = false;
-  
+function ensureVideosReady() {
   if (!A || !B) {
     initVideos();
   }
-  
-  if (!active || !standby || !plan.length) {
+  return Boolean(A && B && active && standby);
+}
+
+function normalizeIndex(index) {
+  if (!plan.length) return 0;
+  const mod = index % plan.length;
+  return mod < 0 ? mod + plan.length : mod;
+}
+
+export function setPlan(planInput) {
+  if (Array.isArray(planInput) && planInput.length) {
+    plan = [...planInput];
+    cursor = 0;
+    history.length = 0;
+    currentAtomIndex = null;
+    lastVideoUrl = null;
+    console.log('[runEngine] Plan loaded with', plan.length, 'atoms');
+  }
+}
+
+export async function start(planInput) {
+  if (planInput?.length) {
+    setPlan(planInput);
+  }
+
+  backgroundStartIssueLogged = false;
+
+  if (!ensureVideosReady()) {
+    console.warn('[runEngine] Cannot start — videos not ready');
+    return;
+  }
+
+  if (!plan.length) {
+    console.warn('[runEngine] Cannot start — empty plan');
     return;
   }
   if (engineState === 'running') {
-    console.log('[runEngine] Ignoring startRun - engine already running');
+    console.log('[runEngine] Ignoring start() — engine already running');
     return;
   }
 
@@ -65,33 +95,96 @@ export async function startRun(planInput) {
   if (standby && standby.paused && standby.src) {
     standby.play().catch((err) => console.warn('[runEngine] Resume standby play blocked:', err));
   }
-  
+
   loadNextAtom();
 }
 
-export function pauseRun() {
+// NOTE: pause() behaves as a hard stop. Resuming requires start() which rebuilds playback from the plan head.
+export function pause() {
   if (engineState === 'idle') {
     return;
   }
-  engineState = 'paused';
-  abortPendingLoad();
-  loadingNext = false;
-  isCrossfading = false;
+  stopInternal('paused');
+}
 
-  [active, standby].forEach((video) => {
+export function stop() {
+  stopInternal('idle');
+}
+
+export function next() {
+  if (!plan.length) {
+    console.warn('[runEngine] next() ignored — no plan loaded');
+    return;
+  }
+  if (!ensureVideosReady()) return;
+
+  if (currentAtomIndex !== null) {
+    history.push(currentAtomIndex);
+  }
+  engineState = 'running';
+  resetActivePlayback();
+  loadNextAtom(0, cursor);
+}
+
+export function prev() {
+  if (!plan.length) {
+    console.warn('[runEngine] prev() ignored — no plan loaded');
+    return;
+  }
+  if (!ensureVideosReady()) return;
+
+  const targetIndex = history.length ? history.pop() : currentAtomIndex;
+  if (typeof targetIndex !== 'number') {
+    console.log('[runEngine] prev() restarting current atom');
+    resetActivePlayback(true);
+    return;
+  }
+  cursor = normalizeIndex(targetIndex);
+  engineState = 'running';
+  resetActivePlayback();
+  loadNextAtom(0, targetIndex);
+}
+
+export function isRunning() {
+  return engineState === 'running';
+}
+
+export function getState() {
+  return {
+    running: engineState === 'running',
+    currentAtomIndex,
+    totalAtoms: plan.length,
+  };
+}
+
+export function setVolume(volume) {
+  const normalized = Math.max(0, Math.min(100, Number(volume)));
+  [A, B].forEach((video) => {
     if (!video) return;
-    video.pause();
-    video.onended = null;
+    video.volume = normalized / 100;
+    video.muted = normalized === 0;
   });
 }
 
-export function stopRun() {
-  engineState = 'idle';
+export function setPlaybackRate(rate) {
+  const safeRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
+  [active, standby].forEach((video) => {
+    if (video) {
+      video.playbackRate = safeRate;
+    }
+  });
+}
+
+function stopInternal(nextState) {
+  engineState = nextState;
   abortPendingLoad();
+  clearTimers();
   loadingNext = false;
   isCrossfading = false;
   cursor = 0;
   lastVideoUrl = null;
+  currentAtomIndex = null;
+  history.length = 0;
 
   [active, standby].forEach((video) => {
     if (!video) return;
@@ -101,10 +194,11 @@ export function stopRun() {
     try {
       video.pause();
       video.currentTime = 0;
+      video.removeAttribute('src');
+      video.load();
     } catch (err) {
       console.warn('[runEngine] Failed to reset video state:', err);
     }
-    // Keep sources intact; transport stop should leave videos idle, not unloaded
   });
 
   if (A && B) {
@@ -115,20 +209,38 @@ export function stopRun() {
   }
 }
 
-export function getRunState() {
-  return engineState;
+function resetActivePlayback(restartOnly = false) {
+  abortPendingLoad();
+  clearTimers();
+  isCrossfading = false;
+  loadingNext = false;
+
+  [active, standby].forEach((video) => {
+    if (!video) return;
+    try {
+      video.pause();
+      video.currentTime = 0;
+    } catch (err) {
+      console.warn('[runEngine] Failed to reset playback state:', err);
+    }
+  });
+
+  if (restartOnly && active) {
+    active.play().catch((err) => console.warn('[runEngine] Restart current atom failed:', err));
+  }
 }
 
-function nextAtom() {
+function nextAtom(forcedIndex) {
   if (!plan?.length) {
     return null;
   }
-  const atom = plan[cursor];
-  cursor = (cursor + 1) % plan.length;
-  return atom;
+  const index = typeof forcedIndex === 'number' ? normalizeIndex(forcedIndex) : cursor;
+  const atom = plan[index];
+  cursor = normalizeIndex(index + 1);
+  return { atom, index };
 }
 
-function loadNextAtom(skipCount = 0) {
+function loadNextAtom(skipCount = 0, forcedIndex) {
   if (engineState !== 'running') {
     return;
   }
@@ -143,9 +255,10 @@ function loadNextAtom(skipCount = 0) {
     return;
   }
 
-  const atom = nextAtom();
-  if (!atom) return;
-console.log("[runEngine] fetching atom:", atom);
+  const selection = nextAtom(forcedIndex);
+  if (!selection) return;
+  const { atom, index } = selection;
+  console.log('[runEngine] fetching atom:', atom);
 
   loadingNext = true;
   abortPendingLoad();
@@ -183,9 +296,9 @@ console.log("[runEngine] fetching atom:", atom);
       standby.src = '';
       standby.src = videoUrl;
       standby.playbackRate = 1 / (atom.stretch || 1);
-      standby.className = "atom-video " + (Math.random() > 0.5 ? "dark" : "light");
+      standby.className = 'atom-video ' + (Math.random() > 0.5 ? 'dark' : 'light');
 
-      standby.oncanplay = () => handleStandbyReady(videoUrl);
+      standby.oncanplay = () => handleStandbyReady(videoUrl, index);
       standby.onerror = (e) => {
         logBackgroundStartupIssue('[runEngine] Video error on standby layer', e || standby.error);
         standby.onerror = null;
@@ -205,7 +318,7 @@ console.log("[runEngine] fetching atom:", atom);
     });
 }
 
-function handleStandbyReady(videoUrl) {
+function handleStandbyReady(videoUrl, atomIndex) {
   if (engineState !== 'running') {
     loadingNext = false;
     return;
@@ -227,6 +340,7 @@ function handleStandbyReady(videoUrl) {
   active = standby;
   standby = outgoing;
   lastVideoUrl = videoUrl;
+  currentAtomIndex = atomIndex;
   isCrossfading = false;
   pendingLoadController = null;
   loadingNext = false;
@@ -256,3 +370,14 @@ function abortPendingLoad() {
     pendingLoadController = null;
   }
 }
+
+function clearTimers() {
+  timers.forEach((id) => clearTimeout(id));
+  timers.clear();
+}
+
+// Legacy surface to keep older HUD files loading while the new transport API is adopted.
+export const startRun = start;
+export const pauseRun = pause;
+export const stopRun = stop;
+export const getRunState = () => engineState;
