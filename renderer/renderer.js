@@ -695,39 +695,58 @@ async function buildAtomPlanForEngine(manifest, minutes) {
   const DEFAULT_ATOM_SECONDS = 5;
   const targetSeconds = minutes * 60;
   
-  // Handle manifest structure: videos is an object with video names as keys
   const videosObj = manifest.videos || {};
-  const videoNames = Object.keys(videosObj);
+  const version = typeof manifest.atom_version === 'string' && manifest.atom_version.trim()
+    ? manifest.atom_version.trim()
+    : 'v1';
+  const entries = Object.entries(videosObj)
+    .map(([stem, data]) => ({ stem, atomCount: Number(data?.atom_count) || 0 }))
+    .filter(({ atomCount }) => atomCount > 0);
   
-  if (!videoNames.length) {
+  if (!entries.length) {
     throw new Error('Manifest has no videos');
   }
   
-  // Pick first video
-  const stem = videoNames[0];
-  const atomCount = videosObj[stem].atom_count || 0;
+  const atoms = [];
+  for (const { stem, atomCount } of entries) {
+    for (let i = 1; i <= atomCount; i += 1) {
+      const padded = String(i).padStart(4, '0');
+      atoms.push({
+        stem,
+        index: i,
+        atomPath: `atoms/${stem}/chunk_${padded}_${version}.json`,
+      });
+    }
+  }
   
-  if (!atomCount) {
-    throw new Error('Video has no atoms');
+  if (!atoms.length) {
+    throw new Error('Manifest has no atoms');
   }
   
   const plan = [];
   let estimate = 0;
-  let index = 1;
+  let cursor = 0;
+  const allowWrap = atoms.length > 1;
   
-  while (estimate < targetSeconds) {
-    const padded = String(index).padStart(4, '0');
-    const atomPath = `atoms/${stem}/chunk_${padded}_v1.json`;
-    
-    // Build plan item with structure expected by runEngine
+  while (estimate < targetSeconds && atoms[cursor]) {
+    const atom = atoms[cursor];
     plan.push({
-      url: `/api/media/atom?path=${encodeURIComponent(atomPath)}`,
+      url: `/api/media/atom?path=${encodeURIComponent(atom.atomPath)}`,
       effectiveDuration: DEFAULT_ATOM_SECONDS,
       stretch: 1,
+      atomPath: atom.atomPath,
+      stem: atom.stem,
+      index: atom.index,
     });
     
     estimate += DEFAULT_ATOM_SECONDS;
-    index = index >= atomCount ? 1 : index + 1;
+    cursor += 1;
+    if (cursor >= atoms.length) {
+      if (!allowWrap) {
+        break;
+      }
+      cursor = 0;
+    }
   }
   
   return plan;
