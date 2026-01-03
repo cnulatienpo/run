@@ -284,10 +284,6 @@ svg.hand-drawn-button {
   object-fit: cover;
   transition: opacity 1.5s;
   border-radius: 12px;
-  background-image: var(--frame-rectangle-img);
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  background-position: center;
   box-shadow: 
     0 0 0 8px rgba(15, 23, 42, 0.4),
     0 0 0 12px rgba(148, 163, 184, 0.2),

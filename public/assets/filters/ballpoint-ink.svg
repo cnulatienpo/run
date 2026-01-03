@@ -14,11 +14,8 @@
       <!-- Gentle edge-focused displacement simulating slight pressure wobble (≤1px) -->
       <feDisplacementMap in="SourceGraphic" in2="inkFlow" scale="0.65" xChannelSelector="R" yChannelSelector="G" result="waveredInk" />
 
-      <!-- Feathered blur to soften edges into the paper fibers -->
-      <feGaussianBlur in="waveredInk" stdDeviation="0.35" result="featheredInk" />
-
       <!-- Alpha shaping to keep core strokes crisp while letting density breathe -->
-      <feComponentTransfer in="featheredInk" result="inked">
+      <feComponentTransfer in="waveredInk" result="inked">
         <feFuncR type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
         <feFuncG type="gamma" amplitude="0.98" exponent="0.9" offset="0" />
         <feFuncB type="gamma" amplitude="0.98" exponent="0.9" offset="0" />

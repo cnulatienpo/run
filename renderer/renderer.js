@@ -709,7 +709,7 @@ async function buildAtomPlanForEngine(manifest, minutes) {
   
   const atoms = [];
   for (const { stem, atomCount } of entries) {
-    for (let i = 1; i <= atomCount; i += 1) {
+    for (let i = 0; i < atomCount; i += 1) {
       const padded = String(i).padStart(4, '0');
       atoms.push({
         stem,

@@ -83,7 +83,9 @@ router.get("/atom", async (req: Request, res: Response) => {
     const response = await fetch(jsonUrl);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch atom: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`[media] atom fetch failed for ${fullAtomPath}: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Failed to fetch atom: ${response.status} ${response.statusText}`);
     }
     
     const atomMeta = await response.json();
