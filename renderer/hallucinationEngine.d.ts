@@ -16,6 +16,7 @@ export function replaySession(logData: any, speed?: number): void;
 export function setEffectInterval(value: number): void;
 export function setIntensityMultiplier(value: number): void;
 export function setRareChance(value: number): void;
+export function setHallucinationVisibility(visible: boolean): void;
 export function spawnLoop(stepRate: number, bpm: number): void;
 export function startStillnessWatcher(): unknown;
 export function switchEffectPack(name: string): void;
