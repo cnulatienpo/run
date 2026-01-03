@@ -235,7 +235,8 @@
       <h2 style="margin-top: 0; margin-bottom: 1rem; color: #e63946; filter: url(#ballpoint-ink);">HUD Controls</h2>
       <div id="music-controller" class="row" style="margin-bottom: 12px; padding: 16px; border-radius: 12px; background: rgba(15, 23, 42, 0.65);">
         <h3 style="margin: 0 0 12px; font-size: 1.1rem; color: #e63946; filter: url(#ballpoint-ink);">🎵 Music Control</h3>
-        <input type="file" id="music-file-input" accept=".mp3,.wav,.ogg,.m4a" style="display: block; margin-bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); color: #e2e8f0; cursor: pointer; font-size: 0.9rem;" />
+        <!-- Audio uploads below feed ONLY the music system (not video atoms or playlists). -->
+        <input multiple type="file" id="music-file-input" accept=".mp3,.wav,.ogg,.m4a" style="display: block; margin-bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); color: #e2e8f0; cursor: pointer; font-size: 0.9rem;" />
         <div style="margin-bottom: 10px;">
           <button id="music-play" type="button" class="frame-rect" disabled style="margin-right: 6px;">Play</button>
           <button id="music-pause" type="button" class="frame-rect" disabled style="margin-right: 6px;">Pause</button>
@@ -286,14 +287,15 @@
     import { recordTag } from './hallucinationEngine.js';
     import { startTimer } from './timer.js';
 
-    // Music controller
+    // Music controller (audio-only; does not modify video atom playback or playlists)
     let audioContext = null;
-    let audioBuffer = null;
-    let sourceNode = null;
     let analyserNode = null;
+    let activeSource = null;
     let isPlaying = false;
     let startTime = 0;
     let pauseTime = 0;
+    const localPlaylist = [];
+    let currentTrackIndex = -1;
 
     const fileInput = document.getElementById('music-file-input');
     const playBtn = document.getElementById('music-play');
@@ -312,73 +314,116 @@
       }
     }
 
+    function stopActiveSource(resetPosition = true) {
+      if (activeSource) {
+        try {
+          activeSource.onended = null;
+          activeSource.stop();
+        } catch (err) {
+          console.warn('Error stopping source', err);
+        }
+        activeSource.disconnect();
+        activeSource = null;
+      }
+      if (resetPosition) {
+        pauseTime = 0;
+        startTime = 0;
+      }
+      isPlaying = false;
+    }
+
+    function updateControlsAvailability() {
+      const hasTrack = currentTrackIndex >= 0 && !!localPlaylist[currentTrackIndex];
+      playBtn.disabled = !hasTrack;
+      pauseBtn.disabled = !hasTrack;
+      stopBtn.disabled = !hasTrack;
+    }
+
+    function updateTrackDisplay() {
+      if (!fileNameEl) return;
+      if (!localPlaylist.length || currentTrackIndex < 0) {
+        fileNameEl.textContent = 'No file loaded';
+        return;
+      }
+      const selected = localPlaylist[currentTrackIndex] || localPlaylist[0];
+      if (!localPlaylist[currentTrackIndex]) {
+        currentTrackIndex = 0;
+      }
+      fileNameEl.textContent = `Current: ${selected.displayName} (${localPlaylist.length} queued)`;
+    }
+
     function playMusic() {
-      if (!audioBuffer || !audioContext) return;
+      const track = localPlaylist[currentTrackIndex];
+      if (!track || !audioContext) return;
       if (audioContext.state === 'suspended') {
         audioContext.resume();
       }
-      if (sourceNode) {
-        sourceNode.stop();
-      }
-      sourceNode = audioContext.createBufferSource();
-      sourceNode.buffer = audioBuffer;
-      sourceNode.connect(analyserNode);
+      stopActiveSource(false);
+      activeSource = audioContext.createBufferSource();
+      activeSource.buffer = track.buffer;
+      activeSource.connect(analyserNode);
 
       const offset = pauseTime;
-      sourceNode.start(0, offset);
+      activeSource.start(0, offset);
       startTime = audioContext.currentTime - offset;
       isPlaying = true;
       statusEl.textContent = 'Status: Playing';
 
-      sourceNode.onended = () => {
+      activeSource.onended = () => {
         if (isPlaying) {
-          isPlaying = false;
-          pauseTime = 0;
+          stopActiveSource(true);
           statusEl.textContent = 'Status: Ended';
         }
       };
     }
 
     function pauseMusic() {
-      if (!sourceNode || !isPlaying) return;
-      sourceNode.stop();
+      if (!activeSource || !isPlaying || !audioContext) return;
       pauseTime = audioContext.currentTime - startTime;
-      isPlaying = false;
+      stopActiveSource(false);
       statusEl.textContent = 'Status: Paused';
     }
 
     function stopMusic() {
-      if (sourceNode) {
-        sourceNode.stop();
-      }
-      pauseTime = 0;
-      isPlaying = false;
+      stopActiveSource(true);
       statusEl.textContent = 'Status: Stopped';
     }
 
     if (fileInput) {
       fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
 
         initAudioContext();
-        fileNameEl.textContent = `Loading: ${file.name}`;
-        statusEl.textContent = 'Status: Loading...';
+        statusEl.textContent = `Status: Loading ${files.length} file(s)...`;
 
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        let loadedCount = 0;
+        for (const file of files) {
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            localPlaylist.push({
+              file,
+              buffer: decodedBuffer,
+              displayName: file.name,
+            });
+            loadedCount += 1;
+          } catch (err) {
+            console.error('Error loading audio:', err);
+          }
+        }
 
-          fileNameEl.textContent = `Loaded: ${file.name}`;
-          statusEl.textContent = 'Status: Ready';
-          playBtn.disabled = false;
-          pauseBtn.disabled = false;
-          stopBtn.disabled = false;
+        if (loadedCount > 0) {
+          if (currentTrackIndex === -1) {
+            currentTrackIndex = 0;
+          }
+          updateTrackDisplay();
+          statusEl.textContent = `Status: Ready (${localPlaylist.length} queued)`;
+          updateControlsAvailability();
 
           bpmEl.textContent = 'BPM: ~120';
-        } catch (err) {
-          console.error('Error loading audio:', err);
-          fileNameEl.textContent = 'Error loading file';
+        } else {
+          fileNameEl.textContent = 'Error loading file(s)';
           statusEl.textContent = 'Status: Error';
         }
       });
