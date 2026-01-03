@@ -74,7 +74,7 @@ function triggerHallucinationEffect() {
   const canvas = document.getElementById(FX_CANVAS_ID);
   if (!canvas) {
     if (!warnedMissingFxCanvas) {
-      console.warn('[spawn-loop] Legacy fx-canvas not found; canvas-based hallucinations stay inactive here.');
+      console.warn('[spawn-loop] Legacy fx-canvas removed; hallucinations run on the primary engine canvas only.');
       warnedMissingFxCanvas = true;
     }
     return;

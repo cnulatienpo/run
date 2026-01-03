@@ -80,6 +80,7 @@ const RV_APP_DEV_URL = RV_APP_BASE_PATH;
 const RV_APP_PROD_URL = RV_APP_BASE_PATH;
 const IDLE_POSTER_SRC = '/assets/frame-rectangle.jpg';
 const STARTUP_READY_STATUS = 'Ready — press Play';
+const ATOM_MODE_STATUS = 'Atoms mode active — playlist controls disabled';
 
 const DEFAULT_HALLUCINATION_SETTINGS = {
   selectedPacks: ['default'],
@@ -453,14 +454,26 @@ function setupEventListeners() {
   });
 
   elements.playlistPrev?.addEventListener('click', () => {
+    if (atomsLoaded) {
+      setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
+      return;
+    }
     playPreviousClip();
   });
 
   elements.playlistNext?.addEventListener('click', () => {
+    if (atomsLoaded) {
+      setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
+      return;
+    }
     playNextClip();
   });
 
   elements.playlistShuffle?.addEventListener('click', () => {
+    if (atomsLoaded) {
+      setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
+      return;
+    }
     shuffleCurrentPlaylist();
   });
 
@@ -512,6 +525,11 @@ function setupEventListeners() {
   });
 
   elements.pauseButton?.addEventListener('click', () => {
+    const state = getRunState();
+    if (state === 'idle') {
+      setPlaylistStatus('Atom engine idle — press Play to start', '#aaa');
+      return;
+    }
     pauseRun();
     setPlaylistStatus('Atom engine paused (v1 + v2 held)', '#aaa');
   });
@@ -744,6 +762,7 @@ let atomManifest = null;
 let atomPlan = [];
 let atomIndex = 0;
 let atomsLoaded = false;
+let playlistControlsLocked = false;
 
 async function loadAtomsFromBackblaze(durationMinutes = 5) {
   try {
@@ -763,8 +782,10 @@ async function loadAtomsFromBackblaze(durationMinutes = 5) {
     atomPlan = await buildAtomPlanForEngine(atomManifest, durationMinutes);
     atomIndex = 0;
     atomsLoaded = true;
+    playlistControlsLocked = true;
+    lockPlaylistControlsForAtoms();
     
-    setPlaylistStatus(`Loaded ${atomPlan.length} atoms (${durationMinutes} min)`, '#4CAF50');
+    setPlaylistStatus(`Atoms mode active — loaded ${atomPlan.length} atoms (${durationMinutes} min)`, '#4CAF50');
     
     // Start playing using runEngine
     if (playerReady && userRequestedPlay) {
@@ -1116,6 +1137,11 @@ function renderPlaylistRegistry() {
     return;
   }
 
+  if (playlistControlsLocked) {
+    setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
+    return;
+  }
+
   if (!playerReady) {
     setPlaylistStatus('Preparing idle surface...', '#aaa');
     return;
@@ -1134,6 +1160,7 @@ function renderPlaylistRegistry() {
 }
 
 function setPlaylistControlsEnabled(enabled) {
+  const nextEnabled = playlistControlsLocked ? false : enabled;
   const controls = [
     elements.playlistSelect,
     elements.playlistLoad,
@@ -1146,9 +1173,18 @@ function setPlaylistControlsEnabled(enabled) {
 
   for (const control of controls) {
     if (control) {
-      control.disabled = !enabled;
+      control.disabled = !nextEnabled;
+      if (playlistControlsLocked) {
+        control.title = 'Atom engine active — playlist controls are disabled';
+      }
     }
   }
+}
+
+function lockPlaylistControlsForAtoms() {
+  playlistControlsLocked = true;
+  setPlaylistControlsEnabled(false);
+  setPlaylistStatus(ATOM_MODE_STATUS, '#ccc');
 }
 
 function setAuthStatus(message, color) {

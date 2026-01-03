@@ -278,11 +278,10 @@
   </head>
   <body>
     
-    <canvas id="fx-canvas" width="1920" height="1080"></canvas>
     <div id="app">
       <div id="hud">
         <div id="music-controller">
-          <h2>🎵 Music Control</h2>
+          <h2>🎵 Music Control (Audio only)</h2>
           <input type="file" id="music-file-input" accept=".mp3,.wav,.ogg,.m4a" />
           <div>
             <button id="music-play" disabled>Play</button>
@@ -292,7 +291,7 @@
           <div class="music-info">
             <div id="music-file-name">No file loaded</div>
             <div id="music-bpm">BPM: --</div>
-            <div id="music-status">Status: Idle</div>
+            <div id="music-status">Status: Idle — audio only; visuals stay unchanged</div>
           </div>
         </div>
 
@@ -331,21 +330,6 @@
       </div>
     </div>
 
-    <script>
-      // Set your Backblaze B2 base URL here
-      window.RUNNYVISION_BASE_URL = 'https://f005.backblazeb2.com/file/RunnyVisionSourceVideos';
-    </script>
-    <script src="./runnyvision/demo/player.js"></script>
-    <script>
-      // Auto-start the player when page loads
-      window.addEventListener('DOMContentLoaded', () => {
-        const startBtn = document.getElementById('start');
-        if (startBtn) {
-          // Optional: auto-start after a brief delay
-          setTimeout(() => startBtn.click(), 500);
-        }
-      });
-    </script>
     <script type="module">
       // Music controller integration
       let audioContext = null;
@@ -363,6 +347,13 @@
       const fileNameEl = document.getElementById('music-file-name');
       const bpmEl = document.getElementById('music-bpm');
       const statusEl = document.getElementById('music-status');
+      const audioScopeNote = ' (audio only; visuals stay unchanged)';
+
+      function setMusicStatus(message) {
+        if (!statusEl) return;
+        statusEl.textContent = `Status: ${message}${audioScopeNote}`;
+      }
+      setMusicStatus('Idle');
 
       // Initialize audio context on first user interaction
       function initAudioContext() {
@@ -381,14 +372,14 @@
 
         initAudioContext();
         fileNameEl.textContent = `Loading: ${file.name}`;
-        statusEl.textContent = 'Status: Loading...';
+        setMusicStatus('Loading...');
 
         try {
           const arrayBuffer = await file.arrayBuffer();
           audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
           
           fileNameEl.textContent = `Loaded: ${file.name}`;
-          statusEl.textContent = 'Status: Ready';
+          setMusicStatus('Ready');
           playBtn.disabled = false;
           pauseBtn.disabled = false;
           stopBtn.disabled = false;
@@ -406,7 +397,7 @@
         } catch (err) {
           console.error('Error loading audio:', err);
           fileNameEl.textContent = 'Error loading file';
-          statusEl.textContent = 'Status: Error';
+          setMusicStatus('Error');
         }
       });
 
@@ -431,13 +422,13 @@
         sourceNode.start(0, offset);
         startTime = audioContext.currentTime - offset;
         isPlaying = true;
-        statusEl.textContent = 'Status: Playing';
+        setMusicStatus('Playing');
 
         sourceNode.onended = () => {
           if (isPlaying) {
             isPlaying = false;
             pauseTime = 0;
-            statusEl.textContent = 'Status: Ended';
+            setMusicStatus('Ended');
           }
         };
       });
@@ -449,7 +440,7 @@
         sourceNode.stop();
         pauseTime = audioContext.currentTime - startTime;
         isPlaying = false;
-        statusEl.textContent = 'Status: Paused';
+        setMusicStatus('Paused');
       });
 
       // Stop
@@ -459,7 +450,7 @@
         }
         pauseTime = 0;
         isPlaying = false;
-        statusEl.textContent = 'Status: Stopped';
+        setMusicStatus('Stopped');
       });
     </script>
     <script type="module" src="build/main.js"></script>
