@@ -232,5 +232,13 @@
     </script>
     
     <script src="renderer.js?v=17" type="module"></script>
+
+    <!-- Settings button (cog icon) at bottom of screen -->
+    <a href="hallucination-controls.html" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; width: 50px; height: 50px; background: rgba(230, 57, 70, 0.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); transition: transform 0.2s, background 0.2s;" onmouseover="this.style.transform='scale(1.1)'; this.style.background='rgba(230, 57, 70, 1)';" onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(230, 57, 70, 0.9)';" title="Hallucination Controls">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M12 1v6m0 6v6m8.66-13.66l-4.24 4.24m-5.66 5.66l-4.24 4.24M23 12h-6m-6 0H1m19.66 8.66l-4.24-4.24m-5.66-5.66l-4.24-4.24"></path>
+      </svg>
+    </a>
   </body>
 </html>
