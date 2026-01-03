@@ -3,15 +3,15 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 
-import experienceRouter from "./routes/experience";
-import profilesRouter from "./routes/profiles";
-import runStatsRouter from "./routes/runStats";
-import passportRouter from "./routes/passport";
-import healthRouter from "./routes/health";
-import clipsRouter from "./routes/clips";
-import usersRouter from "./routes/users";
-import runSessionsRouter from "./routes/runSessions";
-import mediaRouter from "./routes/media";
+import experienceRouter from "./passport/routes/experience";
+import profilesRouter from "./passport/routes/profiles";
+import runStatsRouter from "./passport/routes/runStats";
+import passportRouter from "./passport/routes/passport";
+import healthRouter from "./passport/routes/health";
+import clipsRouter from "./passport/routes/clips";
+import usersRouter from "./passport/routes/users";
+import runSessionsRouter from "./passport/routes/runSessions";
+import mediaRouter from "./passport/routes/media";
 
 /**
  * ============================================================

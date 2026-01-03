@@ -1,4 +1,4 @@
-import { PassportStamp } from "../passport/types";
+import { PassportStamp } from "../types";
 import { RouteDefinition } from "./types";
 
 export function tallyCities(

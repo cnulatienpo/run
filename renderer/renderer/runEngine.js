@@ -65,6 +65,7 @@ function loadNextAtom(skipCount = 0) {
 
   const atom = nextAtom();
   if (!atom) return;
+console.log("[runEngine] fetching atom:", atom);
 
   loadingNext = true;
   fetch(atom.url)

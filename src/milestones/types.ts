@@ -1,5 +1,5 @@
 import { PassportStamp } from "../passport/types";
-import { RouteDefinition } from "../routes/types";
+import { RouteDefinition } from "../passport/routes/types";
 
 export interface MilestoneDefinition {
   id: string;

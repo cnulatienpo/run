@@ -1,9 +1,9 @@
 import { PassportStamp } from "./types";
-import { RouteDefinition } from "../routes/types";
+import { RouteDefinition } from "./routes/types";
 import { MILESTONES, evaluateMilestones } from "../milestones/list";
 import { BADGES, getUnlockedBadges } from "../badges/list";
-import { tallyCities } from "../routes/analysis";
-import { getUnlockedRoutes } from "../routes/unlock";
+import { tallyCities } from "./routes/analysis";
+import { getUnlockedRoutes } from "./routes/unlock";
 
 export function buildPassportSummary(
   stamps: PassportStamp[],

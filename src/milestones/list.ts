@@ -1,5 +1,5 @@
 import { MilestoneDefinition } from "./types";
-import { tallyCities } from "../routes/analysis";
+import { tallyCities } from "../passport/routes/analysis";
 
 export const MILESTONES: MilestoneDefinition[] = [
   {

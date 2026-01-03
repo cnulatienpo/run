@@ -63,7 +63,7 @@ router.get("/manifest", (_req: Request, res: Response) => {
 /**
  * GET /api/media/atom?path=atoms/video_name/chunk_0001_v1.json
  *
- * Fetches an atom metadata JSON file from private B2 and returns it with a signed video URL
+ * Fetches an atom metadata JSON file and returns it with a signed video URL
  */
 router.get("/atom", async (req: Request, res: Response) => {
   try {

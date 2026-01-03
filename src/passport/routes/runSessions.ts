@@ -2,8 +2,8 @@ import express from "express";
 import {
   createRunSession,
   listRunsForUser,
-} from "../services/runSessionService";
-import { CreateRunSessionInput } from "../models/runSession";
+} from "../../services/runSessionService";
+import { CreateRunSessionInput } from "../../models/runSession";
 
 const router = express.Router();
 

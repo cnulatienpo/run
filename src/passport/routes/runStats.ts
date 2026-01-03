@@ -5,10 +5,10 @@ import {
   getRunStats,
   startSession,
   updateSessionTelemetry,
-} from "../services/runStatsService";
-import { validateRequestBody } from "../validation/middleware";
-import type { RunStartPayload, RunTelemetryPayload } from "../validation/schemas";
-import { validateRunStartPayload, validateRunTelemetryPayload } from "../validation/schemas";
+} from "../../services/runStatsService";
+import { validateRequestBody } from "../../validation/middleware";
+import type { RunStartPayload, RunTelemetryPayload } from "../../validation/schemas";
+import { validateRunStartPayload, validateRunTelemetryPayload } from "../../validation/schemas";
 
 const router = express.Router();
 

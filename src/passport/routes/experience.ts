@@ -2,14 +2,14 @@ import express from "express";
 import {
   getExperienceSettings,
   saveExperienceSettings,
-} from "../services/experienceService";
+} from "../../services/experienceService";
 import {
   selectClipsForSession,
-} from "../services/clipSelectionService";
-import { ClipMetadata } from "../models/clip";
-import { ExperienceSettings } from "../models/experience";
-import { formatAjvErrors, validateRequestBody } from "../validation/middleware";
-import { validateExperienceSettings } from "../validation/schemas";
+} from "../../services/clipSelectionService";
+import { ClipMetadata } from "../../models/clip";
+import { ExperienceSettings } from "../../models/experience";
+import { formatAjvErrors, validateRequestBody } from "../../validation/middleware";
+import { validateExperienceSettings } from "../../validation/schemas";
 
 const router = express.Router();
 

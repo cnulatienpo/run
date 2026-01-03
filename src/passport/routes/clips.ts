@@ -70,7 +70,7 @@
  */
 
 import express from "express";
-import { ClipMetadata, ClipSourceType } from "../models/clip";
+import { ClipMetadata, ClipSourceType } from "../../models/clip";
 import {
   ClipQuery,
   CreateClipInput,
@@ -79,11 +79,11 @@ import {
   getClipById,
   listClips,
   updateClip,
-} from "../services/clipLibraryService";
-import { enrichAllClips } from "../services/clipEnrichmentService";
-import { selectClipsForUserSession } from "../services/clipSelectionService";
-import { validateBody } from "../middleware/validateBody";
-import { ClipSelectPayload, validateClipSelectPayload } from "../validation/schemas";
+} from "../../services/clipLibraryService";
+import { enrichAllClips } from "../../services/clipEnrichmentService";
+import { selectClipsForUserSession } from "../../services/clipSelectionService";
+import { validateBody } from "../../middleware/validateBody";
+import { ClipSelectPayload, validateClipSelectPayload } from "../../validation/schemas";
 
 const router = express.Router();
 

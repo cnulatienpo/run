@@ -6,7 +6,7 @@ import {
   getUser,
   listUsers,
   updateUser,
-} from "../services/userService";
+} from "../../services/userService";
 
 const router = express.Router();
 

@@ -5,16 +5,16 @@ import {
   getProfile,
   listProfiles,
   updateProfile,
-} from "../services/profileService";
-import { validateRequestBody } from "../validation/middleware";
+} from "../../services/profileService";
+import { validateRequestBody } from "../../validation/middleware";
 import type {
   CreateProfilePayload,
   UpdateProfilePayload,
-} from "../validation/schemas";
+} from "../../validation/schemas";
 import {
   validateCreateProfilePayload,
   validateUpdateProfilePayload,
-} from "../validation/schemas";
+} from "../../validation/schemas";
 
 const router = express.Router();
 

@@ -1,5 +1,5 @@
 import express from "express";
-import { getPassportSummary } from "../services/passportService";
+import { getPassportSummary } from "../../services/passportService";
 
 const router = express.Router();
 
