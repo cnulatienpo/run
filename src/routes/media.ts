@@ -46,7 +46,8 @@ router.get("/download-url", async (req: Request, res: Response) => {
 router.get("/manifest", (_req: Request, res: Response) => {
   try {
     // Read manifest from local backend directory
-    const manifestPath = join(__dirname, "../../backend/manifest_v1.json");
+    // Use process.cwd() to get project root, since __dirname varies by build location
+    const manifestPath = join(process.cwd(), "backend/manifest_v1.json");
     const manifestData = readFileSync(manifestPath, "utf-8");
     const manifest = JSON.parse(manifestData);
     
@@ -76,7 +77,9 @@ router.get("/atom", async (req: Request, res: Response) => {
     }
 
     // Fetch the atom JSON
-    const jsonUrl = await getSignedDownloadUrl(atomPath, 60);
+    // Add runnyvision/ prefix since B2 bucket stores files there
+    const fullAtomPath = atomPath.startsWith('runnyvision/') ? atomPath : `runnyvision/${atomPath}`;
+    const jsonUrl = await getSignedDownloadUrl(fullAtomPath, 60);
     const response = await fetch(jsonUrl);
     
     if (!response.ok) {
@@ -88,7 +91,9 @@ router.get("/atom", async (req: Request, res: Response) => {
     // Generate signed URL for the video file referenced in the atom
     const videoFileName = atomMeta?.video || atomMeta?.video_url || atomMeta?.videoUrl || atomMeta?.segment_url;
     if (videoFileName) {
-      atomMeta.signed_url = await getSignedDownloadUrl(videoFileName, 300); // 5 minute expiry for video
+      // Add runnyvision/ prefix if not present
+      const fullVideoPath = videoFileName.startsWith('runnyvision/') ? videoFileName : `runnyvision/${videoFileName}`;
+      atomMeta.signed_url = await getSignedDownloadUrl(fullVideoPath, 300); // 5 minute expiry for video
     }
 
     return res.json(atomMeta);
