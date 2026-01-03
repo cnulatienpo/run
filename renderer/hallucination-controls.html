@@ -463,38 +463,52 @@
       setRareChance,
       setIntensityMultiplier,
       updateBPM,
+      getEffectPacks,
       recordTag,
       getRecentTags,
       clearRecentTags,
       exportSessionLog,
       replaySession,
       enableMusicDrivenMode,
-      onBeat,
-      onOnset,
-      onEnergyRise,
-      onEnergyDrop
     } from './hallucinationEngine.js';
     import { createHandDrawnButton } from './hand-drawn-rect.js';
 
-    const PACKS = ['default', 'fog', 'dreamcore'];
-    const MOODS = ['ambient', 'rare', 'glide', 'dreamcore'];
+    // Align UI directly to the packs/moods shipped in DEFAULT_EFFECT_PACKS.
+    const EFFECT_PACK_CONFIG = getEffectPacks();
+    const PACKS = Object.keys(EFFECT_PACK_CONFIG);
+    const DEFAULT_PACK = PACKS.includes('default') ? 'default' : PACKS[0];
+    const getMoodsForPack = (packName) => Object.keys(EFFECT_PACK_CONFIG[packName] || {}).filter((key) => Array.isArray(EFFECT_PACK_CONFIG[packName][key]));
     const STORAGE_KEY = 'rv.hallucination.settings';
 
-    const defaultMoods = () => ({
-      ambient: true,
-      rare: true,
-      glide: true,
-      dreamcore: true,
-    });
+    const defaultMoods = (packName) => {
+      const moods = getMoodsForPack(packName);
+      return moods.reduce((acc, mood) => ({ ...acc, [mood]: true }), {});
+    };
+
+    const sanitizePackSelection = (selected) => {
+      const valid = (selected || []).filter((pack) => PACKS.includes(pack));
+      if (valid.length) return valid;
+      return DEFAULT_PACK ? [DEFAULT_PACK] : [];
+    };
+
+    const sanitizePackMoods = (packMoods = {}) =>
+      PACKS.reduce((acc, packName) => {
+        const moods = getMoodsForPack(packName);
+        const existing = packMoods[packName] || {};
+        acc[packName] = moods.reduce((moodAcc, mood) => ({ ...moodAcc, [mood]: existing[mood] !== false }), {});
+        return acc;
+      }, {});
+
+    const normalizeSettings = (rawSettings) => {
+      const selectedPacks = sanitizePackSelection(rawSettings.selectedPacks);
+      const packMoods = sanitizePackMoods(rawSettings.packMoods);
+      return { ...rawSettings, selectedPacks, packMoods };
+    };
 
     function loadSettings() {
-      const defaults = {
-        selectedPacks: ['default'],
-        packMoods: {
-          default: defaultMoods(),
-          fog: defaultMoods(),
-          dreamcore: defaultMoods(),
-        },
+      const defaults = normalizeSettings({
+        selectedPacks: DEFAULT_PACK ? [DEFAULT_PACK] : [],
+        packMoods: PACKS.reduce((acc, pack) => ({ ...acc, [pack]: defaultMoods(pack) }), {}),
         effectInterval: 4000,
         rareChance: 0.02,
         intensityMultiplier: 1,
@@ -502,17 +516,13 @@
         bpmOverride: false,
         stepRate: 0,
         replaySpeed: 1,
-      };
+      });
 
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return defaults;
         const parsed = JSON.parse(raw);
-        return {
-          ...defaults,
-          ...parsed,
-          packMoods: { ...defaults.packMoods, ...(parsed.packMoods || {}) },
-        };
+        return normalizeSettings({ ...defaults, ...parsed });
       } catch (error) {
         console.warn('Failed to load settings', error);
         return defaults;
@@ -520,6 +530,7 @@
     }
 
     function persistSettings(settings) {
+      // Persistence is for future sessions; runtime visuals update only via applySettingsToEngine.
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       } catch (error) {
@@ -528,6 +539,7 @@
     }
 
     function applySettingsToEngine(settings) {
+      // Runtime wiring: these calls change hallucination visuals immediately.
       configureEffectPacks({
         selectedPacks: settings.selectedPacks,
         moodFilters: settings.packMoods,
@@ -544,7 +556,8 @@
     applySettingsToEngine(settings);
 
     function updateSettings(partial) {
-      settings = { ...settings, ...partial };
+      // Normalize before persisting so the UI never advertises unimplemented packs/moods.
+      settings = normalizeSettings({ ...settings, ...partial });
       persistSettings(settings);
       applySettingsToEngine(settings);
       render();
@@ -630,9 +643,10 @@
         const moodGrid = document.createElement('div');
         moodGrid.className = 'mood-grid';
         
-        const packMoods = settings.packMoods[packName] || defaultMoods();
+        const packMoods = settings.packMoods[packName] || defaultMoods(packName);
+        const moodKeys = getMoodsForPack(packName);
         
-        MOODS.forEach(mood => {
+        moodKeys.forEach(mood => {
           const moodLabel = document.createElement('label');
           const moodCheckbox = document.createElement('input');
           moodCheckbox.type = 'checkbox';
@@ -787,7 +801,7 @@
       stepRateRow.style.marginBottom = '12px';
       
       const stepRateLabel = document.createElement('span');
-      stepRateLabel.textContent = 'Step rate (for preview)';
+      stepRateLabel.textContent = 'Step rate (inactive placeholder - live sensors only)';
       
       const stepRateInput = document.createElement('input');
       stepRateInput.type = 'range';
@@ -796,16 +810,12 @@
       stepRateInput.step = '1';
       stepRateInput.value = String(settings.stepRate ?? 0);
       stepRateInput.style.flex = '1';
+      stepRateInput.disabled = true; // Live cadence comes from runtime sensors; this slider no-ops by design.
+      stepRateInput.title = 'Disabled: cadence is set by runtime sensors, not this control.';
       
       const stepRateValue = document.createElement('span');
-      stepRateValue.textContent = `${settings.stepRate ?? 0} spm`;
+      stepRateValue.textContent = 'Live sensor driven';
       stepRateValue.style.minWidth = '60px';
-      
-      stepRateInput.addEventListener('input', () => {
-        const value = Number(stepRateInput.value) || 0;
-        stepRateValue.textContent = `${value} spm`;
-        updateSettings({ stepRate: value });
-      });
       
       stepRateRow.append(stepRateLabel, stepRateInput, stepRateValue);
       
@@ -865,14 +875,13 @@
       musicSection.innerHTML = '<h3>Music-Driven Mode</h3>';
       
       const musicInfo = document.createElement('p');
-      musicInfo.textContent = 'Upload audio to sync effects with real-time music analysis (BPM, beats, onsets).';
+      musicInfo.textContent = 'Music-driven visuals require an external DSP bridge (setupMusicBridge) to feed beat/onset callbacks.';
       musicInfo.style.margin = '0 0 1rem 0';
       musicInfo.style.fontSize = '0.9rem';
       musicInfo.style.opacity = '0.8';
       musicSection.append(musicInfo);
 
       const musicStatus = document.createElement('div');
-      musicStatus.id = 'music-status';
       musicStatus.style.padding = '0.75rem';
       musicStatus.style.marginBottom = '1rem';
       musicStatus.style.borderRadius = '8px';
@@ -912,125 +921,136 @@
       btnGroup.append(uploadBtn, playBtn, stopBtn);
       musicSection.append(btnGroup);
 
+      const musicBridgeAvailable = typeof window !== 'undefined' && typeof window.setupMusicBridge === 'function';
+      if (!musicBridgeAvailable) {
+        musicStatus.textContent = '⚠️ Music-driven controls disabled: no DSP beat/onset callbacks available.';
+        musicStatus.style.backgroundColor = 'rgba(226, 232, 240, 0.18)';
+        uploadBtn.disabled = true;
+        playBtn.disabled = true;
+        playBtn.style.opacity = '0.35';
+        stopBtn.disabled = true;
+        stopBtn.style.opacity = '0.35';
+      }
+
       // Music state
       let audioContext = null;
       let audioBuffer = null;
       let sourceNode = null;
       let isPlaying = false;
 
-      uploadBtn.addEventListener('click', async () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'audio/mpeg,audio/wav,audio/ogg,audio/x-m4a,audio/mp4,.mp3,.wav,.ogg,.m4a';
-        
-        input.onchange = async () => {
-          const file = input.files?.[0];
-          if (!file) return;
-
-          try {
-            musicStatus.textContent = '⏳ Loading...';
-            
-            if (!audioContext) {
-              audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            const arrayBuffer = await file.arrayBuffer();
-            audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            
-            musicStatus.textContent = `✅ ${file.name} loaded (${Math.round(audioBuffer.duration)}s)`;
-            musicStatus.style.backgroundColor = 'rgba(5, 150, 105, 0.3)';
-            
-            playBtn.disabled = false;
-            playBtn.style.opacity = '1';
-            
-            // Setup music bridge if renderer.js has exposed it
-            if (window.setupMusicBridge && window.setMusicActive) {
-              // The full music system from rv-app can be integrated here
-              console.log('Music system ready - full DSP analysis available');
-            }
-          } catch (error) {
-            musicStatus.textContent = `❌ Error: ${error.message}`;
-            musicStatus.style.backgroundColor = 'rgba(220, 38, 38, 0.3)';
-          }
-        };
-        
-        input.click();
-      });
-
-      playBtn.addEventListener('click', () => {
-        if (!audioContext || !audioBuffer) return;
-
-        if (isPlaying) {
-          // Pause
-          if (sourceNode) {
-            sourceNode.stop();
-            sourceNode = null;
-          }
-          isPlaying = false;
-          playBtn.textContent = 'Play';
-          musicStatus.textContent = '⏸ Paused';
-          musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
-          enableMusicDrivenMode(false);
+      if (!musicBridgeAvailable) {
+        musicStatus.title = 'Requires setupMusicBridge to drive hallucination visuals.';
+      } else {
+        uploadBtn.addEventListener('click', async () => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'audio/mpeg,audio/wav,audio/ogg,audio/x-m4a,audio/mp4,.mp3,.wav,.ogg,.m4a';
           
-          if (window.setMusicActive) {
-            window.setMusicActive(false);
-          }
-        } else {
-          // Play
-          sourceNode = audioContext.createBufferSource();
-          sourceNode.buffer = audioBuffer;
-          sourceNode.connect(audioContext.destination);
-          sourceNode.start(0);
+          input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+
+            try {
+              musicStatus.textContent = '⏳ Loading...';
+              
+              if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              }
+
+              const arrayBuffer = await file.arrayBuffer();
+              audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+              
+              musicStatus.textContent = `✅ ${file.name} loaded (${Math.round(audioBuffer.duration)}s)`;
+              musicStatus.style.backgroundColor = 'rgba(5, 150, 105, 0.3)';
+              
+              playBtn.disabled = false;
+              playBtn.style.opacity = '1';
+              
+              // Real reactivity still depends on DSP callbacks calling onBeat/onOnset/onEnergyRise/onEnergyDrop.
+              console.log('Music system ready - waiting for DSP callbacks to drive visuals');
+            } catch (error) {
+              musicStatus.textContent = `❌ Error: ${error.message}`;
+              musicStatus.style.backgroundColor = 'rgba(220, 38, 38, 0.3)';
+            }
+          };
           
-          sourceNode.onended = () => {
+          input.click();
+        });
+
+        playBtn.addEventListener('click', () => {
+          if (!audioContext || !audioBuffer) return;
+
+          if (isPlaying) {
+            // Pause
+            if (sourceNode) {
+              sourceNode.stop();
+              sourceNode = null;
+            }
             isPlaying = false;
             playBtn.textContent = 'Play';
-            musicStatus.textContent = '⏹ Track ended';
+            musicStatus.textContent = '⏸ Paused';
             musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
             enableMusicDrivenMode(false);
             
             if (window.setMusicActive) {
               window.setMusicActive(false);
             }
+          } else {
+            // Play
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.connect(audioContext.destination);
+            sourceNode.start(0);
             
-            stopBtn.disabled = true;
-            stopBtn.style.opacity = '0.5';
-          };
-          
-          isPlaying = true;
-          playBtn.textContent = 'Pause';
-          musicStatus.textContent = '▶️ Playing - Music-driven mode active';
-          musicStatus.style.backgroundColor = 'rgba(5, 150, 105, 0.3)';
-          enableMusicDrivenMode(true);
+            sourceNode.onended = () => {
+              isPlaying = false;
+              playBtn.textContent = 'Play';
+              musicStatus.textContent = '⏹ Track ended';
+              musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
+              enableMusicDrivenMode(false);
+              
+              if (window.setMusicActive) {
+                window.setMusicActive(false);
+              }
+              
+              stopBtn.disabled = true;
+              stopBtn.style.opacity = '0.5';
+            };
+            
+            isPlaying = true;
+            playBtn.textContent = 'Pause';
+            musicStatus.textContent = '▶️ Playing - Music-driven mode active (requires DSP callbacks to respond)';
+            musicStatus.style.backgroundColor = 'rgba(5, 150, 105, 0.3)';
+            enableMusicDrivenMode(true);
+            
+            if (window.setMusicActive) {
+              window.setMusicActive(true);
+            }
+            
+            stopBtn.disabled = false;
+            stopBtn.style.opacity = '1';
+          }
+        });
+
+        stopBtn.addEventListener('click', () => {
+          if (sourceNode) {
+            sourceNode.stop();
+            sourceNode = null;
+          }
+          isPlaying = false;
+          playBtn.textContent = 'Play';
+          musicStatus.textContent = '⏹ Stopped';
+          musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
+          enableMusicDrivenMode(false);
           
           if (window.setMusicActive) {
-            window.setMusicActive(true);
+            window.setMusicActive(false);
           }
           
-          stopBtn.disabled = false;
-          stopBtn.style.opacity = '1';
-        }
-      });
-
-      stopBtn.addEventListener('click', () => {
-        if (sourceNode) {
-          sourceNode.stop();
-          sourceNode = null;
-        }
-        isPlaying = false;
-        playBtn.textContent = 'Play';
-        musicStatus.textContent = '⏹ Stopped';
-        musicStatus.style.backgroundColor = 'rgba(0,0,0,0.3)';
-        enableMusicDrivenMode(false);
-        
-        if (window.setMusicActive) {
-          window.setMusicActive(false);
-        }
-        
-        stopBtn.disabled = true;
-        stopBtn.style.opacity = '0.5';
-      });
-
+          stopBtn.disabled = true;
+          stopBtn.style.opacity = '0.5';
+        });
+      }
       container.append(musicSection);
 
       // Randomize Button
@@ -1043,12 +1063,12 @@
       randomizeBtn.style.display = 'block';
       randomizeBtn.addEventListener('click', () => {
         const randomPackSelection = PACKS.filter(() => Math.random() > 0.4);
-        const selectedPacks = randomPackSelection.length ? randomPackSelection : ['default'];
+        const selectedPacks = sanitizePackSelection(randomPackSelection.length ? randomPackSelection : settings.selectedPacks);
         
         const packMoods = { ...settings.packMoods };
         selectedPacks.forEach(pack => {
           const moods = { ...packMoods[pack] };
-          MOODS.forEach(mood => {
+          getMoodsForPack(pack).forEach(mood => {
             moods[mood] = Math.random() > 0.2;
           });
           packMoods[pack] = moods;
@@ -1062,7 +1082,6 @@
           intensityMultiplier: Number((0.5 + Math.random() * 1.5).toFixed(2)),
           bpm: 80 + Math.round(Math.random() * 80),
           bpmOverride: Math.random() > 0.5,
-          stepRate: Math.round(Math.random() * 160),
           replaySpeed: Number((0.5 + Math.random() * 1.5).toFixed(2)),
         });
       });

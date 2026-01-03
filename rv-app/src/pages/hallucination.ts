@@ -4,6 +4,7 @@ import {
   configureEffectPacks,
   exportSessionLog,
   getRecentTags,
+  getEffectPacks,
   recordTag,
   replaySession,
   setEffectInterval,
@@ -12,10 +13,13 @@ import {
   updateBPM,
 } from '../../../renderer/hallucinationEngine.js';
 
-const PACKS = ['default', 'fog', 'dreamcore'] as const;
+const EFFECT_PACK_CONFIG = getEffectPacks();
+const PACKS = Object.keys(EFFECT_PACK_CONFIG);
+const DEFAULT_PACK = PACKS.includes('default') ? 'default' : PACKS[0];
 type PackName = (typeof PACKS)[number];
-const MOODS = ['ambient', 'rare', 'glide', 'dreamcore'] as const;
-type MoodName = (typeof MOODS)[number];
+const getMoodsForPack = (packName: PackName) =>
+  Object.keys(EFFECT_PACK_CONFIG[packName] || {}).filter((key) => Array.isArray((EFFECT_PACK_CONFIG as any)[packName]?.[key]));
+type MoodName = string;
 
 const STORAGE_KEY = 'rv.hallucination.settings';
 
@@ -33,42 +37,72 @@ interface HallucinationSettings {
   replaySpeed: number;
 }
 
-const defaultMoods = (): PackMoodState => ({
-  ambient: true,
-  rare: true,
-  glide: true,
-  dreamcore: true,
-});
+const defaultMoods = (packName: PackName): PackMoodState => {
+  const moods = getMoodsForPack(packName);
+  return moods.reduce(
+    (acc, mood) => ({
+      ...acc,
+      [mood]: true,
+    }),
+    {} as PackMoodState,
+  );
+};
+
+const defaultPackMoods = (): Record<PackName, PackMoodState> =>
+  PACKS.reduce(
+    (acc, pack) => ({
+      ...acc,
+      [pack as PackName]: defaultMoods(pack as PackName),
+    }),
+    {} as Record<PackName, PackMoodState>,
+  );
+
+const DEFAULT_SETTINGS_BASE: HallucinationSettings = {
+  selectedPacks: DEFAULT_PACK ? ([DEFAULT_PACK] as PackName[]) : [],
+  packMoods: defaultPackMoods(),
+  effectInterval: 4000,
+  rareChance: 0.02,
+  intensityMultiplier: 1,
+  bpm: 100,
+  bpmOverride: false,
+  stepRate: 0,
+  replaySpeed: 1,
+};
+
+const sanitizePackSelection = (selected: string[] | undefined): PackName[] => {
+  const valid = (selected || []).filter((pack) => PACKS.includes(pack)) as PackName[];
+  if (valid.length) return valid;
+  return DEFAULT_PACK ? ([DEFAULT_PACK] as PackName[]) : [];
+};
+
+const sanitizePackMoods = (packMoods: Record<string, PackMoodState> = {}): Record<PackName, PackMoodState> =>
+  PACKS.reduce((acc, packName) => {
+    const moods = getMoodsForPack(packName as PackName);
+    const existing = packMoods[packName] || {};
+    acc[packName as PackName] = moods.reduce(
+      (moodAcc, mood) => ({
+        ...moodAcc,
+        [mood]: existing[mood] !== false,
+      }),
+      {} as PackMoodState,
+    );
+    return acc;
+  }, {} as Record<PackName, PackMoodState>);
+
+const normalizeSettings = (rawSettings: Partial<HallucinationSettings>): HallucinationSettings => {
+  const merged = { ...DEFAULT_SETTINGS_BASE, ...rawSettings };
+  const selectedPacks = sanitizePackSelection(merged.selectedPacks as unknown as string[]);
+  const packMoods = sanitizePackMoods(merged.packMoods as unknown as Record<string, PackMoodState>);
+  return { ...merged, selectedPacks, packMoods };
+};
 
 function loadSettings(): HallucinationSettings {
-  const defaults: HallucinationSettings = {
-    selectedPacks: ['default'],
-    packMoods: {
-      default: defaultMoods(),
-      fog: defaultMoods(),
-      dreamcore: defaultMoods(),
-    },
-    effectInterval: 4000,
-    rareChance: 0.02,
-    intensityMultiplier: 1,
-    bpm: 100,
-    bpmOverride: false,
-    stepRate: 0,
-    replaySpeed: 1,
-  };
+  const defaults: HallucinationSettings = { ...DEFAULT_SETTINGS_BASE };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw);
-    return {
-      ...defaults,
-      ...parsed,
-      selectedPacks: (parsed.selectedPacks || defaults.selectedPacks).filter((pack: string) => PACKS.includes(pack as PackName)),
-      packMoods: {
-        ...defaults.packMoods,
-        ...(parsed.packMoods || {}),
-      },
-    };
+    return normalizeSettings({ ...defaults, ...parsed });
   } catch (error) {
     console.warn('[HallucinationControls] Failed to load settings', error);
     return defaults;
@@ -106,7 +140,8 @@ class RVHallucinationControls extends HTMLElement {
   }
 
   private updateSettings(partial: Partial<HallucinationSettings>) {
-    this.settings = { ...this.settings, ...partial };
+    // Normalize to active effect packs/moods before persisting so the UI never advertises inactive options.
+    this.settings = normalizeSettings({ ...this.settings, ...partial });
     persistSettings(this.settings);
     this.applySettingsToEngine();
     this.render();
@@ -190,9 +225,9 @@ class RVHallucinationControls extends HTMLElement {
       moodGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(120px, 1fr))';
       moodGrid.style.gap = '6px';
 
-      const packMoods = this.settings.packMoods[packName] || defaultMoods();
+      const packMoods = this.settings.packMoods[packName] || defaultMoods(packName as PackName);
 
-      MOODS.forEach((mood) => {
+      getMoodsForPack(packName as PackName).forEach((mood) => {
         const moodLabel = document.createElement('label');
         moodLabel.style.display = 'flex';
         moodLabel.style.alignItems = 'center';
@@ -336,16 +371,12 @@ class RVHallucinationControls extends HTMLElement {
     stepRateInput.max = '180';
     stepRateInput.step = '1';
     stepRateInput.value = String(this.settings.stepRate ?? 0);
+    stepRateInput.disabled = true;
+    stepRateInput.title = 'Disabled: live cadence comes from runtime sensors.';
     const stepRateValue = document.createElement('span');
-    stepRateValue.textContent = `${this.settings.stepRate ?? 0} spm`;
+    stepRateValue.textContent = 'Live sensor driven';
 
-    stepRateInput.addEventListener('input', () => {
-      const value = Number(stepRateInput.value) || 0;
-      stepRateValue.textContent = `${value} spm`;
-      this.updateSettings({ stepRate: value });
-    });
-
-    stepRateRow.append(document.createTextNode('Step rate (for preview)'), stepRateInput, stepRateValue);
+    stepRateRow.append(document.createTextNode('Step rate (inactive placeholder - live sensors only)'), stepRateInput, stepRateValue);
 
     section.append(exportBtn, importLabel, replaySpeedLabel, stepRateRow);
     return section;
@@ -436,11 +467,13 @@ class RVHallucinationControls extends HTMLElement {
 
   private randomizeAll() {
     const randomPackSelection = PACKS.filter(() => Math.random() > 0.4);
-    const selectedPacks = (randomPackSelection.length ? randomPackSelection : ['default']) as PackName[];
+    const selectedPacks = sanitizePackSelection(
+      (randomPackSelection.length ? randomPackSelection : this.settings.selectedPacks) as string[],
+    );
     const packMoods: Record<PackName, PackMoodState> = { ...this.settings.packMoods } as Record<PackName, PackMoodState>;
     selectedPacks.forEach((pack) => {
       const moods: PackMoodState = { ...packMoods[pack] };
-      MOODS.forEach((mood) => {
+      getMoodsForPack(pack).forEach((mood) => {
         moods[mood] = Math.random() > 0.2;
       });
       packMoods[pack] = moods;
@@ -454,7 +487,6 @@ class RVHallucinationControls extends HTMLElement {
       intensityMultiplier: Number((0.5 + Math.random() * 1.5).toFixed(2)),
       bpm: 80 + Math.round(Math.random() * 80),
       bpmOverride: Math.random() > 0.5,
-      stepRate: Math.round(Math.random() * 160),
       replaySpeed: Number((0.5 + Math.random() * 1.5).toFixed(2)),
     });
   }
