@@ -54,6 +54,7 @@ import {
   setEffectInterval,
   setRareChance,
   setIntensityMultiplier,
+  setHallucinationVisibility,
   enableMusicDrivenMode,
   onBeat,
   onOnset,
@@ -77,6 +78,8 @@ const HALLUCINATION_SETTINGS_KEY = 'rv.hallucination.settings';
 const RV_APP_BASE_PATH = '/rv/';
 const RV_APP_DEV_URL = RV_APP_BASE_PATH;
 const RV_APP_PROD_URL = RV_APP_BASE_PATH;
+const IDLE_POSTER_SRC = '/assets/frame-rectangle.jpg';
+const STARTUP_READY_STATUS = 'Ready — press Play';
 
 const DEFAULT_HALLUCINATION_SETTINGS = {
   selectedPacks: ['default'],
@@ -157,6 +160,7 @@ let fitPollTimer;
 let videoPlayer;
 let playerReady = false;
 let userRequestedPlay = false;
+let idlePosterAssigned = false;
 let currentPlaylistId = PLAYLIST_REGISTRY[0]?.id || null;
 let currentPlaylist = PLAYLIST_REGISTRY[0]?.items || [];
 let currentClipIndex = 0;
@@ -474,6 +478,7 @@ function setupEventListeners() {
   elements.playButton?.addEventListener('click', async () => {
     console.log('[Play Button] Clicked');
     userRequestedPlay = true;
+    updateHallucinationVisibility();
     const engineState = getRunState();
 
     if (atomsLoaded) {
@@ -491,10 +496,18 @@ function setupEventListeners() {
     // ALWAYS load atoms, never use the old playlist system
     console.log('[Play Button] Loading atoms from Backblaze');
     try {
-      await loadAtomsFromBackblaze(5); // Default 5 minutes
+      const loaded = await loadAtomsFromBackblaze(5); // Default 5 minutes
+      if (!loaded) {
+        userRequestedPlay = false;
+        updateHallucinationVisibility();
+        setIdleReadyStatus();
+      }
     } catch (err) {
       console.error('[Play Button] Error loading atoms:', err);
       setPlaylistStatus('Failed to load atoms', '#f66');
+      userRequestedPlay = false;
+      updateHallucinationVisibility();
+      setIdleReadyStatus();
     }
   });
 
@@ -506,7 +519,8 @@ function setupEventListeners() {
   elements.stopButton?.addEventListener('click', () => {
     stopRun();
     userRequestedPlay = false;
-    setPlaylistStatus('Atom engine stopped and reset', '#aaa');
+    updateHallucinationVisibility();
+    setPlaylistStatus('Atom engine stopped — press Play to restart', '#aaa');
   });
 
   elements.volumeSlider?.addEventListener('input', (event) => {
@@ -550,18 +564,26 @@ function initializeVideoPlayer() {
   videoPlayer = document.getElementById('v1');
   if (!videoPlayer) {
     console.warn('[Video] Player element not found');
+    playerReady = false;
     return;
   }
 
   setVideoAttributes();
-  // Don't bind video events - atoms system handles everything
-  playerReady = true;
+  idlePosterAssigned = applyIdlePoster();
+  playerReady = hasVisibleVideoSurface();
+  updateHallucinationVisibility();
+
+  if (!playerReady) {
+    setPlaylistStatus('Preparing idle surface...', '#aaa');
+    return;
+  }
   // Atom engine stays idle until the user presses Play; there is no hidden autoplay on load.
 
   if (Number.isFinite(desiredVolume)) {
     setVideoVolume(desiredVolume);
   }
 
+  setIdleReadyStatus();
   // Don't auto-load playlists - we're using atoms only
   console.log('[Video] Player initialized for atom playback');
 }
@@ -573,6 +595,37 @@ function setVideoAttributes() {
   videoPlayer.loop = false;
   videoPlayer.muted = false;
   videoPlayer.controls = false;
+  videoPlayer.preload = 'none';
+}
+
+function applyIdlePoster() {
+  if (!videoPlayer) return false;
+  try {
+    videoPlayer.poster = IDLE_POSTER_SRC;
+    videoPlayer.preload = 'none';
+    if (!videoPlayer.src) {
+      videoPlayer.removeAttribute('src');
+      videoPlayer.load();
+    }
+    idlePosterAssigned = Boolean(videoPlayer.poster);
+    return idlePosterAssigned;
+  } catch (error) {
+    console.warn('[Video] Failed to set idle poster', error);
+    idlePosterAssigned = false;
+    return false;
+  }
+}
+
+function hasVisibleVideoSurface() {
+  if (!videoPlayer) return false;
+  const hasPoster = Boolean(videoPlayer.poster);
+  const hasSource = Boolean(videoPlayer.currentSrc || videoPlayer.src);
+  return hasPoster || hasSource;
+}
+
+function updateHallucinationVisibility() {
+  const allowHallucination = userRequestedPlay || (hasVisibleVideoSurface() && !idlePosterAssigned);
+  setHallucinationVisibility(allowHallucination);
 }
 
 function bindVideoEvents() {
@@ -716,7 +769,7 @@ async function loadAtomsFromBackblaze(durationMinutes = 5) {
     // Start playing using runEngine
     if (playerReady && userRequestedPlay) {
       await startRun(atomPlan);
-      setPlaylistStatus('Playing atoms...', '#4CAF50');
+      setPlaylistStatus('Starting atom engine...', '#4CAF50');
     }
     
     return true;
@@ -1046,6 +1099,13 @@ function populatePlaylistDropdown(playlists) {
   }
 }
 
+function setIdleReadyStatus() {
+  if (!playerReady || userRequestedPlay) {
+    return;
+  }
+  setPlaylistStatus(STARTUP_READY_STATUS, '#ccc');
+}
+
 function renderPlaylistRegistry() {
   populatePlaylistDropdown(PLAYLIST_REGISTRY);
   const hasPlaylists = PLAYLIST_REGISTRY.length > 0;
@@ -1053,6 +1113,16 @@ function renderPlaylistRegistry() {
 
   if (!hasPlaylists) {
     setPlaylistStatus('No playlists available', '#f66');
+    return;
+  }
+
+  if (!playerReady) {
+    setPlaylistStatus('Preparing idle surface...', '#aaa');
+    return;
+  }
+
+  if (playerReady && !userRequestedPlay && !atomsLoaded) {
+    setIdleReadyStatus();
     return;
   }
 

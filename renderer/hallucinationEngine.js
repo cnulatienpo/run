@@ -21,6 +21,7 @@ let ctx;
 let canvasInitialized = false;
 const pluginRegistry = {};
 let intensityMultiplier = 1;
+let hallucinationVisible = false;
 
 export function initCanvas() {
   if (canvasInitialized) return canvas;
@@ -30,6 +31,9 @@ export function initCanvas() {
   canvas.style.top = 0;
   canvas.style.left = 0;
   canvas.style.pointerEvents = 'none';
+  canvas.style.opacity = '0';
+  canvas.style.visibility = 'hidden';
+  canvas.style.transition = 'opacity 200ms ease';
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   ctx = canvas.getContext('2d');
@@ -43,6 +47,7 @@ export function initCanvas() {
 
   window.addEventListener('resize', resizeCanvas);
   canvasInitialized = true;
+  applyCanvasVisibility();
   return canvas;
 }
 
@@ -55,6 +60,17 @@ export async function registerEffectPlugin(name, path) {
       console.warn(`Failed to load plugin '${name}':`, e);
     }
   }
+}
+
+export function setHallucinationVisibility(visible) {
+  hallucinationVisible = !!visible;
+  applyCanvasVisibility();
+}
+
+function applyCanvasVisibility() {
+  if (!canvasInitialized || !canvas) return;
+  canvas.style.visibility = hallucinationVisible ? 'visible' : 'hidden';
+  canvas.style.opacity = hallucinationVisible ? '1' : '0';
 }
 
 export function triggerCanvasEffect(effectName, zone, duration, intensity = 'base') {

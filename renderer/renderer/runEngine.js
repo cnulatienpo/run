@@ -9,6 +9,7 @@ let isCrossfading = false;
 let lastVideoUrl = null;
 let engineState = 'idle'; // idle | running | paused
 let pendingLoadController = null;
+let backgroundStartIssueLogged = false;
 // HUD transport controls talk exclusively to this atom engine; legacy background players stay isolated.
 
 export function initVideos() {
@@ -35,6 +36,7 @@ export async function startRun(planInput) {
     cursor = 0;
     lastVideoUrl = null;
   }
+  backgroundStartIssueLogged = false;
   
   if (!A || !B) {
     initVideos();
@@ -185,7 +187,7 @@ console.log("[runEngine] fetching atom:", atom);
 
       standby.oncanplay = () => handleStandbyReady(videoUrl);
       standby.onerror = (e) => {
-        console.error('[runEngine] Video error:', e, standby.error);
+        logBackgroundStartupIssue('[runEngine] Video error on standby layer', e || standby.error);
         standby.onerror = null;
         loadingNext = false;
         loadNextAtom(skipCount + 1);
@@ -197,7 +199,7 @@ console.log("[runEngine] fetching atom:", atom);
         console.log('[runEngine] Atom load aborted');
         return;
       }
-      console.error('[runEngine] Failed to load atom metadata:', error);
+      logBackgroundStartupIssue('[runEngine] Failed to load atom metadata:', error);
       loadingNext = false;
       loadNextAtom(skipCount + 1);
     });
@@ -214,7 +216,7 @@ function handleStandbyReady(videoUrl) {
   }
 
   isCrossfading = true;
-  standby.play().catch((err) => console.warn('[runEngine] Autoplay blocked:', err));
+  standby.play().catch((err) => logBackgroundStartupIssue('[runEngine] Autoplay blocked on standby layer', err));
 
   const outgoing = active;
   if (outgoing) {
@@ -238,6 +240,14 @@ function handleStandbyReady(videoUrl) {
   }
 
   loadNextAtom();
+}
+
+function logBackgroundStartupIssue(message, error) {
+  if (backgroundStartIssueLogged) {
+    return;
+  }
+  backgroundStartIssueLogged = true;
+  console.warn(message, error);
 }
 
 function abortPendingLoad() {
