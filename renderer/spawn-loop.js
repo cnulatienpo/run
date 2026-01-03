@@ -1,5 +1,5 @@
-// Hallucination spawn loop: tag -> interval range -> scheduled effect.
-// Timing lives here; visual application stays in filters.js.
+// Legacy hallucination spawn loop for the old #fx-canvas target.
+// Timing lives here; visual application stays in filters.js, but only runs if the legacy canvas exists.
 import * as filters from '../effects/filters.js';
 import effectMap from '../effects/effect-mapping.json' assert { type: 'json' };
 import {
@@ -9,6 +9,8 @@ import {
 
 const DEFAULT_INTERVAL_RANGE = [10000, 15000];
 const FX_OPACITY = 0.3;
+const FX_CANVAS_ID = 'fx-canvas';
+let warnedMissingFxCanvas = false;
 
 let currentTag = null;
 let spawnTimeoutId;
@@ -69,8 +71,12 @@ function currentMoodKey() {
 }
 
 function triggerHallucinationEffect() {
-  const canvas = document.getElementById('fx-canvas');
+  const canvas = document.getElementById(FX_CANVAS_ID);
   if (!canvas) {
+    if (!warnedMissingFxCanvas) {
+      console.warn('[spawn-loop] Legacy fx-canvas not found; canvas-based hallucinations stay inactive here.');
+      warnedMissingFxCanvas = true;
+    }
     return;
   }
 
