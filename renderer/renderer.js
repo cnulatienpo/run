@@ -139,11 +139,14 @@ const WORKAHOL_ENABLER_CLIPS = [
 
 const WORKAHOL_ENABLER_PLAYLIST_ID = 'workahol_enabler';
 
-const WORKAHOL_ENABLER_PLAYLIST = [
+// Playlist registry defines media sources only.
+// Tags (Dreamcore / Ambient / Urban) influence hallucination weighting, not playlist membership.
+const PLAYLIST_REGISTRY = [
   {
     id: WORKAHOL_ENABLER_PLAYLIST_ID,
-    title: 'Workahol Enabler – Scenic / Urban / Urbex',
-    clips: WORKAHOL_ENABLER_CLIPS,
+    name: 'Workahol Enabler – Scenic / Urban / Urbex',
+    source: 'local',
+    items: WORKAHOL_ENABLER_CLIPS,
   },
 ];
 
@@ -154,9 +157,8 @@ let fitPollTimer;
 let videoPlayer;
 let playerReady = false;
 let userRequestedPlay = false;
-let availablePlaylists = WORKAHOL_ENABLER_PLAYLIST;
-let currentPlaylistId = WORKAHOL_ENABLER_PLAYLIST_ID;
-let currentPlaylist = WORKAHOL_ENABLER_CLIPS;
+let currentPlaylistId = PLAYLIST_REGISTRY[0]?.id || null;
+let currentPlaylist = PLAYLIST_REGISTRY[0]?.items || [];
 let currentClipIndex = 0;
 let desiredVolume = 50;
 let latestCadence;
@@ -216,6 +218,7 @@ export function setMusicActive(active) {
 }
 
 function handleTagChange(tag) {
+  // Tags steer hallucination weighting only; playlists remain fixed media sources.
   recordTag(tag);
 }
 
@@ -340,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeGoogleAuth();
     // Disabled: step server not running in dev environment
     // connectStepServerFallback();
-    populateHardcodedPlaylists();
+    renderPlaylistRegistry();
     initializeHallucinationEngine();
   }, 100);
 });
@@ -412,7 +415,9 @@ function setupHudToggle() {
 function loadStoredPreferences() {
   const storedPlaylist = safeReadLocalStorage(PLAYLIST_STORAGE_KEY);
   if (storedPlaylist && typeof storedPlaylist === 'string') {
-    currentPlaylistId = storedPlaylist;
+    syncCurrentPlaylistSelection(storedPlaylist);
+  } else {
+    syncCurrentPlaylistSelection();
   }
 
   const storedVolume = Number(safeReadLocalStorage(VOLUME_STORAGE_KEY));
@@ -456,8 +461,8 @@ function setupEventListeners() {
   });
 
   elements.playlistRefresh?.addEventListener('click', () => {
-    populateHardcodedPlaylists();
-    setPlaylistStatus('Playlist refreshed', '#4CAF50');
+    renderPlaylistRegistry();
+    setPlaylistStatus('Playlist dropdown refreshed from registry', '#4CAF50');
   });
 
   elements.testClipApi?.addEventListener('click', () => {
@@ -571,17 +576,35 @@ function bindVideoEvents() {
   });
 }
 
+function getPlaylistFromRegistry(playlistId) {
+  if (!playlistId) return undefined;
+  return PLAYLIST_REGISTRY.find((entry) => entry.id === playlistId);
+}
+
+function syncCurrentPlaylistSelection(preferredId) {
+  const playlist = getPlaylistFromRegistry(preferredId) || PLAYLIST_REGISTRY[0];
+  if (playlist) {
+    currentPlaylistId = playlist.id;
+    currentPlaylist = Array.isArray(playlist.items) ? playlist.items : [];
+    return playlist;
+  }
+
+  currentPlaylistId = null;
+  currentPlaylist = [];
+  return null;
+}
+
 function loadPlaylist(playlistId) {
   if (!playlistId || atomsLoaded) return; // Don't load playlists if atoms are active
 
-  const playlist = availablePlaylists.find((entry) => entry.id === playlistId);
+  const playlist = getPlaylistFromRegistry(playlistId);
   if (!playlist) {
     setPlaylistStatus('Playlist not found', '#f66');
     return;
   }
 
   currentPlaylistId = playlistId;
-  currentPlaylist = Array.isArray(playlist.clips) ? playlist.clips : [];
+  currentPlaylist = Array.isArray(playlist.items) ? playlist.items : [];
   currentClipIndex = 0;
   safeWriteLocalStorage(PLAYLIST_STORAGE_KEY, playlistId);
 
@@ -978,25 +1001,51 @@ function populatePlaylistDropdown(playlists) {
   }
 
   elements.playlistSelect.innerHTML = '';
+  if (!playlists.length) {
+    currentPlaylistId = null;
+    currentPlaylist = [];
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No playlists available';
+    elements.playlistSelect.appendChild(option);
+    elements.playlistSelect.disabled = true;
+    return;
+  }
+
+  elements.playlistSelect.disabled = false;
+
   for (const playlist of playlists) {
     const option = document.createElement('option');
     option.value = playlist.id;
-    option.textContent = playlist.title;
+    option.textContent = playlist.name;
     elements.playlistSelect.appendChild(option);
   }
 
-  if (currentPlaylistId) {
-    elements.playlistSelect.value = currentPlaylistId;
+  const active = syncCurrentPlaylistSelection(currentPlaylistId) || playlists[0];
+  if (active) {
+    elements.playlistSelect.value = active.id;
+  }
+
+  if (playlists.length === 1) {
+    elements.playlistSelect.title = `Single playlist available: ${playlists[0].name}`;
+  } else {
+    elements.playlistSelect.title = 'Select a playlist';
   }
 }
 
-function populateHardcodedPlaylists() {
-  const hardcodedPlaylists = WORKAHOL_ENABLER_PLAYLIST;
-  availablePlaylists = hardcodedPlaylists;
+function renderPlaylistRegistry() {
+  populatePlaylistDropdown(PLAYLIST_REGISTRY);
+  const hasPlaylists = PLAYLIST_REGISTRY.length > 0;
+  setPlaylistControlsEnabled(hasPlaylists);
 
-  if (elements.playlistSelect) {
-    populatePlaylistDropdown(hardcodedPlaylists);
-    setPlaylistControlsEnabled(true);
+  if (!hasPlaylists) {
+    setPlaylistStatus('No playlists available', '#f66');
+    return;
+  }
+
+  if (PLAYLIST_REGISTRY.length === 1) {
+    setPlaylistStatus(`Single playlist available: ${PLAYLIST_REGISTRY[0].name}`, '#ccc');
+  } else {
     setPlaylistStatus('Select a playlist', '#ccc');
   }
 }
