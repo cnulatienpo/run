@@ -1,8 +1,9 @@
-let startTime = Date.now();
-const timeEl = document.getElementById('session-time');
+export function startTimer(timeEl = document.getElementById('session-time')) {
+  if (!timeEl) {
+    return;
+  }
 
-export function startTimer() {
-  startTime = Date.now();
+  let startTime = Date.now();
   setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     const minutes = Math.floor(elapsed / 60);

@@ -2,6 +2,10 @@ const tagDisplay = document.getElementById('current-tag');
 const buttons = document.querySelectorAll('button[data-tag]');
 
 export function initTags(onChange) {
+  if (!buttons.length || !tagDisplay || typeof onChange !== 'function') {
+    return;
+  }
+
   buttons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const tag = btn.dataset.tag;
