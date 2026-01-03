@@ -7,6 +7,9 @@ let standby = null;
 let loadingNext = false;
 let isCrossfading = false;
 let lastVideoUrl = null;
+let engineState = 'idle'; // idle | running | paused
+let pendingLoadController = null;
+// HUD transport controls talk exclusively to this atom engine; legacy background players stay isolated.
 
 export function initVideos() {
   A = document.getElementById("v1");
@@ -27,9 +30,11 @@ export function initVideos() {
 }
 
 export async function startRun(planInput) {
-  plan = Array.isArray(planInput) ? planInput : [];
-  cursor = 0;
-  lastVideoUrl = null;
+  if (Array.isArray(planInput) && planInput.length) {
+    plan = planInput;
+    cursor = 0;
+    lastVideoUrl = null;
+  }
   
   if (!A || !B) {
     initVideos();
@@ -38,8 +43,78 @@ export async function startRun(planInput) {
   if (!active || !standby || !plan.length) {
     return;
   }
+  if (engineState === 'running') {
+    console.log('[runEngine] Ignoring startRun - engine already running');
+    return;
+  }
+
+  engineState = 'running';
+
+  if (active) {
+    active.onended = () => {
+      if (!isCrossfading && engineState === 'running') {
+        loadNextAtom();
+      }
+    };
+    if (active.paused && active.src) {
+      active.play().catch((err) => console.warn('[runEngine] Resume active play blocked:', err));
+    }
+  }
+  if (standby && standby.paused && standby.src) {
+    standby.play().catch((err) => console.warn('[runEngine] Resume standby play blocked:', err));
+  }
   
   loadNextAtom();
+}
+
+export function pauseRun() {
+  if (engineState === 'idle') {
+    return;
+  }
+  engineState = 'paused';
+  abortPendingLoad();
+  loadingNext = false;
+  isCrossfading = false;
+
+  [active, standby].forEach((video) => {
+    if (!video) return;
+    video.pause();
+    video.onended = null;
+  });
+}
+
+export function stopRun() {
+  engineState = 'idle';
+  abortPendingLoad();
+  loadingNext = false;
+  isCrossfading = false;
+  cursor = 0;
+  lastVideoUrl = null;
+
+  [active, standby].forEach((video) => {
+    if (!video) return;
+    video.onended = null;
+    video.oncanplay = null;
+    video.onerror = null;
+    try {
+      video.pause();
+      video.currentTime = 0;
+    } catch (err) {
+      console.warn('[runEngine] Failed to reset video state:', err);
+    }
+    // Keep sources intact; transport stop should leave videos idle, not unloaded
+  });
+
+  if (A && B) {
+    active = A;
+    standby = B;
+    A.classList.add('active');
+    B.classList.remove('active');
+  }
+}
+
+export function getRunState() {
+  return engineState;
 }
 
 function nextAtom() {
@@ -52,6 +127,9 @@ function nextAtom() {
 }
 
 function loadNextAtom(skipCount = 0) {
+  if (engineState !== 'running') {
+    return;
+  }
   if (loadingNext || isCrossfading) {
     return;
   }
@@ -68,7 +146,9 @@ function loadNextAtom(skipCount = 0) {
 console.log("[runEngine] fetching atom:", atom);
 
   loadingNext = true;
-  fetch(atom.url)
+  abortPendingLoad();
+  pendingLoadController = new AbortController();
+  fetch(atom.url, { signal: pendingLoadController.signal })
     .then((r) => {
       if (!r.ok) {
         throw new Error('Failed to fetch atom metadata');
@@ -76,6 +156,11 @@ console.log("[runEngine] fetching atom:", atom);
       return r.json();
     })
     .then((meta) => {
+      pendingLoadController = null;
+      if (engineState !== 'running') {
+        loadingNext = false;
+        return;
+      }
       const videoUrl = meta?.signed_url;
       if (!videoUrl) {
         console.error('[runEngine] No signed_url in atom metadata:', meta);
@@ -107,6 +192,11 @@ console.log("[runEngine] fetching atom:", atom);
       };
     })
     .catch((error) => {
+      pendingLoadController = null;
+      if (error?.name === 'AbortError') {
+        console.log('[runEngine] Atom load aborted');
+        return;
+      }
       console.error('[runEngine] Failed to load atom metadata:', error);
       loadingNext = false;
       loadNextAtom(skipCount + 1);
@@ -114,6 +204,10 @@ console.log("[runEngine] fetching atom:", atom);
 }
 
 function handleStandbyReady(videoUrl) {
+  if (engineState !== 'running') {
+    loadingNext = false;
+    return;
+  }
   standby.oncanplay = null;
   if (isCrossfading) {
     return;
@@ -132,15 +226,23 @@ function handleStandbyReady(videoUrl) {
   standby = outgoing;
   lastVideoUrl = videoUrl;
   isCrossfading = false;
+  pendingLoadController = null;
   loadingNext = false;
 
   if (active) {
     active.onended = () => {
-      if (!isCrossfading) {
+      if (!isCrossfading && engineState === 'running') {
         loadNextAtom();
       }
     };
   }
 
   loadNextAtom();
+}
+
+function abortPendingLoad() {
+  if (pendingLoadController) {
+    pendingLoadController.abort();
+    pendingLoadController = null;
+  }
 }
