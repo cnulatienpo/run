@@ -8,6 +8,7 @@ import {
 } from './tag-session-logger.js';
 
 const DEFAULT_INTERVAL_RANGE = [10000, 15000];
+const FX_OPACITY = 0.3;
 
 let currentTag = null;
 let spawnTimeoutId;
@@ -72,6 +73,8 @@ function triggerHallucinationEffect() {
   if (!canvas) {
     return;
   }
+
+  canvas.style.opacity = FX_OPACITY;
 
   const moodKey = currentMoodKey();
   const availableEffects =

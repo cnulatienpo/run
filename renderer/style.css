@@ -207,7 +207,7 @@ svg.hand-drawn-button {
 }
 
 #fx-overlay.fx-visible {
-  opacity: 1;
+  opacity: 0.3;
 }
 
 #hud-floating-toggle {
@@ -317,7 +317,7 @@ svg.hand-drawn-button {
 }
 
 #fx-canvas.fx-visible {
-  opacity: 1;
+  opacity: 0.3;
 }
 
 /* Music controller styling */

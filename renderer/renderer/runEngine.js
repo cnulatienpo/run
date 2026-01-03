@@ -4,6 +4,9 @@ let A = null;
 let B = null;
 let active = null;
 let standby = null;
+let loadingNext = false;
+let isCrossfading = false;
+let lastVideoUrl = null;
 
 export function initVideos() {
   A = document.getElementById("v1");
@@ -24,101 +27,119 @@ export function initVideos() {
 }
 
 export async function startRun(planInput) {
-  plan = planInput;
+  plan = Array.isArray(planInput) ? planInput : [];
   cursor = 0;
-  
-  console.log('[runEngine] Starting run with plan:', plan);
-  console.log('[runEngine] Plan length:', plan.length);
+  lastVideoUrl = null;
   
   if (!A || !B) {
     initVideos();
   }
   
-  scheduleNext();
+  if (!active || !standby || !plan.length) {
+    return;
+  }
+  
+  loadNextAtom();
 }
 
-function scheduleNext() {
-  const atom = plan[cursor++];
-  
-  console.log('[runEngine] scheduleNext - cursor:', cursor, 'plan length:', plan.length);
-  
-  if (!atom) {
-    console.log('[runEngine] No more atoms, plan exhausted');
+function nextAtom() {
+  if (!plan?.length) {
+    return null;
+  }
+  const atom = plan[cursor];
+  cursor = (cursor + 1) % plan.length;
+  return atom;
+}
+
+function loadNextAtom(skipCount = 0) {
+  if (loadingNext || isCrossfading) {
+    return;
+  }
+  if (!plan?.length) {
+    return;
+  }
+  if (skipCount >= plan.length) {
+    console.warn('[runEngine] Exhausted atom list without valid source');
     return;
   }
 
-  playAtom(atom);
+  const atom = nextAtom();
+  if (!atom) return;
 
-  setTimeout(scheduleNext, atom.effectiveDuration * 1000 - 500);
+  loadingNext = true;
+  fetch(atom.url)
+    .then((r) => {
+      if (!r.ok) {
+        throw new Error('Failed to fetch atom metadata');
+      }
+      return r.json();
+    })
+    .then((meta) => {
+      const videoUrl = meta?.signed_url;
+      if (!videoUrl) {
+        console.error('[runEngine] No signed_url in atom metadata:', meta);
+        loadingNext = false;
+        loadNextAtom(skipCount + 1);
+        return;
+      }
+
+      if (videoUrl === lastVideoUrl) {
+        console.warn('[runEngine] Duplicate signed_url, skipping atom');
+        loadingNext = false;
+        loadNextAtom(skipCount + 1);
+        return;
+      }
+
+      standby.oncanplay = null;
+      standby.onerror = null;
+      standby.src = '';
+      standby.src = videoUrl;
+      standby.playbackRate = 1 / (atom.stretch || 1);
+      standby.className = "atom-video " + (Math.random() > 0.5 ? "dark" : "light");
+
+      standby.oncanplay = () => handleStandbyReady(videoUrl);
+      standby.onerror = (e) => {
+        console.error('[runEngine] Video error:', e, standby.error);
+        standby.onerror = null;
+        loadingNext = false;
+        loadNextAtom(skipCount + 1);
+      };
+    })
+    .catch((error) => {
+      console.error('[runEngine] Failed to load atom metadata:', error);
+      loadingNext = false;
+      loadNextAtom(skipCount + 1);
+    });
 }
 
-async function playAtom(atom) {
-  console.log('[runEngine] Playing atom:', atom);
-  const meta = await fetch(atom.url).then(r => r.json());
-  console.log('[runEngine] Atom metadata:', meta);
-
-  // Get the signed video URL from the atom metadata
-  const videoUrl = meta.signed_url;
-  
-  if (!videoUrl) {
-    console.error('[runEngine] No signed_url in atom metadata:', meta);
+function handleStandbyReady(videoUrl) {
+  standby.oncanplay = null;
+  if (isCrossfading) {
     return;
   }
 
-  // Calculate time range from frame numbers
-  const fps = meta.fps || 30;
-  const startTime = (meta.start_frame || 0) / fps;
-  const endTime = (meta.end_frame || 0) / fps;
-  const duration = endTime - startTime;
+  isCrossfading = true;
+  standby.play().catch((err) => console.warn('[runEngine] Autoplay blocked:', err));
 
-  console.log('[runEngine] Setting video URL:', videoUrl);
-  console.log('[runEngine] Time range:', { startTime, endTime, duration });
-  console.log('[runEngine] Standby video element:', standby);
-  
-  // Add time fragment to URL if supported, otherwise use currentTime
-  const urlWithFragment = `${videoUrl}#t=${startTime},${endTime}`;
-  
-  standby.src = urlWithFragment;
-  standby.currentTime = startTime;
-  standby.playbackRate = 1 / (atom.stretch || 1);
-  standby.className = "atom-video " + (Math.random() > 0.5 ? "dark" : "light");
+  const outgoing = active;
+  if (outgoing) {
+    outgoing.classList.remove('active');
+  }
+  standby.classList.add('active');
 
-  // Set up time-based cutoff
-  const checkTime = () => {
-    if (standby.currentTime >= endTime) {
-      console.log('[runEngine] Reached end time, stopping segment');
-      standby.pause();
-      standby.ontimeupdate = null;
-    }
-  };
+  active = standby;
+  standby = outgoing;
+  lastVideoUrl = videoUrl;
+  isCrossfading = false;
+  loadingNext = false;
 
-  standby.oncanplay = () => {
-    console.log('[runEngine] Video canplay, starting playback from', startTime);
-    console.log('[runEngine] Video element ready state:', standby.readyState);
-    console.log('[runEngine] Video dimensions:', standby.videoWidth, 'x', standby.videoHeight);
-    
-    standby.currentTime = startTime;
-    
-    const playPromise = standby.play();
-    if (playPromise) {
-      playPromise.then(() => {
-        console.log('[runEngine] Play started successfully');
-      }).catch(err => {
-        console.error('[runEngine] Play failed:', err);
-      });
-    }
-    
-    standby.ontimeupdate = checkTime;
+  if (active) {
+    active.onended = () => {
+      if (!isCrossfading) {
+        loadNextAtom();
+      }
+    };
+  }
 
-    active.classList.remove("active");
-    standby.classList.add("active");
-
-    [active, standby] = [standby, active];
-    console.log('[runEngine] Crossfade complete, active:', active.id);
-    console.log('[runEngine] Active element classes:', active.className);
-  };
-  
-  standby.onerror = (e) => {
-    console.error('[runEngine] Video error:', e, standby.error);
-  };
+  loadNextAtom();
 }
