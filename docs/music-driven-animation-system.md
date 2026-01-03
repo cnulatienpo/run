@@ -404,4 +404,4 @@ Tested on:
 
 ## License
 
-Part of the Runnyvision / Workahol Enabler project.
+Part of the Runnyvision / default project.
