@@ -55,3 +55,21 @@ runnyvision-player/
 
 Later, TouchDesigner will publish a video stream over WebRTC and connect through the Node signaling layer (`server/`).
 The browser viewer (`web/viewer/`) will use that stream as a live `THREE.VideoTexture` source.
+
+## Testing the WebRTC stream
+
+1. Start the signaling server:
+
+   ```bash
+   node server/server.js
+   ```
+
+2. Open two browser windows to:
+
+   ```text
+   http://localhost:3000
+   ```
+
+3. Allow camera access when prompted.
+   - One window will act as the sender and publish its webcam test stream.
+   - The other window will act as the receiver and display the negotiated WebRTC stream as the Three.js full-screen video texture.
