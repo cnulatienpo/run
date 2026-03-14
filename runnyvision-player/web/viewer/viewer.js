@@ -31,25 +31,32 @@
     material.needsUpdate = true;
   }
 
-  function attachIncomingStream(stream) {
+  async function attachIncomingStream(stream) {
+    if (!stream) {
+      return;
+    }
+
     streamVideo.srcObject = stream;
     streamVideo.muted = true;
-    streamVideo
-      .play()
-      .then(() => applyVideoTexture(streamVideo))
-      .catch((error) => {
-        console.error('Unable to start video playback:', error);
-      });
+
+    try {
+      await streamVideo.play();
+      applyVideoTexture(streamVideo);
+    } catch (error) {
+      console.error('Unable to start video playback:', error);
+    }
   }
 
   const peerConnection = new RTCPeerConnection({
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
   });
 
+  peerConnection.addTransceiver('video', { direction: 'recvonly' });
+
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const signalingSocket = new WebSocket(`${wsProtocol}//${window.location.host}`);
 
-  async function sendSignal(message) {
+  function sendSignal(message) {
     if (signalingSocket.readyState === WebSocket.OPEN) {
       signalingSocket.send(JSON.stringify(message));
     }
@@ -63,16 +70,20 @@
 
   peerConnection.ontrack = (event) => {
     const [remoteStream] = event.streams;
-    if (remoteStream) {
-      attachIncomingStream(remoteStream);
-    }
+    attachIncomingStream(remoteStream);
   };
 
-  async function createAndSendOffer() {
-    const offer = await peerConnection.createOffer();
+  async function requestStream() {
+    sendSignal({ type: 'request-stream' });
+
+    const offer = await peerConnection.createOffer({ offerToReceiveVideo: true });
     await peerConnection.setLocalDescription(offer);
     sendSignal({ type: 'offer', offer });
   }
+
+  signalingSocket.onopen = () => {
+    sendSignal({ type: 'register', role: 'viewer' });
+  };
 
   signalingSocket.onmessage = async (event) => {
     let message;
@@ -83,22 +94,12 @@
       return;
     }
 
-    if (message.type === 'welcome') {
-      if (message.existingPeers > 0) {
-        await createAndSendOffer();
-      }
+    if (message.type === 'registered' && message.role === 'viewer') {
+      await requestStream();
       return;
     }
 
-    if (message.type === 'offer') {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      sendSignal({ type: 'answer', answer });
-      return;
-    }
-
-    if (message.type === 'answer') {
+    if (message.type === 'answer' && message.answer) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
       return;
     }
@@ -109,22 +110,18 @@
       } catch (error) {
         console.warn('Error applying ICE candidate:', error);
       }
+      return;
+    }
+
+    if (message.type === 'stream-status' && !message.active) {
+      console.info('Gateway connected, waiting for source stream...');
+      return;
+    }
+
+    if (message.type === 'error') {
+      console.error('Signaling error:', message.reason);
     }
   };
-
-  async function setupLocalTestStream() {
-    try {
-      const localStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      for (const track of localStream.getTracks()) {
-        peerConnection.addTrack(track, localStream);
-      }
-      if (!streamVideo.srcObject) {
-        attachIncomingStream(localStream);
-      }
-    } catch (error) {
-      console.error('Unable to access webcam test stream:', error);
-    }
-  }
 
   function onResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -137,7 +134,6 @@
     requestAnimationFrame(animate);
   }
 
-  setupLocalTestStream();
   window.addEventListener('resize', onResize);
   requestAnimationFrame(animate);
 })();

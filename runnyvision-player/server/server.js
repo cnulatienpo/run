@@ -1,58 +1,26 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
-const { WebSocketServer } = require('ws');
+const streamConfig = require('../config/stream.json');
+const { startSignaling } = require('./signaling');
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'web', 'viewer')));
+app.use('/video', express.static(path.join(__dirname, '..', 'video')));
 
 app.get('/status', (req, res) => {
   res.json({
     ok: true,
-    service: 'runnyvision-player signaling server'
+    service: 'runnyvision-player signaling server',
+    stream: streamConfig
   });
 });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-const SIGNAL_TYPES = new Set(['offer', 'answer', 'candidate']);
-
-wss.on('connection', (socket) => {
-  const existingPeers = [...wss.clients].filter((client) => client !== socket).length;
-
-  socket.send(
-    JSON.stringify({
-      type: 'welcome',
-      existingPeers
-    })
-  );
-
-  socket.on('message', (rawMessage) => {
-    let message;
-
-    try {
-      message = JSON.parse(rawMessage.toString());
-    } catch (error) {
-      console.warn('Ignoring invalid JSON signaling message.');
-      return;
-    }
-
-    if (!message || !SIGNAL_TYPES.has(message.type)) {
-      return;
-    }
-
-    const payload = JSON.stringify(message);
-    for (const client of wss.clients) {
-      if (client !== socket && client.readyState === client.OPEN) {
-        client.send(payload);
-      }
-    }
-  });
-});
+startSignaling(server, { maxViewers: streamConfig.maxViewers });
 
 server.listen(PORT, () => {
   console.log(`RunnyVision server running at http://localhost:${PORT}`);
