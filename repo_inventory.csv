@@ -1,0 +1,422 @@
+full_path,file_type,file_size_bytes,guessed_purpose,category
+.eslintrc.json,.json,353,configuration or data,configuration
+.gitignore,[no_ext],634,unknown,unknown
+.prettierrc.json,.json,57,configuration or data,configuration
+assets/ballpoint-ink-component.html,.html,2229,webpage,source_code
+assets/ballpoint-ink.css,.css,1078,styling,source_code
+assets/frame-rectangle.jpg,.jpg,67249,unknown,unknown
+assets/frame-theme.css,.css,3868,styling,source_code
+assets/La_Nu_Tienpo-Regular.woff,.woff,22948,unknown,unknown
+assets/Scan (4)_page_0042.png,.png,184337,unknown,unknown
+assets/thenotebookpiece2.png,.png,355233,unknown,unknown
+backend/analytics/trackResponse.js,.js,7615,javascript/typescript logic,source_code
+backend/b2-config.js,.js,224,javascript/typescript logic,source_code
+backend/b2-proxy.js,.js,420,javascript/typescript logic,source_code
+backend/backend/b2-proxy.js,.js,420,javascript/typescript logic,source_code
+backend/cli/analyzeTrackUse.js,.js,795,javascript/typescript logic,source_code
+backend/cli/compareGhosts.js,.js,3719,javascript/typescript logic,source_code
+backend/cli/genNoodleFromSchema.js,.js,5269,javascript/typescript logic,source_code
+backend/cli/inspectTrack.js,.js,1008,javascript/typescript logic,source_code
+backend/cli/restoreSnapshot.js,.js,1870,javascript/typescript logic,source_code
+backend/cli/segmentView.js,.js,4990,javascript/typescript logic,source_code
+backend/cli/showCues.js,.js,3462,javascript/typescript logic,source_code
+backend/cli/showTimeline.js,.js,6358,javascript/typescript logic,source_code
+backend/cli/synthesize.js,.js,3486,javascript/typescript logic,source_code
+backend/cli/tagTrack.js,.js,888,javascript/typescript logic,source_code
+backend/cli/uploadLocalNoodle.js,.js,2426,javascript/typescript logic,source_code
+backend/cli/validateNoodle.js,.js,1814,javascript/typescript logic,source_code
+backend/config/anonymizationProfiles.json,.json,749,configuration or data,configuration
+backend/config/loadAnonymizationProfiles.js,.js,4172,javascript/typescript logic,source_code
+backend/config/loadEnv.js,.js,967,javascript/typescript logic,source_code
+backend/config/no_fly_sessions.json,.json,3,configuration or data,configuration
+backend/config/noFlyList.js,.js,1013,javascript/typescript logic,source_code
+backend/db/mediaIndex.js,.js,3709,javascript/typescript logic,source_code
+backend/db/mediaIndex.json,.json,3,configuration or data,configuration
+backend/db/mediaTracks.js,.js,11684,javascript/typescript logic,source_code
+backend/db/mediaTracks.json,.json,3,configuration or data,configuration
+backend/db/sessionRegistry.js,.js,2411,javascript/typescript logic,source_code
+backend/db/sessions.json,.json,3,configuration or data,configuration
+backend/dev/hud-dev-server.js,.js,289,javascript/typescript logic,source_code
+backend/dev/sandbox.js,.js,3944,javascript/typescript logic,source_code
+backend/log.js,.js,2136,javascript/typescript logic,source_code
+backend/manifest_v1.json,.json,1284,configuration or data,configuration
+backend/package.json,.json,834,configuration or data,configuration
+backend/README.md,.md,3266,documentation,documentation
+backend/realtime/relay.js,.js,7840,javascript/typescript logic,source_code
+backend/replay/timelinePlayer.js,.js,4626,javascript/typescript logic,source_code
+backend/schemas/index.js,.js,2838,javascript/typescript logic,source_code
+backend/schemas/v1.0.0.json,.json,2814,configuration or data,configuration
+backend/server.js,.js,22950,javascript/typescript logic,source_code
+backend/src/uploadToB2.js,.js,287,javascript/typescript logic,source_code
+backend/syntheticPass.js,.js,6349,javascript/typescript logic,source_code
+backend/test/runTests.js,.js,2269,javascript/typescript logic,source_code
+backend/tools/beatAligner.js,.js,2889,javascript/typescript logic,source_code
+backend/tools/compressSessions.js,.js,4482,javascript/typescript logic,source_code
+backend/tools/detectDrift.js,.js,2624,javascript/typescript logic,source_code
+backend/tools/diffSchemas.js,.js,451,javascript/typescript logic,source_code
+backend/tools/mediaCueGen.js,.js,1954,javascript/typescript logic,source_code
+backend/uploadToB2.js,.js,6918,javascript/typescript logic,source_code
+backend/utils/auditLogger.js,.js,749,javascript/typescript logic,source_code
+backend/utils/buildNoodle.js,.js,3858,javascript/typescript logic,source_code
+backend/utils/paths.js,.js,667,javascript/typescript logic,source_code
+backend/utils/snapshots.js,.js,2727,javascript/typescript logic,source_code
+backend/utils/timeline.js,.js,7294,javascript/typescript logic,source_code
+build/circle-mask.png,.png,20290,build output artifact,build_output
+build/La_Nu_Tienpo-Regular.woff,.woff,22948,build output artifact,build_output
+build/README.md,.md,355,documentation,documentation
+build/vertical rectangle.png,.png,67249,build output artifact,build_output
+cleanup-redundant.sh,.sh,584,source code,source_code
+cli/applyConsent.js,.js,2163,javascript/typescript logic,source_code
+cli/auditNoodle.js,.js,3014,javascript/typescript logic,source_code
+cli/compressParquet.js,.js,3863,javascript/typescript logic,source_code
+cli/exportDataset.js,.js,5093,javascript/typescript logic,source_code
+cli/extractFeatures.js,.js,1534,javascript/typescript logic,source_code
+cli/mutate.js,.js,3461,javascript/typescript logic,source_code
+cli/packageDataset.js,.js,21151,javascript/typescript logic,source_code
+config/normProfiles.json,.json,224,configuration or data,configuration
+create-all.sh,.sh,2147,source code,source_code
+data/clips.json,.json,3,configuration or data,configuration
+data/experience.json,.json,3,configuration or data,configuration
+data/profiles.json,.json,3,configuration or data,configuration
+data/runHistory.json,.json,3,configuration or data,configuration
+data/sessionState.json,.json,3,configuration or data,configuration
+data/users.json,.json,169,configuration or data,configuration
+dev/.start-all.sh.swp,.swp,1024,unknown,unknown
+dev/hud-dev-server.js,.js,2264,javascript/typescript logic,source_code
+dev/start-dbus.sh,.sh,1024,source code,source_code
+dev/start-gui.sh,.sh,1117,source code,source_code
+dev/start-headless.sh,.sh,1889,source code,source_code
+dev/start-user-dbus.sh,.sh,1008,source code,source_code
+docs/architecture.md,.md,556,documentation,documentation
+docs/ballpoint-ink-filter.md,.md,4361,documentation,documentation
+docs/clipLibraryExamples.md,.md,2141,documentation,documentation
+docs/hand-drawn-rect-system.md,.md,7619,documentation,documentation
+docs/music-driven-animation-system.md,.md,9910,documentation,documentation
+effects/canvas-engine.js,.js,18668,javascript/typescript logic,source_code
+effects/clean_O (2).png,.png,2290,unknown,unknown
+effects/crmpld.png,.png,114747,unknown,unknown
+effects/debug-controls.js,.js,5524,javascript/typescript logic,source_code
+effects/effect-config.json,.json,2345,configuration or data,configuration
+effects/effect-loader.js,.js,14482,javascript/typescript logic,source_code
+effects/effect-mapping.json,.json,847,configuration or data,configuration
+effects/effect-session-log.js,.js,2667,javascript/typescript logic,source_code
+effects/filters.js,.js,1524,javascript/typescript logic,source_code
+effects/La_Nu_Tienpo-Regular.woff,.woff,22948,unknown,unknown
+effects/session-replay.js,.js,4297,javascript/typescript logic,source_code
+effects/vertical rectangle.png,.png,67249,unknown,unknown
+electron-builder.json,.json,477,configuration or data,configuration
+electron-main.js,.js,1595,javascript/typescript logic,source_code
+frames.css,.css,547,styling,source_code
+google-fit-electron-bridge.js,.js,6314,javascript/typescript logic,source_code
+googlefit-bridge/client_secret.json,.json,449,configuration or data,configuration
+googlefit-bridge/fit_ws_bridge.py,.py,13683,python script,source_code
+googlefit-bridge/requirements.txt,.txt,116,documentation,documentation
+hallucination_engine_master.js,.js,7710,javascript/typescript logic,source_code
+index.html,.html,13029,webpage,source_code
+index.js,.js,2220,javascript/typescript logic,source_code
+main.js,.js,4063,javascript/typescript logic,source_code
+mood/session-pacing.js,.js,13341,javascript/typescript logic,source_code
+mood/tag-history.js,.js,1304,javascript/typescript logic,source_code
+MUSIC_SYSTEM_SUMMARY.md,.md,8802,documentation,documentation
+package-lock.json,.json,550714,configuration or data,configuration
+package.json,.json,2703,configuration or data,configuration
+passport/.gitkeep,[no_ext],0,unknown,unknown
+passport/index.html,.html,574,webpage,source_code
+passport/src/api.ts,.ts,683,javascript/typescript logic,source_code
+passport/src/App.tsx,.tsx,2314,javascript/typescript logic,source_code
+passport/src/components/SessionForm.tsx,.tsx,2200,javascript/typescript logic,source_code
+passport/src/components/SessionTable.tsx,.tsx,1585,javascript/typescript logic,source_code
+passport/src/main.tsx,.tsx,237,javascript/typescript logic,source_code
+passport/src/styles.css,.css,2393,styling,source_code
+passport/src/types.ts,.ts,143,javascript/typescript logic,source_code
+passport/tsconfig.json,.json,483,configuration or data,configuration
+passport/vite.config.ts,.ts,345,javascript/typescript logic,source_code
+preload.js,.js,1770,javascript/typescript logic,source_code
+public/assets/filters/ballpoint-ink.svg,.svg,1944,unknown,unknown
+public/assets/shapes/circle.svg,.svg,186,unknown,unknown
+public/assets/shapes/diamond.svg,.svg,198,unknown,unknown
+public/assets/shapes/rectangle.svg,.svg,208,unknown,unknown
+public/assets/shapes/ring.svg,.svg,269,unknown,unknown
+public/assets/shapes/triangle.svg,.svg,194,unknown,unknown
+public/styles/kill-layout.css,.css,890,styling,source_code
+public/tools/glyph-drift.js,.js,3053,javascript/typescript logic,source_code
+public/tools/layout-entropy.js,.js,2408,javascript/typescript logic,source_code
+public/tools/stage-template.html,.html,4977,webpage,source_code
+publishers.json,.json,176,configuration or data,configuration
+README.md,.md,2110,documentation,documentation
+remixes/.gitkeep,[no_ext],0,unknown,unknown
+renderer.js,.js,6895,javascript/typescript logic,source_code
+renderer/config.js,.js,597,javascript/typescript logic,source_code
+renderer/effects.js,.js,306,javascript/typescript logic,source_code
+renderer/fit-client.js,.js,83,javascript/typescript logic,source_code
+renderer/getRunPlan.js,.js,1239,javascript/typescript logic,source_code
+renderer/hallucination-controls.html,.html,42278,webpage,source_code
+renderer/hallucinationEngine.d.ts,.ts,1258,javascript/typescript logic,source_code
+renderer/hallucinationEngine.js,.js,18528,javascript/typescript logic,source_code
+renderer/hand-drawn-demo.html,.html,9678,webpage,source_code
+renderer/hand-drawn-rect.js,.js,9467,javascript/typescript logic,source_code
+renderer/hud.js,.js,13300,javascript/typescript logic,source_code
+renderer/index.html,.html,11360,webpage,source_code
+renderer/network.js,.js,3382,javascript/typescript logic,source_code
+renderer/package.json,.json,617,configuration or data,configuration
+renderer/passport-page.html,.html,12071,webpage,source_code
+renderer/passport.d.ts,.ts,749,javascript/typescript logic,source_code
+renderer/passport.js,.js,7667,javascript/typescript logic,source_code
+renderer/renderer.js,.js,32065,javascript/typescript logic,source_code
+renderer/renderer/renderer.js,.js,39720,javascript/typescript logic,source_code
+renderer/renderer/runEngine.js,.js,9448,javascript/typescript logic,source_code
+renderer/sessionLogger.js,.js,793,javascript/typescript logic,source_code
+renderer/settings.js,.js,2553,javascript/typescript logic,source_code
+renderer/spawn-loop.js,.js,5142,javascript/typescript logic,source_code
+renderer/spawnLoop.js,.js,1303,javascript/typescript logic,source_code
+renderer/style.css,.css,12874,styling,source_code
+renderer/tag-session-logger.js,.js,4217,javascript/typescript logic,source_code
+renderer/tagManager.js,.js,743,javascript/typescript logic,source_code
+renderer/timer.js,.js,402,javascript/typescript logic,source_code
+renderer/websocket-test.html,.html,3730,webpage,source_code
+renderer/ws-client.js,.js,197,javascript/typescript logic,source_code
+repo_forensics.py,.py,12486,python script,source_code
+runnyvision/backend/package.json,.json,566,configuration or data,configuration
+runnyvision/backend/src/data/routes.json,.json,3,configuration or data,configuration
+runnyvision/backend/src/data/runs.json,.json,3,configuration or data,configuration
+runnyvision/backend/src/logic/computeFakeMiles.ts,.ts,436,javascript/typescript logic,source_code
+runnyvision/backend/src/routes/creator.ts,.ts,1240,javascript/typescript logic,source_code
+runnyvision/backend/src/routes/passport.ts,.ts,512,javascript/typescript logic,source_code
+runnyvision/backend/src/routes/routesConfig.ts,.ts,317,javascript/typescript logic,source_code
+runnyvision/backend/src/routes/runs.ts,.ts,1342,javascript/typescript logic,source_code
+runnyvision/backend/src/server.ts,.ts,2312,javascript/typescript logic,source_code
+runnyvision/backend/src/types.ts,.ts,268,javascript/typescript logic,source_code
+runnyvision/backend/tsconfig.json,.json,339,configuration or data,configuration
+runnyvision/demo/index.html,.html,1184,webpage,source_code
+runnyvision/demo/player-auth.js,.js,3746,javascript/typescript logic,source_code
+runnyvision/demo/player.js,.js,8846,javascript/typescript logic,source_code
+runnyvision/demo/style.css,.css,1473,styling,source_code
+runnyvision/frontend/index.html,.html,360,webpage,source_code
+runnyvision/frontend/package.json,.json,487,configuration or data,configuration
+runnyvision/frontend/src/api/routesApi.ts,.ts,662,javascript/typescript logic,source_code
+runnyvision/frontend/src/api/runsApi.ts,.ts,705,javascript/typescript logic,source_code
+runnyvision/frontend/src/App.tsx,.tsx,1177,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Runner/MusicPlayer.tsx,.tsx,8825,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Runner/PassportTable.tsx,.tsx,999,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Runner/RouteSelector.tsx,.tsx,1639,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Runner/Viewer.tsx,.tsx,975,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Workahol/PlacesEditor.tsx,.tsx,435,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Workahol/RouteForm.tsx,.tsx,2349,javascript/typescript logic,source_code
+runnyvision/frontend/src/components/Workahol/RouteList.tsx,.tsx,983,javascript/typescript logic,source_code
+runnyvision/frontend/src/main.tsx,.tsx,344,javascript/typescript logic,source_code
+runnyvision/frontend/src/pages/RunnerPage.tsx,.tsx,3576,javascript/typescript logic,source_code
+runnyvision/frontend/src/pages/WorkaholPage.tsx,.tsx,1215,javascript/typescript logic,source_code
+runnyvision/frontend/src/router.tsx,.tsx,374,javascript/typescript logic,source_code
+runnyvision/frontend/src/styles.css,.css,3250,styling,source_code
+runnyvision/frontend/tsconfig.json,.json,344,configuration or data,configuration
+runnyvision/frontend/vite.config.ts,.ts,254,javascript/typescript logic,source_code
+runnyvision/README.md,.md,489,documentation,documentation
+runnyvision/shared/types.ts,.ts,268,javascript/typescript logic,source_code
+rv-app/assets/stickers/anchor.svg,.svg,355,unknown,unknown
+rv-app/assets/stickers/mascot.svg,.svg,358,unknown,unknown
+rv-app/assets/stickers/star.svg,.svg,223,unknown,unknown
+rv-app/fixtures/french_basics.json,.json,869,configuration or data,configuration
+rv-app/fixtures/paris_trivia.csv,.csv,422,unknown,unknown
+rv-app/fixtures/stem_concepts.json,.json,1037,configuration or data,configuration
+rv-app/public/assets/filters/ballpoint-ink.svg,.svg,2098,unknown,unknown
+rv-app/public/assets/frame-rectangle.jpg,.jpg,67249,unknown,unknown
+rv-app/public/assets/La_Nu_Tienpo-Regular.woff,.woff,22948,unknown,unknown
+rv-app/public/assets/shapes/circle.svg,.svg,186,unknown,unknown
+rv-app/public/assets/shapes/rectangle.svg,.svg,198,unknown,unknown
+rv-app/public/assets/stickers/anchor.svg,.svg,355,unknown,unknown
+rv-app/public/assets/stickers/mascot.svg,.svg,358,unknown,unknown
+rv-app/public/assets/stickers/star.svg,.svg,223,unknown,unknown
+rv-app/public/build/buildStamp.js,.js,116,javascript/typescript logic,source_code
+rv-app/public/build/core/audio.js,.js,1820,javascript/typescript logic,source_code
+rv-app/public/build/core/clip-mapping.js,.js,460,javascript/typescript logic,source_code
+rv-app/public/build/core/collage.js,.js,1991,javascript/typescript logic,source_code
+rv-app/public/build/core/export.js,.js,425,javascript/typescript logic,source_code
+rv-app/public/build/core/ingest.js,.js,1908,javascript/typescript logic,source_code
+rv-app/public/build/core/mnemonic.js,.js,2677,javascript/typescript logic,source_code
+rv-app/public/build/core/music/AudioAnalysisEngine.js,.js,9829,javascript/typescript logic,source_code
+rv-app/public/build/core/music/AudioDecoder.js,.js,1713,javascript/typescript logic,source_code
+rv-app/public/build/core/music/AudioFileLoader.js,.js,2798,javascript/typescript logic,source_code
+rv-app/public/build/core/music/AudioPlaybackEngine.js,.js,4442,javascript/typescript logic,source_code
+rv-app/public/build/core/music/index.js,.js,420,javascript/typescript logic,source_code
+rv-app/public/build/core/music/MusicEventBridge.js,.js,3577,javascript/typescript logic,source_code
+rv-app/public/build/core/music/TempoDetector.js,.js,8236,javascript/typescript logic,source_code
+rv-app/public/build/core/MusicController.js,.js,8565,javascript/typescript logic,source_code
+rv-app/public/build/core/profile.js,.js,787,javascript/typescript logic,source_code
+rv-app/public/build/core/schedule.js,.js,1112,javascript/typescript logic,source_code
+rv-app/public/build/core/schema.js,.js,316,javascript/typescript logic,source_code
+rv-app/public/build/core/session.js,.js,977,javascript/typescript logic,source_code
+rv-app/public/build/core/speech.js,.js,898,javascript/typescript logic,source_code
+rv-app/public/build/core/storage.js,.js,7665,javascript/typescript logic,source_code
+rv-app/public/build/hand-drawn-rect.js,.js,1674,javascript/typescript logic,source_code
+rv-app/public/build/main.js,.js,1219,javascript/typescript logic,source_code
+rv-app/public/build/pages/clip-library.js,.js,794,javascript/typescript logic,source_code
+rv-app/public/build/pages/hallucination.js,.js,17263,javascript/typescript logic,source_code
+rv-app/public/build/pages/library.js,.js,3404,javascript/typescript logic,source_code
+rv-app/public/build/pages/prep-studio.js,.js,8182,javascript/typescript logic,source_code
+rv-app/public/build/pages/run.js,.js,5379,javascript/typescript logic,source_code
+rv-app/public/build/pages/settings.js,.js,1775,javascript/typescript logic,source_code
+rv-app/public/build/router.js,.js,959,javascript/typescript logic,source_code
+rv-app/public/build/rvapprectangle.js,.js,1674,javascript/typescript logic,source_code
+rv-app/public/build/ui/app-shell.js,.js,3268,javascript/typescript logic,source_code
+rv-app/public/build/ui/controller.js,.js,6438,javascript/typescript logic,source_code
+rv-app/public/build/ui/hand-drawn-rect.js,.js,1618,javascript/typescript logic,source_code
+rv-app/public/icons/icon.svg,.svg,264,unknown,unknown
+rv-app/public/index.html,.html,4292,webpage,source_code
+rv-app/public/manifest.webmanifest,.webmanifest,304,unknown,unknown
+rv-app/public/styles.css,.css,3321,styling,source_code
+rv-app/public/sw.js,.js,756,javascript/typescript logic,source_code
+rv-app/public/tools/collision-field-ui.html,.html,5287,webpage,source_code
+rv-app/README_DEV.md,.md,539,documentation,documentation
+rv-app/src/# RunnyVision Architecture.md,.md,149,documentation,documentation
+rv-app/src/buildStamp.ts,.ts,112,javascript/typescript logic,source_code
+rv-app/src/core/audio.ts,.ts,1705,javascript/typescript logic,source_code
+rv-app/src/core/clip-mapping.ts,.ts,427,javascript/typescript logic,source_code
+rv-app/src/core/collage.ts,.ts,2189,javascript/typescript logic,source_code
+rv-app/src/core/export.ts,.ts,435,javascript/typescript logic,source_code
+rv-app/src/core/ingest.ts,.ts,3470,javascript/typescript logic,source_code
+rv-app/src/core/mnemonic.ts,.ts,2704,javascript/typescript logic,source_code
+rv-app/src/core/music/AudioAnalysisEngine.ts,.ts,10107,javascript/typescript logic,source_code
+rv-app/src/core/music/AudioDecoder.ts,.ts,1769,javascript/typescript logic,source_code
+rv-app/src/core/music/AudioFileLoader.ts,.ts,2752,javascript/typescript logic,source_code
+rv-app/src/core/music/AudioPlaybackEngine.ts,.ts,4386,javascript/typescript logic,source_code
+rv-app/src/core/music/index.ts,.ts,839,javascript/typescript logic,source_code
+rv-app/src/core/music/MusicEventBridge.ts,.ts,4124,javascript/typescript logic,source_code
+rv-app/src/core/music/TempoDetector.ts,.ts,7963,javascript/typescript logic,source_code
+rv-app/src/core/MusicController.ts,.ts,8704,javascript/typescript logic,source_code
+rv-app/src/core/profile.ts,.ts,1034,javascript/typescript logic,source_code
+rv-app/src/core/schedule.ts,.ts,1144,javascript/typescript logic,source_code
+rv-app/src/core/schema.ts,.ts,2277,javascript/typescript logic,source_code
+rv-app/src/core/session.ts,.ts,1240,javascript/typescript logic,source_code
+rv-app/src/core/speech.ts,.ts,1096,javascript/typescript logic,source_code
+rv-app/src/core/storage.ts,.ts,7865,javascript/typescript logic,source_code
+rv-app/src/env node.js,.js,794,javascript/typescript logic,source_code
+rv-app/src/hand-drawn-rect.ts,.ts,1783,javascript/typescript logic,source_code
+rv-app/src/main.ts,.ts,1290,javascript/typescript logic,source_code
+rv-app/src/pages/clip-library.ts,.ts,727,javascript/typescript logic,source_code
+rv-app/src/pages/hallucination.ts,.ts,17261,javascript/typescript logic,source_code
+rv-app/src/pages/library.ts,.ts,3997,javascript/typescript logic,source_code
+rv-app/src/pages/prep-studio.ts,.ts,7809,javascript/typescript logic,source_code
+rv-app/src/pages/run.ts,.ts,5000,javascript/typescript logic,source_code
+rv-app/src/pages/settings.ts,.ts,1742,javascript/typescript logic,source_code
+rv-app/src/router.ts,.ts,975,javascript/typescript logic,source_code
+rv-app/src/rvapprectangle.ts,.ts,1783,javascript/typescript logic,source_code
+rv-app/src/types/hallucinationEngine.d.ts,.ts,903,javascript/typescript logic,source_code
+rv-app/src/ui/app-shell.ts,.ts,3173,javascript/typescript logic,source_code
+rv-app/src/ui/controller.ts,.ts,8735,javascript/typescript logic,source_code
+rv-app/src/ui/hand-drawn-rect.ts,.ts,1727,javascript/typescript logic,source_code
+rv-app/tsconfig.json,.json,648,configuration or data,configuration
+scripts/audit-b2.js,.js,1765,javascript/typescript logic,source_code
+scripts/createAndUpload.js,.js,1963,javascript/typescript logic,source_code
+src/.vs/tasks.json,.json,0,configuration or data,configuration
+src/__tests__/clipEnrichmentService.test.ts,.ts,1985,javascript/typescript logic,source_code
+src/__tests__/ctaFilter.test.ts,.ts,2636,javascript/typescript logic,source_code
+src/__tests__/passportService.test.ts,.ts,2899,javascript/typescript logic,source_code
+src/__tests__/runStatsService.test.ts,.ts,4078,javascript/typescript logic,source_code
+src/api/clipsClient.ts,.ts,448,javascript/typescript logic,source_code
+src/api/experienceClient.ts,.ts,492,javascript/typescript logic,source_code
+src/api/httpClient.ts,.ts,2487,javascript/typescript logic,source_code
+src/api/index.ts,.ts,920,javascript/typescript logic,source_code
+src/api/passportClient.ts,.ts,268,javascript/typescript logic,source_code
+src/api/runClient.ts,.ts,1189,javascript/typescript logic,source_code
+src/badges/evaluate.ts,.ts,1061,javascript/typescript logic,source_code
+src/badges/list.ts,.ts,578,javascript/typescript logic,source_code
+src/badges/types.ts,.ts,106,javascript/typescript logic,source_code
+src/buildNoodle.js,.js,3926,javascript/typescript logic,source_code
+src/buildStamp.ts,.ts,112,javascript/typescript logic,source_code
+src/config/ctaFilter.ts,.ts,1406,javascript/typescript logic,source_code
+src/hooks/useExperienceSettings.ts,.ts,2171,javascript/typescript logic,source_code
+src/hooks/useRunSession.ts,.ts,1668,javascript/typescript logic,source_code
+src/hooks/useRunStats.ts,.ts,1798,javascript/typescript logic,source_code
+src/middleware/validateBody.ts,.ts,379,javascript/typescript logic,source_code
+src/milestones/evaluate.ts,.ts,453,javascript/typescript logic,source_code
+src/milestones/list.ts,.ts,946,javascript/typescript logic,source_code
+src/milestones/types.ts,.ts,296,javascript/typescript logic,source_code
+src/models/clip.ts,.ts,750,javascript/typescript logic,source_code
+src/models/experience.ts,.ts,3168,javascript/typescript logic,source_code
+src/models/passport.ts,.ts,969,javascript/typescript logic,source_code
+src/models/profile.ts,.ts,213,javascript/typescript logic,source_code
+src/models/runSession.ts,.ts,224,javascript/typescript logic,source_code
+src/models/runStats.ts,.ts,484,javascript/typescript logic,source_code
+src/models/user.ts,.ts,170,javascript/typescript logic,source_code
+src/passport/createStamp.ts,.ts,1976,javascript/typescript logic,source_code
+src/passport/NoteComposerOverlay.tsx,.tsx,3345,javascript/typescript logic,source_code
+src/passport/onSessionEnd.ts,.ts,721,javascript/typescript logic,source_code
+src/passport/Passport.module.css,.css,3710,styling,source_code
+src/passport/PassportScreen.tsx,.tsx,5050,javascript/typescript logic,source_code
+src/passport/routes/analysis.ts,.ts,599,javascript/typescript logic,source_code
+src/passport/routes/catalog.ts,.ts,855,javascript/typescript logic,source_code
+src/passport/routes/clips.ts,.ts,8017,javascript/typescript logic,source_code
+src/passport/routes/experience.ts,.ts,2149,javascript/typescript logic,source_code
+src/passport/routes/health.ts,.ts,237,javascript/typescript logic,source_code
+src/passport/routes/media.ts,.ts,3650,javascript/typescript logic,source_code
+src/passport/routes/passport.ts,.ts,367,javascript/typescript logic,source_code
+src/passport/routes/profiles.ts,.ts,2707,javascript/typescript logic,source_code
+src/passport/routes/runSessions.ts,.ts,1211,javascript/typescript logic,source_code
+src/passport/routes/runStats.ts,.ts,2404,javascript/typescript logic,source_code
+src/passport/routes/types.ts,.ts,358,javascript/typescript logic,source_code
+src/passport/routes/unlock.ts,.ts,1069,javascript/typescript logic,source_code
+src/passport/routes/users.ts,.ts,3460,javascript/typescript logic,source_code
+src/passport/stats.ts,.ts,821,javascript/typescript logic,source_code
+src/passport/storage.ts,.ts,1062,javascript/typescript logic,source_code
+src/passport/summary.ts,.ts,1369,javascript/typescript logic,source_code
+src/passport/types.ts,.ts,1265,javascript/typescript logic,source_code
+src/passport/usePassport.ts,.ts,845,javascript/typescript logic,source_code
+src/privacyLedger.js,.js,1639,javascript/typescript logic,source_code
+src/routes/media.ts,.ts,3476,javascript/typescript logic,source_code
+src/rv/components/HudOverlay.tsx,.tsx,3869,javascript/typescript logic,source_code
+src/rv/constants.ts,.ts,412,javascript/typescript logic,source_code
+src/rv/context/ExperienceProvider.tsx,.tsx,6938,javascript/typescript logic,source_code
+src/rv/index.ts,.ts,252,javascript/typescript logic,source_code
+src/rv/pages/ExperienceGoalsPage.tsx,.tsx,31411,javascript/typescript logic,source_code
+src/rv/pages/index.ts,.ts,61,javascript/typescript logic,source_code
+src/rv/RvApp.tsx,.tsx,1036,javascript/typescript logic,source_code
+src/rv/types/experience.ts,.ts,4560,javascript/typescript logic,source_code
+src/rv/types/passport.ts,.ts,955,javascript/typescript logic,source_code
+src/schema/noodle-v1.schema.json,.json,2746,configuration or data,configuration
+src/server.ts,.ts,4549,javascript/typescript logic,source_code
+src/services/clipEnrichmentService.ts,.ts,4420,javascript/typescript logic,source_code
+src/services/clipLibraryService.ts,.ts,6671,javascript/typescript logic,source_code
+src/services/clipSelectionService.ts,.ts,3748,javascript/typescript logic,source_code
+src/services/experienceService.ts,.ts,1372,javascript/typescript logic,source_code
+src/services/passportService.ts,.ts,8278,javascript/typescript logic,source_code
+src/services/profileService.ts,.ts,3307,javascript/typescript logic,source_code
+src/services/runSessionService.ts,.ts,1688,javascript/typescript logic,source_code
+src/services/runStatsService.ts,.ts,6535,javascript/typescript logic,source_code
+src/services/userService.ts,.ts,4964,javascript/typescript logic,source_code
+src/storage/b2Client.ts,.ts,2947,javascript/typescript logic,source_code
+src/syntheticPass.js,.js,3488,javascript/typescript logic,source_code
+src/telemetry/deviceAdapters/DeviceAdapter.ts,.ts,928,javascript/typescript logic,source_code
+src/telemetry/deviceAdapters/FakeStepAdapter.ts,.ts,2656,javascript/typescript logic,source_code
+src/telemetry/TelemetryContext.tsx,.tsx,3027,javascript/typescript logic,source_code
+src/telemetry/TelemetryManager.ts,.ts,6016,javascript/typescript logic,source_code
+src/types/express/index.d.ts,.ts,130,javascript/typescript logic,source_code
+src/uploadToB2.js,.js,287,javascript/typescript logic,source_code
+src/utils/jsonStore.ts,.ts,1562,javascript/typescript logic,source_code
+src/validateNoodle.js,.js,977,javascript/typescript logic,source_code
+src/validation/ajvInstance.ts,.ts,280,javascript/typescript logic,source_code
+src/validation/middleware.ts,.ts,750,javascript/typescript logic,source_code
+src/validation/schemas.ts,.ts,8261,javascript/typescript logic,source_code
+start-backend.js,.js,795,javascript/typescript logic,source_code
+step-bridge/fake_step_server.py,.py,449,python script,source_code
+step-bridge/google_fit_polling_server.py,.py,4206,python script,source_code
+step-bridge/google_fit_ws_server.py,.py,9831,python script,source_code
+step-bridge/requirements.txt,.txt,180,documentation,documentation
+style.css,.css,1365,styling,source_code
+testsongs/Iggi_Pop_-_The_Passenger_(mp3.pm).mp3,.mp3,3409389,test or experimental artifact,test_or_experiment
+testsongs/Led_Zeppelin_-_Whole_Lotta_Love_(mp3.pm).mp3,.mp3,13348615,test or experimental artifact,test_or_experiment
+testsongs/Marilynn_Manson_-_The_Fight_Song_Slipknot_Remix_(mp3.pm) (1).mp3,.mp3,6432227,test or experimental artifact,test_or_experiment
+testsongs/Pearl_Jam_-_Even_Flow_(mp3.pm).mp3,.mp3,8256410,test or experimental artifact,test_or_experiment
+testsongs/Prince_and_The_Revolution_-_Mountains_Long_Version_(mp3.pm).mp3,.mp3,23267831,test or experimental artifact,test_or_experiment
+testsongs/Talking_Heads_-_Burning_Down_The_House_2005_Remastered_Version_(mp3.pm).mp3,.mp3,9674754,test or experimental artifact,test_or_experiment
+theme,[no_ext],1,unknown,unknown
+theme.css,.css,1023,styling,source_code
+tools/anonymizePlan.js,.js,794,javascript/typescript logic,source_code
+tools/compressToParquet.js,.js,19533,javascript/typescript logic,source_code
+tools/consentUtils.js,.js,3033,javascript/typescript logic,source_code
+tools/featureVector.js,.js,3837,javascript/typescript logic,source_code
+tools/genRandomMutations.js,.js,1243,javascript/typescript logic,source_code
+tools/mutateSession.js,.js,3340,javascript/typescript logic,source_code
+tools/parquetToNoodle.js,.js,11647,javascript/typescript logic,source_code
+tools/privacyScore.js,.js,2581,javascript/typescript logic,source_code
+tsconfig.json,.json,386,configuration or data,configuration
+vitest.config.ts,.ts,205,javascript/typescript logic,source_code

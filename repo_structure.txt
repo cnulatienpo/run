@@ -1,0 +1,528 @@
+run/
+├── assets/
+│   ├── ballpoint-ink-component.html
+│   ├── ballpoint-ink.css
+│   ├── frame-rectangle.jpg
+│   ├── frame-theme.css
+│   ├── La_Nu_Tienpo-Regular.woff
+│   ├── Scan (4)_page_0042.png
+│   └── thenotebookpiece2.png
+├── backend/
+│   ├── analytics/
+│   │   └── trackResponse.js
+│   ├── backend/
+│   │   └── b2-proxy.js
+│   ├── cli/
+│   │   ├── analyzeTrackUse.js
+│   │   ├── compareGhosts.js
+│   │   ├── genNoodleFromSchema.js
+│   │   ├── inspectTrack.js
+│   │   ├── restoreSnapshot.js
+│   │   ├── segmentView.js
+│   │   ├── showCues.js
+│   │   ├── showTimeline.js
+│   │   ├── synthesize.js
+│   │   ├── tagTrack.js
+│   │   ├── uploadLocalNoodle.js
+│   │   └── validateNoodle.js
+│   ├── config/
+│   │   ├── anonymizationProfiles.json
+│   │   ├── loadAnonymizationProfiles.js
+│   │   ├── loadEnv.js
+│   │   ├── no_fly_sessions.json
+│   │   └── noFlyList.js
+│   ├── db/
+│   │   ├── mediaIndex.js
+│   │   ├── mediaIndex.json
+│   │   ├── mediaTracks.js
+│   │   ├── mediaTracks.json
+│   │   ├── sessionRegistry.js
+│   │   └── sessions.json
+│   ├── dev/
+│   │   ├── hud-dev-server.js
+│   │   └── sandbox.js
+│   ├── realtime/
+│   │   └── relay.js
+│   ├── replay/
+│   │   └── timelinePlayer.js
+│   ├── schemas/
+│   │   ├── index.js
+│   │   └── v1.0.0.json
+│   ├── src/
+│   │   └── uploadToB2.js
+│   ├── test/
+│   │   └── runTests.js
+│   ├── tools/
+│   │   ├── beatAligner.js
+│   │   ├── compressSessions.js
+│   │   ├── detectDrift.js
+│   │   ├── diffSchemas.js
+│   │   └── mediaCueGen.js
+│   ├── utils/
+│   │   ├── auditLogger.js
+│   │   ├── buildNoodle.js
+│   │   ├── paths.js
+│   │   ├── snapshots.js
+│   │   └── timeline.js
+│   ├── b2-config.js
+│   ├── b2-proxy.js
+│   ├── log.js
+│   ├── manifest_v1.json
+│   ├── package.json
+│   ├── README.md
+│   ├── server.js
+│   ├── syntheticPass.js
+│   └── uploadToB2.js
+├── build/
+│   ├── circle-mask.png
+│   ├── La_Nu_Tienpo-Regular.woff
+│   ├── README.md
+│   └── vertical rectangle.png
+├── cli/
+│   ├── applyConsent.js
+│   ├── auditNoodle.js
+│   ├── compressParquet.js
+│   ├── exportDataset.js
+│   ├── extractFeatures.js
+│   ├── mutate.js
+│   └── packageDataset.js
+├── config/
+│   └── normProfiles.json
+├── data/
+│   ├── clips.json
+│   ├── experience.json
+│   ├── profiles.json
+│   ├── runHistory.json
+│   ├── sessionState.json
+│   └── users.json
+├── dev/
+│   ├── .start-all.sh.swp
+│   ├── hud-dev-server.js
+│   ├── start-dbus.sh
+│   ├── start-gui.sh
+│   ├── start-headless.sh
+│   └── start-user-dbus.sh
+├── docs/
+│   ├── architecture.md
+│   ├── ballpoint-ink-filter.md
+│   ├── clipLibraryExamples.md
+│   ├── hand-drawn-rect-system.md
+│   └── music-driven-animation-system.md
+├── effects/
+│   ├── canvas-engine.js
+│   ├── clean_O (2).png
+│   ├── crmpld.png
+│   ├── debug-controls.js
+│   ├── effect-config.json
+│   ├── effect-loader.js
+│   ├── effect-mapping.json
+│   ├── effect-session-log.js
+│   ├── filters.js
+│   ├── La_Nu_Tienpo-Regular.woff
+│   ├── session-replay.js
+│   └── vertical rectangle.png
+├── googlefit-bridge/
+│   ├── client_secret.json
+│   ├── fit_ws_bridge.py
+│   └── requirements.txt
+├── mood/
+│   ├── session-pacing.js
+│   └── tag-history.js
+├── node_modules/ [content skipped]
+├── passport/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── SessionForm.tsx
+│   │   │   └── SessionTable.tsx
+│   │   ├── api.ts
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   ├── styles.css
+│   │   └── types.ts
+│   ├── .gitkeep
+│   ├── index.html
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── public/
+│   ├── assets/
+│   │   ├── filters/
+│   │   │   └── ballpoint-ink.svg
+│   │   └── shapes/
+│   │       ├── circle.svg
+│   │       ├── diamond.svg
+│   │       ├── rectangle.svg
+│   │       ├── ring.svg
+│   │       └── triangle.svg
+│   ├── styles/
+│   │   └── kill-layout.css
+│   └── tools/
+│       ├── glyph-drift.js
+│       ├── layout-entropy.js
+│       └── stage-template.html
+├── remixes/
+│   └── .gitkeep
+├── renderer/
+│   ├── renderer/
+│   │   ├── renderer.js
+│   │   └── runEngine.js
+│   ├── config.js
+│   ├── effects.js
+│   ├── fit-client.js
+│   ├── getRunPlan.js
+│   ├── hallucination-controls.html
+│   ├── hallucinationEngine.d.ts
+│   ├── hallucinationEngine.js
+│   ├── hand-drawn-demo.html
+│   ├── hand-drawn-rect.js
+│   ├── hud.js
+│   ├── index.html
+│   ├── network.js
+│   ├── package.json
+│   ├── passport-page.html
+│   ├── passport.d.ts
+│   ├── passport.js
+│   ├── renderer.js
+│   ├── sessionLogger.js
+│   ├── settings.js
+│   ├── spawn-loop.js
+│   ├── spawnLoop.js
+│   ├── style.css
+│   ├── tag-session-logger.js
+│   ├── tagManager.js
+│   ├── timer.js
+│   ├── websocket-test.html
+│   └── ws-client.js
+├── runnyvision/
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── data/
+│   │   │   │   ├── routes.json
+│   │   │   │   └── runs.json
+│   │   │   ├── logic/
+│   │   │   │   └── computeFakeMiles.ts
+│   │   │   ├── routes/
+│   │   │   │   ├── creator.ts
+│   │   │   │   ├── passport.ts
+│   │   │   │   ├── routesConfig.ts
+│   │   │   │   └── runs.ts
+│   │   │   ├── server.ts
+│   │   │   └── types.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── demo/
+│   │   ├── index.html
+│   │   ├── player-auth.js
+│   │   ├── player.js
+│   │   └── style.css
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── api/
+│   │   │   │   ├── routesApi.ts
+│   │   │   │   └── runsApi.ts
+│   │   │   ├── components/
+│   │   │   │   ├── Runner/
+│   │   │   │   │   ├── MusicPlayer.tsx
+│   │   │   │   │   ├── PassportTable.tsx
+│   │   │   │   │   ├── RouteSelector.tsx
+│   │   │   │   │   └── Viewer.tsx
+│   │   │   │   └── Workahol/
+│   │   │   │       ├── PlacesEditor.tsx
+│   │   │   │       ├── RouteForm.tsx
+│   │   │   │       └── RouteList.tsx
+│   │   │   ├── pages/
+│   │   │   │   ├── RunnerPage.tsx
+│   │   │   │   └── WorkaholPage.tsx
+│   │   │   ├── App.tsx
+│   │   │   ├── main.tsx
+│   │   │   ├── router.tsx
+│   │   │   └── styles.css
+│   │   ├── index.html
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── vite.config.ts
+│   ├── shared/
+│   │   └── types.ts
+│   └── README.md
+├── rv-app/
+│   ├── assets/
+│   │   └── stickers/
+│   │       ├── anchor.svg
+│   │       ├── mascot.svg
+│   │       └── star.svg
+│   ├── fixtures/
+│   │   ├── french_basics.json
+│   │   ├── paris_trivia.csv
+│   │   └── stem_concepts.json
+│   ├── public/
+│   │   ├── assets/
+│   │   │   ├── filters/
+│   │   │   │   └── ballpoint-ink.svg
+│   │   │   ├── shapes/
+│   │   │   │   ├── circle.svg
+│   │   │   │   └── rectangle.svg
+│   │   │   ├── stickers/
+│   │   │   │   ├── anchor.svg
+│   │   │   │   ├── mascot.svg
+│   │   │   │   └── star.svg
+│   │   │   ├── frame-rectangle.jpg
+│   │   │   └── La_Nu_Tienpo-Regular.woff
+│   │   ├── build/
+│   │   │   ├── core/
+│   │   │   │   ├── music/
+│   │   │   │   │   ├── AudioAnalysisEngine.js
+│   │   │   │   │   ├── AudioDecoder.js
+│   │   │   │   │   ├── AudioFileLoader.js
+│   │   │   │   │   ├── AudioPlaybackEngine.js
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   ├── MusicEventBridge.js
+│   │   │   │   │   └── TempoDetector.js
+│   │   │   │   ├── audio.js
+│   │   │   │   ├── clip-mapping.js
+│   │   │   │   ├── collage.js
+│   │   │   │   ├── export.js
+│   │   │   │   ├── ingest.js
+│   │   │   │   ├── mnemonic.js
+│   │   │   │   ├── MusicController.js
+│   │   │   │   ├── profile.js
+│   │   │   │   ├── schedule.js
+│   │   │   │   ├── schema.js
+│   │   │   │   ├── session.js
+│   │   │   │   ├── speech.js
+│   │   │   │   └── storage.js
+│   │   │   ├── pages/
+│   │   │   │   ├── clip-library.js
+│   │   │   │   ├── hallucination.js
+│   │   │   │   ├── library.js
+│   │   │   │   ├── prep-studio.js
+│   │   │   │   ├── run.js
+│   │   │   │   └── settings.js
+│   │   │   ├── ui/
+│   │   │   │   ├── app-shell.js
+│   │   │   │   ├── controller.js
+│   │   │   │   └── hand-drawn-rect.js
+│   │   │   ├── buildStamp.js
+│   │   │   ├── hand-drawn-rect.js
+│   │   │   ├── main.js
+│   │   │   ├── router.js
+│   │   │   └── rvapprectangle.js
+│   │   ├── icons/
+│   │   │   └── icon.svg
+│   │   ├── tools/
+│   │   │   └── collision-field-ui.html
+│   │   ├── index.html
+│   │   ├── manifest.webmanifest
+│   │   ├── styles.css
+│   │   └── sw.js
+│   ├── src/
+│   │   ├── core/
+│   │   │   ├── music/
+│   │   │   │   ├── AudioAnalysisEngine.ts
+│   │   │   │   ├── AudioDecoder.ts
+│   │   │   │   ├── AudioFileLoader.ts
+│   │   │   │   ├── AudioPlaybackEngine.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── MusicEventBridge.ts
+│   │   │   │   └── TempoDetector.ts
+│   │   │   ├── audio.ts
+│   │   │   ├── clip-mapping.ts
+│   │   │   ├── collage.ts
+│   │   │   ├── export.ts
+│   │   │   ├── ingest.ts
+│   │   │   ├── mnemonic.ts
+│   │   │   ├── MusicController.ts
+│   │   │   ├── profile.ts
+│   │   │   ├── schedule.ts
+│   │   │   ├── schema.ts
+│   │   │   ├── session.ts
+│   │   │   ├── speech.ts
+│   │   │   └── storage.ts
+│   │   ├── pages/
+│   │   │   ├── clip-library.ts
+│   │   │   ├── hallucination.ts
+│   │   │   ├── library.ts
+│   │   │   ├── prep-studio.ts
+│   │   │   ├── run.ts
+│   │   │   └── settings.ts
+│   │   ├── types/
+│   │   │   └── hallucinationEngine.d.ts
+│   │   ├── ui/
+│   │   │   ├── app-shell.ts
+│   │   │   ├── controller.ts
+│   │   │   └── hand-drawn-rect.ts
+│   │   ├── # RunnyVision Architecture.md
+│   │   ├── buildStamp.ts
+│   │   ├── env node.js
+│   │   ├── hand-drawn-rect.ts
+│   │   ├── main.ts
+│   │   ├── router.ts
+│   │   └── rvapprectangle.ts
+│   ├── README_DEV.md
+│   └── tsconfig.json
+├── scripts/
+│   ├── audit-b2.js
+│   └── createAndUpload.js
+├── src/
+│   ├── .vs/
+│   │   └── tasks.json
+│   ├── __tests__/
+│   │   ├── clipEnrichmentService.test.ts
+│   │   ├── ctaFilter.test.ts
+│   │   ├── passportService.test.ts
+│   │   └── runStatsService.test.ts
+│   ├── api/
+│   │   ├── clipsClient.ts
+│   │   ├── experienceClient.ts
+│   │   ├── httpClient.ts
+│   │   ├── index.ts
+│   │   ├── passportClient.ts
+│   │   └── runClient.ts
+│   ├── badges/
+│   │   ├── evaluate.ts
+│   │   ├── list.ts
+│   │   └── types.ts
+│   ├── config/
+│   │   └── ctaFilter.ts
+│   ├── hooks/
+│   │   ├── useExperienceSettings.ts
+│   │   ├── useRunSession.ts
+│   │   └── useRunStats.ts
+│   ├── middleware/
+│   │   └── validateBody.ts
+│   ├── milestones/
+│   │   ├── evaluate.ts
+│   │   ├── list.ts
+│   │   └── types.ts
+│   ├── models/
+│   │   ├── clip.ts
+│   │   ├── experience.ts
+│   │   ├── passport.ts
+│   │   ├── profile.ts
+│   │   ├── runSession.ts
+│   │   ├── runStats.ts
+│   │   └── user.ts
+│   ├── passport/
+│   │   ├── routes/
+│   │   │   ├── analysis.ts
+│   │   │   ├── catalog.ts
+│   │   │   ├── clips.ts
+│   │   │   ├── experience.ts
+│   │   │   ├── health.ts
+│   │   │   ├── media.ts
+│   │   │   ├── passport.ts
+│   │   │   ├── profiles.ts
+│   │   │   ├── runSessions.ts
+│   │   │   ├── runStats.ts
+│   │   │   ├── types.ts
+│   │   │   ├── unlock.ts
+│   │   │   └── users.ts
+│   │   ├── createStamp.ts
+│   │   ├── NoteComposerOverlay.tsx
+│   │   ├── onSessionEnd.ts
+│   │   ├── Passport.module.css
+│   │   ├── PassportScreen.tsx
+│   │   ├── stats.ts
+│   │   ├── storage.ts
+│   │   ├── summary.ts
+│   │   ├── types.ts
+│   │   └── usePassport.ts
+│   ├── routes/
+│   │   └── media.ts
+│   ├── rv/
+│   │   ├── components/
+│   │   │   └── HudOverlay.tsx
+│   │   ├── context/
+│   │   │   └── ExperienceProvider.tsx
+│   │   ├── pages/
+│   │   │   ├── ExperienceGoalsPage.tsx
+│   │   │   └── index.ts
+│   │   ├── types/
+│   │   │   ├── experience.ts
+│   │   │   └── passport.ts
+│   │   ├── constants.ts
+│   │   ├── index.ts
+│   │   └── RvApp.tsx
+│   ├── schema/
+│   │   └── noodle-v1.schema.json
+│   ├── services/
+│   │   ├── clipEnrichmentService.ts
+│   │   ├── clipLibraryService.ts
+│   │   ├── clipSelectionService.ts
+│   │   ├── experienceService.ts
+│   │   ├── passportService.ts
+│   │   ├── profileService.ts
+│   │   ├── runSessionService.ts
+│   │   ├── runStatsService.ts
+│   │   └── userService.ts
+│   ├── storage/
+│   │   └── b2Client.ts
+│   ├── telemetry/
+│   │   ├── deviceAdapters/
+│   │   │   ├── DeviceAdapter.ts
+│   │   │   └── FakeStepAdapter.ts
+│   │   ├── TelemetryContext.tsx
+│   │   └── TelemetryManager.ts
+│   ├── types/
+│   │   └── express/
+│   │       └── index.d.ts
+│   ├── utils/
+│   │   └── jsonStore.ts
+│   ├── validation/
+│   │   ├── ajvInstance.ts
+│   │   ├── middleware.ts
+│   │   └── schemas.ts
+│   ├── buildNoodle.js
+│   ├── buildStamp.ts
+│   ├── privacyLedger.js
+│   ├── server.ts
+│   ├── syntheticPass.js
+│   ├── uploadToB2.js
+│   └── validateNoodle.js
+├── step-bridge/
+│   ├── fake_step_server.py
+│   ├── google_fit_polling_server.py
+│   ├── google_fit_ws_server.py
+│   └── requirements.txt
+├── testsongs/
+│   ├── Iggi_Pop_-_The_Passenger_(mp3.pm).mp3
+│   ├── Led_Zeppelin_-_Whole_Lotta_Love_(mp3.pm).mp3
+│   ├── Marilynn_Manson_-_The_Fight_Song_Slipknot_Remix_(mp3.pm) (1).mp3
+│   ├── Pearl_Jam_-_Even_Flow_(mp3.pm).mp3
+│   ├── Prince_and_The_Revolution_-_Mountains_Long_Version_(mp3.pm).mp3
+│   └── Talking_Heads_-_Burning_Down_The_House_2005_Remastered_Version_(mp3.pm).mp3
+├── tools/
+│   ├── anonymizePlan.js
+│   ├── compressToParquet.js
+│   ├── consentUtils.js
+│   ├── featureVector.js
+│   ├── genRandomMutations.js
+│   ├── mutateSession.js
+│   ├── parquetToNoodle.js
+│   └── privacyScore.js
+├── .eslintrc.json
+├── .gitignore
+├── .prettierrc.json
+├── cleanup-redundant.sh
+├── create-all.sh
+├── electron-builder.json
+├── electron-main.js
+├── frames.css
+├── google-fit-electron-bridge.js
+├── hallucination_engine_master.js
+├── index.html
+├── index.js
+├── main.js
+├── MUSIC_SYSTEM_SUMMARY.md
+├── package-lock.json
+├── package.json
+├── preload.js
+├── publishers.json
+├── README.md
+├── renderer.js
+├── repo_forensics.py
+├── repo_inventory.csv
+├── start-backend.js
+├── style.css
+├── theme
+├── theme.css
+├── tsconfig.json
+└── vitest.config.ts
