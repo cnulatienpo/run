@@ -12,82 +12,132 @@
   container.appendChild(renderer.domElement);
 
   const geometry = new THREE.PlaneGeometry(2, 2);
-  const uniforms = {
-    uTime: { value: 0.0 },
-    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-    uVideoTexture: { value: null }
-  };
-
-  const material = new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = vec4(position.xy, 0.0, 1.0);
-      }
-    `,
-    fragmentShader: `
-      precision highp float;
-      varying vec2 vUv;
-      uniform float uTime;
-
-      void main() {
-        vec2 uv = vUv;
-        float wave = sin((uv.x * 12.0) + (uTime * 0.9)) * 0.1;
-        float glow = sin((uv.y * 16.0) - (uTime * 1.4)) * 0.08;
-
-        vec3 colorA = vec3(0.04, 0.07, 0.14);
-        vec3 colorB = vec3(0.06, 0.3, 0.44);
-        vec3 colorC = vec3(0.8, 0.22, 0.48);
-
-        float blend = smoothstep(0.1, 0.9, uv.y + wave + glow);
-        vec3 color = mix(colorA, colorB, blend);
-        color = mix(color, colorC, smoothstep(0.6, 1.0, uv.x + wave * 0.8));
-
-        float pulse = 0.04 * sin(uTime * 2.0 + uv.x * 8.0 + uv.y * 6.0);
-        color += pulse;
-
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `
-  });
-
+  const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
   const plane = new THREE.Mesh(geometry, material);
   scene.add(plane);
 
-  // Placeholder utility for the upcoming WebRTC video integration.
-  function attachVideoStream(videoElement) {
-    const videoTexture = new THREE.VideoTexture(videoElement);
+  let videoTexture = null;
+  function applyVideoTexture(videoElement) {
+    if (videoTexture) {
+      videoTexture.dispose();
+    }
+
+    videoTexture = new THREE.VideoTexture(videoElement);
     videoTexture.minFilter = THREE.LinearFilter;
     videoTexture.magFilter = THREE.LinearFilter;
     videoTexture.colorSpace = THREE.SRGBColorSpace;
-    uniforms.uVideoTexture.value = videoTexture;
-    return videoTexture;
+
+    material.map = videoTexture;
+    material.needsUpdate = true;
   }
 
-  // Keep available for later wiring from WebRTC code.
-  window.runnyvisionViewer = {
-    scene,
-    camera,
-    renderer,
-    attachVideoStream,
+  function attachIncomingStream(stream) {
+    streamVideo.srcObject = stream;
+    streamVideo.muted = true;
     streamVideo
+      .play()
+      .then(() => applyVideoTexture(streamVideo))
+      .catch((error) => {
+        console.error('Unable to start video playback:', error);
+      });
+  }
+
+  const peerConnection = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const signalingSocket = new WebSocket(`${wsProtocol}//${window.location.host}`);
+
+  async function sendSignal(message) {
+    if (signalingSocket.readyState === WebSocket.OPEN) {
+      signalingSocket.send(JSON.stringify(message));
+    }
+  }
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      sendSignal({ type: 'candidate', candidate: event.candidate });
+    }
   };
+
+  peerConnection.ontrack = (event) => {
+    const [remoteStream] = event.streams;
+    if (remoteStream) {
+      attachIncomingStream(remoteStream);
+    }
+  };
+
+  async function createAndSendOffer() {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    sendSignal({ type: 'offer', offer });
+  }
+
+  signalingSocket.onmessage = async (event) => {
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch (error) {
+      console.warn('Ignoring malformed signaling payload.');
+      return;
+    }
+
+    if (message.type === 'welcome') {
+      if (message.existingPeers > 0) {
+        await createAndSendOffer();
+      }
+      return;
+    }
+
+    if (message.type === 'offer') {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      sendSignal({ type: 'answer', answer });
+      return;
+    }
+
+    if (message.type === 'answer') {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+      return;
+    }
+
+    if (message.type === 'candidate' && message.candidate) {
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+      } catch (error) {
+        console.warn('Error applying ICE candidate:', error);
+      }
+    }
+  };
+
+  async function setupLocalTestStream() {
+    try {
+      const localStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      for (const track of localStream.getTracks()) {
+        peerConnection.addTrack(track, localStream);
+      }
+      if (!streamVideo.srcObject) {
+        attachIncomingStream(localStream);
+      }
+    } catch (error) {
+      console.error('Unable to access webcam test stream:', error);
+    }
+  }
 
   function onResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
   }
 
-  function animate(time) {
-    uniforms.uTime.value = time * 0.001;
+  function animate() {
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
 
+  setupLocalTestStream();
   window.addEventListener('resize', onResize);
   requestAnimationFrame(animate);
 })();
