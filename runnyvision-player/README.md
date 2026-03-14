@@ -1,10 +1,8 @@
 # runnyvision-player
 
-A starter repository for a future real-time running video system:
+A real-time WebRTC gateway prototype for:
 
-**TouchDesigner → WebRTC stream → Node signaling server → WebGL browser viewer**
-
-This first step provides only the initial folder layout, a basic Three.js viewer, and a minimal Node/Express server.
+**TouchDesigner → WebRTC media gateway → browser WebGL viewer**
 
 ## Folder structure
 
@@ -16,23 +14,26 @@ runnyvision-player/
 │       ├── index.html
 │       ├── style.css
 │       └── viewer.js
-├── server/             # Node signaling server placeholder
-│   └── server.js
-├── config/             # Future playlists/transitions/settings
+├── server/
+│   ├── server.js       # Express app + static hosting + signaling bootstrap
+│   ├── signaling.js    # WebSocket signaling and client registration
+│   └── mediaGateway.js # WebRTC gateway using wrtc
+├── config/
+│   └── stream.json     # Stream metadata and viewer limits
 ├── video/
-│   └── sample/         # Development sample video files
+│   └── sample/         # Development sample video assets
 └── README.md
 ```
 
-## Run the server
+## Install and run
 
-1. From the `runnyvision-player` directory, install dependencies:
+1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Start the server:
+2. Start the service:
 
    ```bash
    node server/server.js
@@ -44,32 +45,60 @@ runnyvision-player/
    http://localhost:3000
    ```
 
-## Current viewer behavior
+## WebRTC roles
 
-- Full-screen WebGL canvas rendered with Three.js.
-- Animated shader background placeholder (no stream required).
-- Hidden `<video id="streamVideo">` element reserved for future WebRTC media.
-- `attachVideoStream(videoElement)` helper in `viewer.js` to make future video-texture wiring straightforward.
+- `role: "source"` is the sender peer (TouchDesigner or test sender).
+- `role: "viewer"` is the browser playback client.
 
-## Future TouchDesigner connection
+The gateway receives one source stream and forwards the active video track to all connected viewers.
 
-Later, TouchDesigner will publish a video stream over WebRTC and connect through the Node signaling layer (`server/`).
-The browser viewer (`web/viewer/`) will use that stream as a live `THREE.VideoTexture` source.
+## TouchDesigner connection preparation
 
-## Testing the WebRTC stream
+TouchDesigner should connect over WebSocket to the same host/port as the viewer server (default `ws://localhost:3000`) and then:
 
-1. Start the signaling server:
+1. Send registration payload:
 
-   ```bash
-   node server/server.js
+   ```json
+   { "type": "register", "role": "source" }
    ```
 
-2. Open two browser windows to:
+2. Create a WebRTC `RTCPeerConnection` in TD.
+3. Use a Render TOP or Composite TOP output as the video source and publish it as a WebRTC video track.
+4. Send offer payload:
 
-   ```text
-   http://localhost:3000
+   ```json
+   { "type": "offer", "offer": { "type": "offer", "sdp": "..." } }
    ```
 
-3. Allow camera access when prompted.
-   - One window will act as the sender and publish its webcam test stream.
-   - The other window will act as the receiver and display the negotiated WebRTC stream as the Three.js full-screen video texture.
+5. Exchange ICE candidates using:
+
+   ```json
+   { "type": "candidate", "candidate": { "candidate": "...", "sdpMid": "0", "sdpMLineIndex": 0 } }
+   ```
+
+The gateway responds with `answer` and its own ICE `candidate` messages.
+
+## Test mode (before TD is connected)
+
+When no `source` is connected, `mediaGateway` automatically starts a synthetic test stream so viewers can still negotiate and render video.
+
+- Place development media files in `video/sample/`.
+- The gateway checks for this directory and logs test mode startup.
+- Current implementation uses a generated test pattern via `wrtc.nonstandard.RTCVideoSource` (no extra decoder dependencies required).
+
+## Browser sender option (manual test source)
+
+You can publish a source stream from a browser by opening DevTools on any page and running a small WebSocket/WebRTC sender script that registers as `role: "source"` and sends webcam tracks. This allows validating gateway forwarding before TouchDesigner integration.
+
+## Stream config
+
+`config/stream.json` controls metadata and limits:
+
+```json
+{
+  "streamName": "runnyvision_main",
+  "maxViewers": 100,
+  "resolution": "1920x1080",
+  "fps": 60
+}
+```
