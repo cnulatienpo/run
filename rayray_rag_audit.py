@@ -19,10 +19,6 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping,
 DEBUG_RAG = os.getenv("DEBUG_RAG", "false").lower() in {"1", "true", "yes", "on"}
 
 LOG_DIR = Path("logs")
-PROMPT_LOG = LOG_DIR / "rag_prompt.txt"
-RESPONSE_LOG = LOG_DIR / "rag_response.txt"
-RETRIEVAL_JSON_LOG = LOG_DIR / "retrieval_debug.json"
-
 VALID_DOC_TYPES = {"glossary", "recipe", "error"}
 VALID_ROUTES = {
     "glossary_responder",
@@ -45,7 +41,11 @@ class RetrievalChunk:
 class FilteringDecision:
     document_id: str
     document_type: str
-    reason_selected: str
+    decision_reason: str
+    # Backward compatibility for prior output readers.
+    reason_selected: str = ""
+    chunk_text: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -75,13 +75,27 @@ class RAGAudit:
         if self.debug_rag:
             self.log_dir.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def prompt_log_path(self) -> Path:
+        return self.log_dir / "rag_prompt.txt"
+
+    @property
+    def response_log_path(self) -> Path:
+        return self.log_dir / "rag_response.txt"
+
+    @property
+    def retrieval_json_log_path(self) -> Path:
+        return self.log_dir / "retrieval_debug.json"
+
     @staticmethod
     def guess_query_type(user_query: str) -> str:
         q = user_query.lower()
-        if any(k in q for k in ["what is", "define", "meaning", "operator", "top", "chop", "sop", "dat"]):
-            return "operator_definition"
         if any(k in q for k in ["how do i", "how to", "steps", "workflow", "recipe", "stitch", "sequence", "build"]):
             return "workflow_recipe"
+        has_definition_phrase = any(k in q for k in ["what is", "define", "meaning of"])
+        has_operator_signal = "operator" in q or any(k in q for k in ["top", "chop", "sop", "dat"])
+        if has_definition_phrase and has_operator_signal:
+            return "operator_definition"
         if any(k in q for k in ["error", "crash", "not working", "fix", "issue", "troubleshoot", "bug", "fails"]):
             return "troubleshooting"
         return "unknown"
@@ -113,12 +127,15 @@ class RAGAudit:
             )
         self.trace.retrieval_results = results
 
-    def trace_filtering(self, selected: Iterable[Mapping[str, str]], dropped: Iterable[Mapping[str, str]]) -> None:
+    def trace_filtering(self, selected: Iterable[Mapping[str, Any]], dropped: Iterable[Mapping[str, Any]]) -> None:
         self.trace.selected_context = [
             FilteringDecision(
                 document_id=str(item.get("document_id", "unknown")),
                 document_type=str(item.get("document_type", "unknown")),
-                reason_selected=str(item.get("reason_selected", "selected")),
+                decision_reason=str(item.get("decision_reason") or item.get("reason_selected", "selected")),
+                reason_selected=str(item.get("reason_selected") or item.get("decision_reason", "selected")),
+                chunk_text=str(item.get("chunk_text") or item.get("text", "")),
+                metadata=dict(item.get("metadata", {})),
             )
             for item in selected
         ]
@@ -126,12 +143,15 @@ class RAGAudit:
             FilteringDecision(
                 document_id=str(item.get("document_id", "unknown")),
                 document_type=str(item.get("document_type", "unknown")),
-                reason_selected=str(item.get("reason_selected", "dropped")),
+                decision_reason=str(item.get("decision_reason") or item.get("reason_selected", "dropped")),
+                reason_selected=str(item.get("reason_selected") or item.get("decision_reason", "dropped")),
+                chunk_text=str(item.get("chunk_text") or item.get("text", "")),
+                metadata=dict(item.get("metadata", {})),
             )
             for item in dropped
         ]
 
-    def trace_prompt_assembly(self, system_prompt: str, retrieved_context: str, user_query: str) -> None:
+    def trace_prompt_assembly(self, system_prompt: str, retrieved_context: str, full_prompt: str) -> None:
         if not self.debug_rag:
             return
         payload = (
@@ -139,17 +159,17 @@ class RAGAudit:
             f"{system_prompt}\n\n"
             "=== RETRIEVED CONTEXT ===\n"
             f"{retrieved_context}\n\n"
-            "=== USER QUERY ===\n"
-            f"{user_query}\n"
+            "=== FULL PROMPT SENT TO MODEL ===\n"
+            f"{full_prompt}\n"
         )
-        PROMPT_LOG.write_text(payload, encoding="utf-8")
+        self.prompt_log_path.write_text(payload, encoding="utf-8")
 
     def trace_response(self, model_used: str, response_text: str, response_tokens: int, generation_time_ms: int) -> None:
         self.trace.model_used = model_used
         self.trace.response_tokens = int(response_tokens)
         self.trace.generation_time_ms = int(generation_time_ms)
         if self.debug_rag:
-            RESPONSE_LOG.write_text(response_text, encoding="utf-8")
+            self.response_log_path.write_text(response_text, encoding="utf-8")
 
     def trace_routing(self, response_mode: str) -> None:
         self.trace.response_mode = response_mode if response_mode in VALID_ROUTES else "fallback_responder"
@@ -161,8 +181,11 @@ class RAGAudit:
             "query": self.trace.user_query,
             "retrieved_docs": [chunk.__dict__ for chunk in self.trace.retrieval_results],
             "selected_docs": [doc.__dict__ for doc in self.trace.selected_context],
+            "dropped_docs": [doc.__dict__ for doc in self.trace.dropped_context],
+            "response_mode": self.trace.response_mode,
+            "query_type_guess": self.trace.query_type_guess,
         }
-        RETRIEVAL_JSON_LOG.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        self.retrieval_json_log_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def formatted_report(self) -> str:
         retrieval_lines = [
@@ -170,9 +193,11 @@ class RAGAudit:
             for idx, item in enumerate(self.trace.retrieval_results, start=1)
         ] or ["(none)"]
         selected_lines = [item.document_id for item in self.trace.selected_context] or ["(none)"]
+        dropped_lines = [item.document_id for item in self.trace.dropped_context] or ["(none)"]
 
         retrieval_block = "\n".join(retrieval_lines)
         selected_block = "\n".join(selected_lines)
+        dropped_block = "\n".join(dropped_lines)
 
         return (
             f"QUERY TYPE: {self.trace.query_type_guess}\n\n"
@@ -180,6 +205,8 @@ class RAGAudit:
             f"{retrieval_block}\n\n"
             "SELECTED CONTEXT\n"
             f"{selected_block}\n\n"
+            "DROPPED CONTEXT\n"
+            f"{dropped_block}\n\n"
             "ROUTED TO\n"
             f"{self.trace.response_mode}\n"
         )
@@ -197,10 +224,10 @@ def run_with_audit(
     embedding_model_name: str,
     embedding_fn: Callable[[str], Sequence[float]],
     retrieve_fn: Callable[[Sequence[float], int], Iterable[Mapping[str, Any]]],
-    select_context_fn: Callable[[Iterable[Mapping[str, Any]]], tuple[Iterable[Mapping[str, str]], Iterable[Mapping[str, str]]]],
-    build_prompt_fn: Callable[[Iterable[Mapping[str, str]], str], tuple[str, str]],
+    select_context_fn: Callable[[Iterable[Mapping[str, Any]]], tuple[Iterable[Mapping[str, Any]], Iterable[Mapping[str, Any]]]],
+    build_prompt_fn: Callable[[Iterable[Mapping[str, Any]], str], tuple[str, str, str]],
     generate_fn: Callable[[str], Mapping[str, Any]],
-    route_fn: Callable[[str], str],
+    route_fn: Callable[..., str],
     debug_rag: bool = DEBUG_RAG,
 ) -> Dict[str, Any]:
     """Wrap an existing RAG pipeline without modifying business logic."""
@@ -220,17 +247,27 @@ def run_with_audit(
     dropped = list(dropped)
     audit.trace_filtering(selected, dropped)
 
-    system_prompt, retrieved_context = build_prompt_fn(selected, user_query)
-    audit.trace_prompt_assembly(system_prompt, retrieved_context, user_query)
+    build_payload = build_prompt_fn(selected, user_query)
+    if len(build_payload) == 3:
+        system_prompt, retrieved_context, full_prompt = build_payload
+    else:
+        system_prompt, retrieved_context = build_payload  # type: ignore[misc]
+        full_prompt = f"{system_prompt}\n\n{retrieved_context}"
 
-    llm_payload, gen_ms = timed_call(generate_fn, retrieved_context)
+    try:
+        response_mode = route_fn(user_query, audit.trace.query_type_guess, selected)
+    except TypeError:
+        response_mode = route_fn(user_query)
+    audit.trace_routing(response_mode)
+
+    audit.trace_prompt_assembly(system_prompt, retrieved_context, full_prompt)
+
+    llm_payload, gen_ms = timed_call(generate_fn, full_prompt)
     response_text = str(llm_payload.get("response_text", ""))
     response_tokens = int(llm_payload.get("response_tokens", 0))
     model_used = str(llm_payload.get("model_used", ""))
     audit.trace_response(model_used, response_text, response_tokens, gen_ms)
 
-    response_mode = route_fn(response_text)
-    audit.trace_routing(response_mode)
     audit.write_retrieval_visualization()
 
     return {
@@ -273,16 +310,22 @@ def _demo_runner(user_query: str, debug_rag: bool) -> str:
         ]
         return sample[:limit]
 
-    def select_context_fn(docs: Iterable[Mapping[str, Any]]) -> tuple[Iterable[Mapping[str, str]], Iterable[Mapping[str, str]]]:
-        selected: List[Dict[str, str]] = []
-        dropped: List[Dict[str, str]] = []
+    def select_context_fn(docs: Iterable[Mapping[str, Any]]) -> tuple[Iterable[Mapping[str, Any]], Iterable[Mapping[str, Any]]]:
+        selected: List[Dict[str, Any]] = []
+        dropped: List[Dict[str, Any]] = []
         for doc in docs:
             if doc.get("document_type") == "recipe":
                 selected.append(
                     {
                         "document_id": str(doc["document_id"]),
                         "document_type": str(doc["document_type"]),
+                        "decision_reason": "matches workflow_recipe query type",
                         "reason_selected": "matches workflow_recipe query type",
+                        "chunk_text": str(doc.get("text", "")),
+                        "metadata": {
+                            "operator_name": str(doc.get("operator_name", "")),
+                            "similarity_score": float(doc.get("similarity_score", 0.0)),
+                        },
                     }
                 )
             else:
@@ -290,15 +333,23 @@ def _demo_runner(user_query: str, debug_rag: bool) -> str:
                     {
                         "document_id": str(doc["document_id"]),
                         "document_type": str(doc.get("document_type", "unknown")),
+                        "decision_reason": "lower rank and type mismatch",
                         "reason_selected": "lower rank and type mismatch",
+                        "chunk_text": str(doc.get("text", "")),
+                        "metadata": {
+                            "operator_name": str(doc.get("operator_name", "")),
+                            "similarity_score": float(doc.get("similarity_score", 0.0)),
+                        },
                     }
                 )
         return selected, dropped
 
-    def build_prompt_fn(selected: Iterable[Mapping[str, str]], query: str) -> tuple[str, str]:
-        context = "\n".join(item["document_id"] for item in selected)
+    def build_prompt_fn(selected: Iterable[Mapping[str, Any]], query: str) -> tuple[str, str, str]:
+        context = "\n\n".join(str(item.get("chunk_text") or item.get("document_id", "")) for item in selected)
         system = "You are Ray Ray, a TouchDesigner tutor. Use recipe context when available."
-        return system, f"Context:\n{context}\n\nQuery:\n{query}"
+        retrieved_context = f"Context:\n{context}\n\nQuery:\n{query}"
+        full_prompt = f"{system}\n\n{retrieved_context}"
+        return system, retrieved_context, full_prompt
 
     def generate_fn(prompt: str) -> Mapping[str, Any]:
         return {
@@ -307,7 +358,9 @@ def _demo_runner(user_query: str, debug_rag: bool) -> str:
             "response_text": f"Use Switch TOP to stitch clips. Prompt length={len(prompt)}",
         }
 
-    def route_fn(_response_text: str) -> str:
+    def route_fn(_query: str, query_type_guess: str, _selected: Iterable[Mapping[str, Any]]) -> str:
+        if query_type_guess == "workflow_recipe":
+            return "recipe_responder"
         return "recipe_responder"
 
     result = run_with_audit(

@@ -15,15 +15,15 @@ Audit output files are written only when debug mode is enabled.
 python rayray_rag_audit.py "how do i stitch clips together" --debug-rag
 ```
 
-This prints a formatted report to stdout and writes debug artifacts under `logs/`.
+This prints a formatted report to stdout and writes debug artifacts under `logs/` (or a custom `log_dir` when provided to `RAGAudit`).
 
 ## Generated logs
 
 - `logs/rag_prompt.txt`
-  - Exact prompt payload with:
+  - Prompt assembly trace with:
     - system prompt
     - retrieved context
-    - user query
+    - **the exact full prompt sent to the model**
 - `logs/rag_response.txt`
   - Full model response text
 - `logs/retrieval_debug.json`
@@ -33,7 +33,10 @@ This prints a formatted report to stdout and writes debug artifacts under `logs/
 {
   "query": "...",
   "retrieved_docs": [...],
-  "selected_docs": [...]
+  "selected_docs": [...],
+  "dropped_docs": [...],
+  "response_mode": "recipe_responder",
+  "query_type_guess": "workflow_recipe"
 }
 ```
 
@@ -46,9 +49,9 @@ Use `run_with_audit(...)` and pass your existing functions:
 - context selection/filtering function
 - prompt assembly function
 - model generation function
-- routing function
+- routing function (invoked before generation using query + query type + selected context)
 
-This keeps system behavior unchanged while adding traces.
+This keeps existing behavior as close as possible while adding traces and improving audit accuracy.
 
 ## Trace stages captured
 
@@ -65,15 +68,17 @@ This keeps system behavior unchanged while adding traces.
 4. Chunk filtering trace
    - selected docs + reason
    - dropped docs + reason
-5. Prompt assembly trace
-   - full prompt written to file
-6. Response trace
+5. Routing trace (pre-generation)
+   - responder mode chosen from query + query type + selected context
+6. Prompt assembly trace
+   - logs the exact full prompt sent to generation
+7. Response trace
    - model used
    - response token count
    - generation time
    - full response written to file
-7. Pipeline routing trace
-   - responder mode (`glossary_responder`, `recipe_responder`, `error_responder`, `fallback_responder`)
+8. Retrieval visualization trace
+   - retrieved + selected + dropped docs and route metadata in JSON
 
 ## Common failure signatures
 
