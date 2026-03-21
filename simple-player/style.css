@@ -285,3 +285,35 @@ h1 {
     width: min(18rem, calc(100vw - 1.5rem));
   }
 }
+
+
+.world-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.world-button.is-current {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.world-button.is-pending {
+  border-style: dashed;
+}
+
+.world-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  color: var(--muted-text);
+  font-size: 0.95rem;
+}
+
+.status-readout {
+  white-space: pre-line;
+  line-height: 1.6;
+  color: var(--muted-text);
+  font-size: 0.95rem;
+}
