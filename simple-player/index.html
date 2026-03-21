@@ -21,9 +21,19 @@
             <p class="eyebrow">Simple Player Upgrade</p>
             <h1>World treadmill</h1>
             <p class="description">
-              Two videos only. Native playback. Circular clip continuity. A blunt little control slab for treadmill use.
+              Two videos only. Native playback. Circular clip continuity. Switch worlds on the next clip boundary.
             </p>
           </header>
+
+          <div class="world-switcher" aria-label="World selection">
+            <button class="scribble-button world-button is-current" type="button" data-world-button="grey">Grey</button>
+            <button class="scribble-button world-button" type="button" data-world-button="clown">Clown</button>
+          </div>
+
+          <div class="world-readout" aria-live="polite">
+            <span><strong>Current:</strong> <span id="currentWorldLabel">Grey</span></span>
+            <span><strong>Next:</strong> <span id="nextWorldLabel">—</span></span>
+          </div>
 
           <div class="control-grid">
             <button id="playButton" class="scribble-button" type="button">Play Session</button>
@@ -39,11 +49,6 @@
                 <option value="2700">45 min</option>
                 <option value="3600">60 min</option>
               </select>
-            </label>
-
-            <label class="control-block" for="worldSelect">
-              <span class="control-label">World</span>
-              <select id="worldSelect" class="scribble-select"></select>
             </label>
 
             <button id="fullscreenButton" class="scribble-button secondary" type="button">Fullscreen</button>
