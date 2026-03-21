@@ -90,6 +90,7 @@ let playbackStarted = false;
 let sessionRunning = false;
 let stopAfterCurrentClip = false;
 let pendingFade = false;
+let isCrossfading = false;
 let currentPlaybackState = null;
 let nextPreparedClip = null;
 let sessionDurationSeconds = Number(durationSelect?.value || 900);
@@ -107,6 +108,9 @@ let standbyLoadTarget = null;
 let standbyLoadAttemptedAt = 0;
 let fadeScheduledAt = 0;
 let transitionCounter = 0;
+let standbyReadyPollTimerId = 0;
+let delayedFadeStartedAt = 0;
+const videoLoadState = new WeakMap();
 
 function logEvent(event, details = {}, level = 'log') {
   const payload = {
@@ -184,6 +188,17 @@ function getVisibleDuration(video) {
 }
 
 function resetVideo(video) {
+  const loadState = videoLoadState.get(video);
+  if (loadState?.timeoutId) {
+    window.clearTimeout(loadState.timeoutId);
+  }
+
+  videoLoadState.set(video, {
+    requestedClipSrc: null,
+    loadedClipSrc: null,
+    timeoutId: 0,
+  });
+
   video.pause();
   video.removeAttribute('src');
   video.load();
@@ -386,6 +401,77 @@ function getJourneyElapsed(video, playbackState) {
 function shouldStartFade(video, playbackState) {
   return getJourneyElapsed(video, playbackState) >= playbackState.plan.fadeStartSeconds;
 }
+function isStandbyReadyForCrossfade() {
+  return Boolean(nextPreparedClip) && standbyVideo.readyState >= STANDBY_READY_STATE;
+}
+
+function extendCurrentClip() {
+  if (!currentPlaybackState || !Number.isFinite(activeVideo.duration) || activeVideo.duration <= 0) {
+    return;
+  }
+
+  currentPlaybackState.isExtended = true;
+
+  const journeyElapsed = getJourneyElapsed(activeVideo, currentPlaybackState);
+  const clipDuration = currentPlaybackState.plan.clipDurationSeconds || Number(activeVideo.duration || 0);
+  const wrappedElapsed = clipDuration > 0 ? journeyElapsed % clipDuration : journeyElapsed;
+  const nextOffsetSeconds = clipDuration > 0
+    ? (currentPlaybackState.plan.entryOffsetSeconds + wrappedElapsed) % clipDuration
+    : currentPlaybackState.plan.entryOffsetSeconds;
+
+  continuityState.set(currentPlaybackState.clip.src, { nextOffsetSeconds });
+
+  logEvent('clip_extended_duration', {
+    clip: currentPlaybackState.clip.src,
+    extendedByMs: Math.max(0, Date.now() - fadeScheduledAt),
+    journeyElapsedSeconds: journeyElapsed,
+    currentTime: activeVideo.currentTime,
+    didWrap: currentPlaybackState.didWrap,
+  }, 'warn');
+}
+
+function clearStandbyReadyPoll() {
+  if (standbyReadyPollTimerId) {
+    window.clearTimeout(standbyReadyPollTimerId);
+    standbyReadyPollTimerId = 0;
+  }
+}
+
+function beginDelayedCrossfadePolling() {
+  if (standbyReadyPollTimerId || !currentPlaybackState || isCrossfading) {
+    return;
+  }
+
+  delayedFadeStartedAt = delayedFadeStartedAt || Date.now();
+  logEvent('fade_delayed_waiting_for_standby', {
+    clip: currentPlaybackState.clip.src,
+    standbyClip: nextPreparedClip?.src || null,
+    standbyReadyState: standbyVideo.readyState,
+    standbyNetworkState: standbyVideo.networkState,
+  }, 'warn');
+
+  const poll = () => {
+    if (!playbackStarted || !currentPlaybackState || isCrossfading) {
+      clearStandbyReadyPoll();
+      return;
+    }
+
+    if (isStandbyReadyForCrossfade()) {
+      logEvent('standby_ready', {
+        standbyClip: nextPreparedClip?.src || null,
+        waitDurationMs: delayedFadeStartedAt ? Date.now() - delayedFadeStartedAt : 0,
+        standbyReadyState: standbyVideo.readyState,
+      });
+      clearStandbyReadyPoll();
+      void crossfadeToPreparedClip('delayed_ready');
+      return;
+    }
+
+    standbyReadyPollTimerId = window.setTimeout(poll, 100);
+  };
+
+  standbyReadyPollTimerId = window.setTimeout(poll, 100);
+}
 
 function updateWorldButtons() {
   worldButtons.forEach((button) => {
@@ -432,10 +518,35 @@ function scheduleVideoLoad(video, clip, reason = 'prepare') {
     return;
   }
 
+  const existingState = videoLoadState.get(video) || {
+    requestedClipSrc: null,
+    loadedClipSrc: null,
+    timeoutId: 0,
+  };
+
+  if (existingState.requestedClipSrc === clip.src || existingState.loadedClipSrc === clip.src) {
+    standbyLoadTarget = clip.src;
+    logEvent('clip_load_reused', {
+      clip: clip.src,
+      world: clip.world,
+      reason,
+      alreadyLoaded: existingState.loadedClipSrc === clip.src,
+    });
+    updateStatusReadout();
+    return;
+  }
+
   const delayMs = TEST_CONFIG.enabled ? Math.round(randomBetween(TEST_CONFIG.loadDelayMinMs, TEST_CONFIG.loadDelayMaxMs)) : 0;
   standbyLoadTarget = clip.src;
   standbyLoadAttemptedAt = Date.now();
   resetVideo(video);
+
+  const loadState = {
+    requestedClipSrc: clip.src,
+    loadedClipSrc: null,
+    timeoutId: 0,
+  };
+  videoLoadState.set(video, loadState);
 
   logEvent('clip_load_scheduled', {
     clip: clip.src,
@@ -445,13 +556,20 @@ function scheduleVideoLoad(video, clip, reason = 'prepare') {
     invalidClip: Boolean(clip.testInjectedError),
   });
 
-  window.setTimeout(() => {
+  loadState.timeoutId = window.setTimeout(() => {
+    const latestState = videoLoadState.get(video);
+    if (!latestState || latestState.requestedClipSrc !== clip.src || latestState.loadedClipSrc === clip.src) {
+      return;
+    }
+
     if (video !== standbyVideo && video !== activeVideo) {
       return;
     }
 
     video.src = clip.src;
     video.load();
+    latestState.loadedClipSrc = clip.src;
+    latestState.timeoutId = 0;
     logEvent('clip_load_started', {
       clip: clip.src,
       world: clip.world,
@@ -576,6 +694,7 @@ async function primeClipOnVideo(video, clip) {
     clip,
     plan,
     didWrap: false,
+    isExtended: false,
     startedAt: Date.now(),
   };
 }
@@ -605,6 +724,10 @@ function finishStopAfterClip() {
   sessionRunning = false;
   stopAfterCurrentClip = false;
   nextPreparedClip = null;
+  isCrossfading = false;
+  clearStandbyReadyPoll();
+  fadeScheduledAt = 0;
+  delayedFadeStartedAt = 0;
   currentPlaybackState = null;
   stopVideo(activeVideo);
   stopVideo(standbyVideo);
@@ -615,24 +738,8 @@ function finishStopAfterClip() {
   logEvent('session_stopped');
 }
 
-function retryCrossfadeWhenReady(reason = 'standby_not_ready') {
-  pendingFade = false;
-  logEvent('crossfade_retry_scheduled', {
-    reason,
-    retryMs: STANDBY_RETRY_MS,
-    standbyReadyState: standbyVideo.readyState,
-    standbyNetworkState: standbyVideo.networkState,
-    standbyCurrentSrc: standbyVideo.currentSrc || standbyVideo.src || null,
-    standbyLoadTarget,
-    delayedByMs: fadeScheduledAt ? Date.now() - fadeScheduledAt : null,
-  }, 'warn');
-  window.setTimeout(() => {
-    void crossfadeToPreparedClip();
-  }, STANDBY_RETRY_MS);
-}
-
-async function crossfadeToPreparedClip() {
-  if (pendingFade || !currentPlaybackState) {
+async function crossfadeToPreparedClip(trigger = 'timing') {
+  if (pendingFade || isCrossfading || !currentPlaybackState) {
     return;
   }
 
@@ -650,22 +757,37 @@ async function crossfadeToPreparedClip() {
   }
 
   pendingFade = true;
-  fadeScheduledAt = Date.now();
+  fadeScheduledAt = fadeScheduledAt || Date.now();
+
+  if (!isStandbyReadyForCrossfade()) {
+    pendingFade = false;
+    extendCurrentClip();
+    beginDelayedCrossfadePolling();
+    return;
+  }
+
+  clearStandbyReadyPoll();
+  isCrossfading = true;
   applyPendingWorldIfNeeded();
 
   const previousPlaybackState = currentPlaybackState;
   const standbyPlaybackState = await primeClipOnVideo(standbyVideo, nextPreparedClip);
   if (!standbyPlaybackState) {
     pendingFade = false;
+    isCrossfading = false;
     prepareNextStandbyClip();
     if (currentPlaybackState === previousPlaybackState) {
-      retryCrossfadeWhenReady('standby_failed_to_prime');
+      extendCurrentClip();
+      beginDelayedCrossfadePolling();
     }
     return;
   }
 
   if (standbyVideo.readyState < STANDBY_READY_STATE) {
-    retryCrossfadeWhenReady('standby_not_ready');
+    pendingFade = false;
+    isCrossfading = false;
+    extendCurrentClip();
+    beginDelayedCrossfadePolling();
     return;
   }
 
@@ -676,6 +798,14 @@ async function crossfadeToPreparedClip() {
       standbyClip: standbyPlaybackState.clip.src,
       currentClip: previousPlaybackState.clip.src,
     }, 'warn');
+  }
+
+  if (trigger === 'delayed_ready') {
+    logEvent('fade_started_after_delay', {
+      currentClip: previousPlaybackState.clip.src,
+      standbyClip: standbyPlaybackState.clip.src,
+      delayedByMs: delayedFadeStartedAt ? Date.now() - delayedFadeStartedAt : 0,
+    });
   }
 
   logEvent('clip_transition', {
@@ -713,53 +843,69 @@ async function crossfadeToPreparedClip() {
     updateWorldButtons();
     updateStatusReadout();
     pendingFade = false;
+    isCrossfading = false;
+    fadeScheduledAt = 0;
+    delayedFadeStartedAt = 0;
   }, CROSSFADE_SECONDS * 1000);
 }
 
 function handleActiveVideoTimeUpdate(video) {
   video.dataset.lastTimeupdateAt = String(Date.now());
 
-  if (video !== activeVideo || !currentPlaybackState || pendingFade) {
+  if (video !== activeVideo || !currentPlaybackState || pendingFade || isCrossfading) {
     return;
   }
 
   if (
-    currentPlaybackState.plan.wraps
-    && !currentPlaybackState.didWrap
-    && Number.isFinite(video.duration)
+    Number.isFinite(video.duration)
     && video.duration > 0
     && video.currentTime >= video.duration - WRAP_SAFETY_SECONDS
+    && ((currentPlaybackState.plan.wraps && !currentPlaybackState.didWrap) || currentPlaybackState.isExtended)
   ) {
-    currentPlaybackState.didWrap = true;
+    if (!currentPlaybackState.didWrap) {
+      currentPlaybackState.didWrap = true;
+    }
     video.currentTime = 0.01;
+    void safePlay(video);
     logEvent('clip_wrapped', {
       clip: currentPlaybackState.clip.src,
       world: currentPlaybackState.clip.world,
+      extendedLoop: Boolean(currentPlaybackState.isExtended),
     });
     return;
   }
 
   if (shouldStartFade(video, currentPlaybackState)) {
+    fadeScheduledAt = fadeScheduledAt || Date.now();
     void crossfadeToPreparedClip();
   }
 }
 
 function handleActiveVideoEnded(video) {
-  if (video !== activeVideo || pendingFade) {
+  if (video !== activeVideo || pendingFade || isCrossfading) {
     return;
   }
 
-  if (currentPlaybackState?.plan.wraps && !currentPlaybackState.didWrap) {
-    currentPlaybackState.didWrap = true;
+  if ((currentPlaybackState?.plan.wraps && !currentPlaybackState.didWrap) || currentPlaybackState?.isExtended) {
+    if (!currentPlaybackState.didWrap) {
+      currentPlaybackState.didWrap = true;
+    }
     video.currentTime = 0.01;
     void safePlay(video);
+    logEvent('clip_wrapped', {
+      clip: currentPlaybackState?.clip?.src || null,
+      world: currentPlaybackState?.clip?.world || null,
+      extendedLoop: Boolean(currentPlaybackState?.isExtended),
+    });
     return;
   }
 
   logEvent('active_video_ended_before_transition', {
     clip: currentPlaybackState?.clip?.src || null,
   }, 'warn');
-  void crossfadeToPreparedClip();
+  fadeScheduledAt = fadeScheduledAt || Date.now();
+  extendCurrentClip();
+  beginDelayedCrossfadePolling();
 }
 
 function recoverFromVideoError(video) {
@@ -772,6 +918,7 @@ function recoverFromVideoError(video) {
   if (video === activeVideo) {
     pendingFade = false;
     prepareNextStandbyClip();
+    fadeScheduledAt = fadeScheduledAt || Date.now();
     void crossfadeToPreparedClip();
     return;
   }
@@ -783,6 +930,10 @@ function attachVideoEvents(video) {
   video.addEventListener('timeupdate', () => handleActiveVideoTimeUpdate(video));
   video.addEventListener('ended', () => handleActiveVideoEnded(video));
   video.addEventListener('loadeddata', () => {
+    const loadState = videoLoadState.get(video);
+    if (loadState && (video.currentSrc || video.src)) {
+      loadState.loadedClipSrc = video.currentSrc || video.src;
+    }
     logEvent('video_loaded', {
       video: video.id,
       clip: video.currentSrc || video.src || null,
@@ -1012,6 +1163,7 @@ async function startSession() {
     return;
   }
 
+  clearStandbyReadyPoll();
   playbackStarted = true;
   beginSessionTimer();
   await startPlaybackOnActiveVideo(firstClip);
