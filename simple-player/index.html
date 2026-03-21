@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Video Player</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="player-shell">
+      <video id="videoA" class="player-video is-active" muted playsinline preload="auto"></video>
+      <video id="videoB" class="player-video" muted playsinline preload="auto"></video>
+
+      <div class="player-overlay">
+        <div>
+          <p class="eyebrow">Simple Player</p>
+          <h1>Sequential looping video playlist</h1>
+          <p class="description">
+            Edit the <code>clips</code> array in <code>player.js</code> to point at local files or remote video URLs.
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <script src="./player.js"></script>
+  </body>
+</html>
