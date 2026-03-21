@@ -13,17 +13,17 @@
       <audio id="musicPlayer" class="music-player" controls preload="metadata"></audio>
 
       <section class="player-panel" aria-label="Player controls">
-        <div class="panel-border panel-border-one"></div>
-        <div class="panel-border panel-border-two"></div>
+        <div class="panel-border panel-border-one" aria-hidden="true"></div>
+        <div class="panel-border panel-border-two" aria-hidden="true"></div>
 
         <div class="panel-inner">
-          <div class="panel-heading">
+          <header class="panel-heading">
             <p class="eyebrow">Simple Player Upgrade</p>
             <h1>World treadmill</h1>
             <p class="description">
-              Two stacked videos, circular clip continuity, hand-drawn controls, and session-based playback.
+              Two videos only. Native playback. Circular clip continuity. A blunt little control slab for treadmill use.
             </p>
-          </div>
+          </header>
 
           <div class="control-grid">
             <button id="playButton" class="scribble-button" type="button">Play Session</button>
@@ -46,7 +46,9 @@
               <select id="worldSelect" class="scribble-select"></select>
             </label>
 
-            <div class="control-block music-block">
+            <button id="fullscreenButton" class="scribble-button secondary" type="button">Fullscreen</button>
+
+            <section class="control-block music-block" aria-label="Music controls">
               <span class="control-label">Music</span>
               <label class="upload-label" for="musicUpload">Upload local audio</label>
               <input id="musicUpload" type="file" accept="audio/*" />
@@ -54,9 +56,7 @@
                 <button type="button" class="placeholder-button" disabled>Spotify later</button>
                 <button type="button" class="placeholder-button" disabled>Google Music later</button>
               </div>
-            </div>
-
-            <button id="fullscreenButton" class="scribble-button secondary" type="button">Fullscreen</button>
+            </section>
           </div>
 
           <div id="statusReadout" class="status-readout" aria-live="polite"></div>
