@@ -1,15 +1,16 @@
 // World-based treadmill player.
 //
-// This keeps the original architecture intentionally simple:
+// Important architecture constraints are preserved on purpose:
 // - exactly two stacked <video> elements
 // - browser-native playback only
-// - one active visible video and one preloaded standby video
-// - crossfades handled with CSS opacity and plain JavaScript timing
+// - one visible active video and one hidden standby video
+// - crossfades handled with CSS opacity plus simple JavaScript timing
 //
-// The main upgrade here is that playback is no longer a flat playlist.
-// Clips are grouped into worlds, each clip gets a playout plan, and clips
-// are treated like circular timelines so the player can enter in the middle,
-// wrap through the start later, and still feel continuous.
+// The upgrade is in the playback logic. Instead of a flat playlist, clips live
+// inside worlds. Each clip gets a playout plan with an entry offset, a variable
+// visible duration, and optional wraparound. Each clip is treated like a
+// circular timeline so entering midstream still allows the beginning to appear
+// later on a future visit.
 
 const clipGroups = {
   ocean_tunnel: [
@@ -31,11 +32,12 @@ const clipGroups = {
 const CROSSFADE_SECONDS = 1.5;
 const MIN_VISIBLE_SECONDS = 6;
 const MAX_VISIBLE_SECONDS = 18;
-const MIN_CONTINUITY_ADVANCE = 2.5;
+const MIN_INITIAL_OFFSET_BUFFER = 2.5;
+const END_WRAP_SAFETY = 0.08;
 
+const playerShell = document.getElementById('playerShell');
 const videoA = document.getElementById('videoA');
 const videoB = document.getElementById('videoB');
-const playerShell = document.getElementById('playerShell');
 const playButton = document.getElementById('playButton');
 const durationSelect = document.getElementById('durationSelect');
 const worldSelect = document.getElementById('worldSelect');
@@ -44,32 +46,30 @@ const statusReadout = document.getElementById('statusReadout');
 const musicUpload = document.getElementById('musicUpload');
 const musicPlayer = document.getElementById('musicPlayer');
 
-if (!videoA || !videoB) {
-  throw new Error('Expected #videoA and #videoB elements to exist.');
-}
-
 let activeVideo = videoA;
 let standbyVideo = videoB;
+
 let currentWorld = Object.keys(clipGroups)[0];
 let pendingWorld = null;
 let worldQueues = {};
-let pendingFade = false;
+let lastPlayedByWorld = {};
+
 let playbackStarted = false;
 let sessionRunning = false;
 let stopAfterCurrentClip = false;
+let pendingFade = false;
+let currentPlaybackState = null;
+let nextPreparedClip = null;
 let sessionDurationSeconds = Number(durationSelect?.value || 900);
 let sessionStartedAt = 0;
 let sessionDeadlineAt = 0;
 let sessionIntervalId = 0;
-let nextPreparedClip = null;
-let currentPlaybackState = null;
-let lastPlayedByWorld = {};
+let musicObjectUrl = null;
 
-// Per-clip continuity memory.
-// Each clip remembers the next forward point where it should re-enter.
-// This keeps offsets intentional instead of random. When a clip first appears,
-// it may start deeper inside the timeline. Later visits continue forward from
-// where the prior visible run ended, wrapping back to the beginning as needed.
+// Continuity memory lives per clip source. The next offset is always advanced
+// forward from the last visible endpoint. That means entering in the middle is
+// not a random teleport every time — it is the next point on the clip's own
+// circular path.
 const continuityState = new Map();
 
 function getWorldLabel(worldKey) {
@@ -77,8 +77,7 @@ function getWorldLabel(worldKey) {
 }
 
 function getClipFilename(src) {
-  const parts = src.split('/');
-  return parts[parts.length - 1];
+  return src.split('/').pop() || src;
 }
 
 function formatSeconds(totalSeconds) {
@@ -104,9 +103,13 @@ function stopVideo(video) {
   try {
     video.currentTime = 0;
   } catch (error) {
-    // Some browsers may reject currentTime changes while metadata is absent.
+    // Ignore browsers that reject currentTime before metadata is available.
   }
 }
+
+// -----------------------------
+// World selection + queue logic
+// -----------------------------
 
 function buildShuffledQueue(worldKey) {
   const clips = [...(clipGroups[worldKey] || [])];
@@ -117,6 +120,7 @@ function buildShuffledQueue(worldKey) {
     [clips[index], clips[swapIndex]] = [clips[swapIndex], clips[index]];
   }
 
+  // Avoid immediate repeats when there is any alternative available.
   if (clips.length > 1 && previousSrc && clips[0].src === previousSrc) {
     clips.push(clips.shift());
   }
@@ -146,73 +150,6 @@ function takeNextClipForWorld(worldKey) {
   return { ...clip, world: worldKey };
 }
 
-function chooseEntryOffset(duration, clipMetadata) {
-  const storedState = continuityState.get(clipMetadata.src);
-
-  // First visit: choose a deliberate offset inside the clip instead of always
-  // starting at zero. This makes the world feel already in motion.
-  if (!storedState) {
-    const upperBound = Math.max(0, duration - MIN_CONTINUITY_ADVANCE);
-    const offset = upperBound > MIN_CONTINUITY_ADVANCE
-      ? randomBetween(0, upperBound)
-      : 0;
-
-    continuityState.set(clipMetadata.src, {
-      nextOffsetSeconds: offset,
-      initialized: true,
-    });
-
-    return offset;
-  }
-
-  return Math.min(storedState.nextOffsetSeconds, Math.max(0, duration - 0.05));
-}
-
-function getPlayoutPlan(videoElement, clipMetadata) {
-  const duration = Number(videoElement.duration || 0);
-
-  if (!Number.isFinite(duration) || duration <= 0) {
-    return {
-      entryOffsetSeconds: 0,
-      visibleDurationSeconds: MIN_VISIBLE_SECONDS,
-      fadeStartSeconds: Math.max(0, MIN_VISIBLE_SECONDS - CROSSFADE_SECONDS),
-      wraparoundNeeded: false,
-      clipDurationSeconds: duration,
-    };
-  }
-
-  const entryOffsetSeconds = chooseEntryOffset(duration, clipMetadata);
-
-  // The player owns timing. We choose a visible duration that feels varied,
-  // but still respects clip length and leaves enough room for a 1.5s fade.
-  const theoreticalMax = Math.max(
-    MIN_VISIBLE_SECONDS,
-    Math.min(MAX_VISIBLE_SECONDS, duration + Math.max(0, duration - 2)),
-  );
-  const visibleDurationSeconds = Math.min(
-    theoreticalMax,
-    Math.max(MIN_VISIBLE_SECONDS, randomBetween(MIN_VISIBLE_SECONDS, theoreticalMax)),
-  );
-
-  const travelUntilEnd = duration - entryOffsetSeconds;
-  const wraparoundNeeded = visibleDurationSeconds > travelUntilEnd;
-  const fadeStartSeconds = Math.max(0.15, visibleDurationSeconds - CROSSFADE_SECONDS);
-
-  const nextOffsetSeconds = (entryOffsetSeconds + visibleDurationSeconds) % duration;
-  continuityState.set(clipMetadata.src, {
-    nextOffsetSeconds,
-    initialized: true,
-  });
-
-  return {
-    entryOffsetSeconds,
-    visibleDurationSeconds,
-    fadeStartSeconds,
-    wraparoundNeeded,
-    clipDurationSeconds: duration,
-  };
-}
-
 function applyPendingWorldIfNeeded() {
   if (pendingWorld && pendingWorld !== currentWorld) {
     currentWorld = pendingWorld;
@@ -220,11 +157,99 @@ function applyPendingWorldIfNeeded() {
   }
 }
 
+// -----------------------------
+// Circular playout planning
+// -----------------------------
+
+function chooseEntryOffset(videoElement, clipMetadata) {
+  const duration = Number(videoElement.duration || 0);
+  const storedState = continuityState.get(clipMetadata.src);
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return 0;
+  }
+
+  // First visit: begin inside the clip if possible so the world feels already
+  // underway. Later visits reuse the stored forward position, which makes the
+  // clip behave like a circular space rather than random fragments.
+  if (!storedState) {
+    const maxOffset = Math.max(0, duration - MIN_INITIAL_OFFSET_BUFFER);
+    if (maxOffset <= MIN_INITIAL_OFFSET_BUFFER) {
+      return 0;
+    }
+
+    return randomBetween(0, maxOffset);
+  }
+
+  return Math.min(storedState.nextOffsetSeconds, Math.max(0, duration - 0.05));
+}
+
+function getPlayoutPlan(videoElement, clipMetadata) {
+  const clipDurationSeconds = Number(videoElement.duration || 0);
+
+  if (!Number.isFinite(clipDurationSeconds) || clipDurationSeconds <= 0) {
+    return {
+      entryOffsetSeconds: 0,
+      visibleDurationSeconds: MIN_VISIBLE_SECONDS,
+      fadeStartSeconds: Math.max(0.15, MIN_VISIBLE_SECONDS - CROSSFADE_SECONDS),
+      wraparoundNeeded: false,
+      clipDurationSeconds: 0,
+    };
+  }
+
+  const entryOffsetSeconds = chooseEntryOffset(videoElement, clipMetadata);
+  const maximumOwnedDuration = Math.max(
+    MIN_VISIBLE_SECONDS,
+    Math.min(MAX_VISIBLE_SECONDS, clipDurationSeconds + Math.max(0, clipDurationSeconds - 2)),
+  );
+  const visibleDurationSeconds = Math.min(
+    maximumOwnedDuration,
+    Math.max(MIN_VISIBLE_SECONDS, randomBetween(MIN_VISIBLE_SECONDS, maximumOwnedDuration)),
+  );
+  const fadeStartSeconds = Math.max(0.15, visibleDurationSeconds - CROSSFADE_SECONDS);
+  const remainingUntilEnd = clipDurationSeconds - entryOffsetSeconds;
+  const wraparoundNeeded = visibleDurationSeconds > remainingUntilEnd;
+
+  // Persist the next forward entry point. If the visible run extends past the
+  // end, modulo arithmetic makes the next visit continue at the wrapped point.
+  const nextOffsetSeconds = (entryOffsetSeconds + visibleDurationSeconds) % clipDurationSeconds;
+  continuityState.set(clipMetadata.src, { nextOffsetSeconds });
+
+  return {
+    entryOffsetSeconds,
+    visibleDurationSeconds,
+    fadeStartSeconds,
+    wraparoundNeeded,
+    clipDurationSeconds,
+  };
+}
+
+function getJourneyElapsed(video, playbackState) {
+  if (!playbackState || !Number.isFinite(video.duration) || video.duration <= 0) {
+    return 0;
+  }
+
+  const rawElapsed = video.currentTime - playbackState.plan.entryOffsetSeconds;
+  if (!playbackState.didWrap) {
+    return rawElapsed >= 0 ? rawElapsed : video.duration + rawElapsed;
+  }
+
+  return (video.duration - playbackState.plan.entryOffsetSeconds) + video.currentTime;
+}
+
+function shouldStartFade(video, playbackState) {
+  return getJourneyElapsed(video, playbackState) >= playbackState.plan.fadeStartSeconds;
+}
+
+// -----------------------------
+// UI rendering
+// -----------------------------
+
 function updateWorldSelector() {
-  const worldKeys = Object.keys(clipGroups);
-  worldSelect.innerHTML = worldKeys
+  const selectedWorld = pendingWorld || currentWorld;
+  worldSelect.innerHTML = Object.keys(clipGroups)
     .map((worldKey) => {
-      const selected = worldKey === (pendingWorld || currentWorld) ? 'selected' : '';
+      const selected = worldKey === selectedWorld ? 'selected' : '';
       return `<option value="${worldKey}" ${selected}>${getWorldLabel(worldKey)}</option>`;
     })
     .join('');
@@ -233,25 +258,31 @@ function updateWorldSelector() {
 function updateStatusReadout() {
   const currentClip = currentPlaybackState?.clip?.src ? getClipFilename(currentPlaybackState.clip.src) : 'waiting';
   const nextClip = nextPreparedClip?.src ? getClipFilename(nextPreparedClip.src) : 'waiting';
-  const activeWorldLabel = getWorldLabel(currentWorld);
-  const pendingWorldLabel = pendingWorld ? ` → next: ${getWorldLabel(pendingWorld)}` : '';
+  const shownWorld = `${getWorldLabel(currentWorld)}${pendingWorld ? ` → next: ${getWorldLabel(pendingWorld)}` : ''}`;
   const entryOffset = currentPlaybackState?.plan?.entryOffsetSeconds ?? 0;
   const visibleDuration = currentPlaybackState?.plan?.visibleDurationSeconds ?? 0;
-  const elapsed = sessionStartedAt ? (Date.now() - sessionStartedAt) / 1000 : 0;
-  const remaining = sessionDeadlineAt ? Math.max(0, (sessionDeadlineAt - Date.now()) / 1000) : sessionDurationSeconds;
-  const timerLabel = sessionRunning
-    ? `${formatSeconds(elapsed)} elapsed / ${formatSeconds(remaining)} left`
-    : `ready / ${formatSeconds(sessionDurationSeconds)} session`;
+
+  const elapsedSeconds = sessionStartedAt ? (Date.now() - sessionStartedAt) / 1000 : 0;
+  const remainingSeconds = sessionDeadlineAt ? Math.max(0, (sessionDeadlineAt - Date.now()) / 1000) : sessionDurationSeconds;
+  const timerLine = sessionRunning
+    ? `${formatSeconds(elapsedSeconds)} elapsed / ${formatSeconds(remainingSeconds)} left`
+    : playbackStarted
+      ? 'finishing current clip'
+      : `ready / ${formatSeconds(sessionDurationSeconds)} session`;
 
   statusReadout.innerHTML = [
-    `<strong>current world</strong> ${activeWorldLabel}${pendingWorldLabel}`,
+    `<strong>current world</strong> ${shownWorld}`,
     `<strong>current clip</strong> ${currentClip}`,
     `<strong>next clip</strong> ${nextClip}`,
     `<strong>entry offset</strong> ${entryOffset.toFixed(2)}s`,
     `<strong>visible duration</strong> ${visibleDuration.toFixed(2)}s`,
-    `<strong>session timer</strong> ${timerLabel}`,
+    `<strong>session timer</strong> ${timerLine}`,
   ].join('\n');
 }
+
+// -----------------------------
+// Standby preparation + playback
+// -----------------------------
 
 function setStandbySource(clip) {
   if (!clip) {
@@ -269,34 +300,15 @@ function setStandbySource(clip) {
 }
 
 function prepareNextStandbyClip() {
-  const worldForNextClip = pendingWorld || currentWorld;
-  const nextClip = takeNextClipForWorld(worldForNextClip);
-  setStandbySource(nextClip);
-}
-
-function getJourneyElapsed(video, playbackState) {
-  if (!playbackState || !Number.isFinite(video.duration) || video.duration <= 0) {
-    return 0;
-  }
-
-  const duration = video.duration;
-  const raw = video.currentTime - playbackState.plan.entryOffsetSeconds;
-  if (!playbackState.didWrap) {
-    return raw >= 0 ? raw : duration + raw;
-  }
-
-  return (duration - playbackState.plan.entryOffsetSeconds) + video.currentTime;
-}
-
-function shouldStartFade(video, playbackState) {
-  return getJourneyElapsed(video, playbackState) >= playbackState.plan.fadeStartSeconds;
+  const targetWorld = pendingWorld || currentWorld;
+  setStandbySource(takeNextClipForWorld(targetWorld));
 }
 
 async function safePlay(video) {
   try {
     await video.play();
   } catch (error) {
-    console.warn('Autoplay was blocked or playback failed.', error);
+    console.warn('Playback was blocked or failed.', error);
   }
 }
 
@@ -312,11 +324,7 @@ async function primeClipOnVideo(video, clip) {
 
   if (video.readyState < 1) {
     await new Promise((resolve) => {
-      const onReady = () => {
-        video.removeEventListener('loadedmetadata', onReady);
-        resolve();
-      };
-      video.addEventListener('loadedmetadata', onReady, { once: true });
+      video.addEventListener('loadedmetadata', resolve, { once: true });
     });
   }
 
@@ -326,7 +334,6 @@ async function primeClipOnVideo(video, clip) {
     world: clip.world,
     plan,
     didWrap: false,
-    startedAt: Date.now(),
   };
 
   video.currentTime = Math.min(plan.entryOffsetSeconds, Math.max(0, (video.duration || 0) - 0.05));
@@ -346,56 +353,33 @@ async function startPlaybackOnActiveVideo(clip) {
   updateStatusReadout();
 }
 
-function gracefullyStopSession() {
-  sessionRunning = false;
-  stopAfterCurrentClip = true;
-  playButton.textContent = 'Play Session';
-  if (sessionIntervalId) {
-    window.clearInterval(sessionIntervalId);
-    sessionIntervalId = 0;
-  }
-  updateStatusReadout();
-}
-
-function beginSessionTimer() {
-  sessionRunning = true;
-  stopAfterCurrentClip = false;
-  sessionDurationSeconds = Number(durationSelect.value || 900);
-  sessionStartedAt = Date.now();
-  sessionDeadlineAt = sessionStartedAt + sessionDurationSeconds * 1000;
-  playButton.textContent = 'Stop After Clip';
-
-  if (sessionIntervalId) {
-    window.clearInterval(sessionIntervalId);
-  }
-
-  sessionIntervalId = window.setInterval(() => {
-    updateStatusReadout();
-
-    if (sessionRunning && Date.now() >= sessionDeadlineAt) {
-      gracefullyStopSession();
-    }
-  }, 250);
-}
-
 async function crossfadeToPreparedClip() {
-  if (pendingFade || !nextPreparedClip || !currentPlaybackState) {
+  if (pendingFade || !currentPlaybackState) {
+    return;
+  }
+
+  if (stopAfterCurrentClip) {
+    pendingFade = false;
+    playbackStarted = false;
+    stopAfterCurrentClip = false;
+    nextPreparedClip = null;
+    currentPlaybackState = null;
+    stopVideo(activeVideo);
+    stopVideo(standbyVideo);
+    playButton.textContent = 'Play Session';
+    updateStatusReadout();
+    return;
+  }
+
+  if (!nextPreparedClip) {
+    prepareNextStandbyClip();
+  }
+
+  if (!nextPreparedClip) {
     return;
   }
 
   pendingFade = true;
-
-  if (stopAfterCurrentClip) {
-    pendingFade = false;
-    stopVideo(activeVideo);
-    stopVideo(standbyVideo);
-    nextPreparedClip = null;
-    currentPlaybackState = null;
-    playbackStarted = false;
-    updateStatusReadout();
-    return;
-  }
-
   applyPendingWorldIfNeeded();
 
   const standbyPlaybackState = await primeClipOnVideo(standbyVideo, nextPreparedClip);
@@ -405,7 +389,6 @@ async function crossfadeToPreparedClip() {
   }
 
   await safePlay(standbyVideo);
-
   standbyVideo.classList.add('is-active');
   activeVideo.classList.remove('is-active');
 
@@ -418,23 +401,25 @@ async function crossfadeToPreparedClip() {
     currentPlaybackState = standbyPlaybackState;
 
     prepareNextStandbyClip();
-    pendingFade = false;
     updateWorldSelector();
     updateStatusReadout();
+    pendingFade = false;
   }, CROSSFADE_SECONDS * 1000);
 }
 
 function handleActiveVideoTimeUpdate(video) {
-  if (!currentPlaybackState || video !== activeVideo || pendingFade) {
+  if (video !== activeVideo || !currentPlaybackState || pendingFade) {
     return;
   }
 
+  // Wrap while the clip is still the visible source. This reveals the clip's
+  // beginning after entering somewhere later in the timeline.
   if (
     currentPlaybackState.plan.wraparoundNeeded
     && !currentPlaybackState.didWrap
     && Number.isFinite(video.duration)
     && video.duration > 0
-    && video.currentTime >= video.duration - 0.08
+    && video.currentTime >= video.duration - END_WRAP_SAFETY
   ) {
     currentPlaybackState.didWrap = true;
     video.currentTime = 0.02;
@@ -469,18 +454,92 @@ function attachVideoEvents(video) {
   });
 }
 
+// -----------------------------
+// Session timer logic
+// -----------------------------
+
+function gracefullyStopSession() {
+  sessionRunning = false;
+  stopAfterCurrentClip = true;
+  playButton.textContent = 'Stopping…';
+
+  if (sessionIntervalId) {
+    window.clearInterval(sessionIntervalId);
+    sessionIntervalId = 0;
+  }
+
+  updateStatusReadout();
+}
+
+function beginSessionTimer() {
+  sessionRunning = true;
+  stopAfterCurrentClip = false;
+  sessionDurationSeconds = Number(durationSelect.value || 900);
+  sessionStartedAt = Date.now();
+  sessionDeadlineAt = sessionStartedAt + sessionDurationSeconds * 1000;
+  playButton.textContent = 'Stop After Clip';
+
+  if (sessionIntervalId) {
+    window.clearInterval(sessionIntervalId);
+  }
+
+  sessionIntervalId = window.setInterval(() => {
+    updateStatusReadout();
+
+    if (sessionRunning && Date.now() >= sessionDeadlineAt) {
+      gracefullyStopSession();
+    }
+  }, 250);
+}
+
+// -----------------------------
+// Music + fullscreen logic
+// -----------------------------
+
+function handleMusicUpload() {
+  const [file] = musicUpload.files || [];
+  if (!file) {
+    return;
+  }
+
+  if (musicObjectUrl) {
+    URL.revokeObjectURL(musicObjectUrl);
+  }
+
+  musicObjectUrl = URL.createObjectURL(file);
+  musicPlayer.src = musicObjectUrl;
+  musicPlayer.play().catch((error) => {
+    console.warn('Music playback needs a user interaction.', error);
+  });
+}
+
+function handleFullscreen() {
+  if (!document.fullscreenElement) {
+    playerShell.requestFullscreen?.().catch((error) => {
+      console.warn('Fullscreen request failed.', error);
+    });
+    return;
+  }
+
+  document.exitFullscreen?.().catch((error) => {
+    console.warn('Exiting fullscreen failed.', error);
+  });
+}
+
+// -----------------------------
+// UI event wiring
+// -----------------------------
+
 function populateWorlds() {
   updateWorldSelector();
 }
 
 function handleWorldChange() {
   const selectedWorld = worldSelect.value;
-  if (!selectedWorld || selectedWorld === currentWorld) {
-    pendingWorld = null;
-  } else {
-    pendingWorld = selectedWorld;
-  }
+  pendingWorld = selectedWorld === currentWorld ? null : selectedWorld;
 
+  // World switches never cut the current visible clip. They only change which
+  // clip gets prepared for the next transition.
   prepareNextStandbyClip();
   updateWorldSelector();
   updateStatusReadout();
@@ -491,19 +550,6 @@ function handleDurationChange() {
   if (!sessionRunning) {
     updateStatusReadout();
   }
-}
-
-function handleMusicUpload() {
-  const [file] = musicUpload.files || [];
-  if (!file) {
-    return;
-  }
-
-  const objectUrl = URL.createObjectURL(file);
-  musicPlayer.src = objectUrl;
-  musicPlayer.play().catch((error) => {
-    console.warn('Music playback needs a user interaction.', error);
-  });
 }
 
 async function startSession() {
@@ -523,19 +569,7 @@ async function startSession() {
   await startPlaybackOnActiveVideo(firstClip);
   prepareNextStandbyClip();
   updateWorldSelector();
-}
-
-function handleFullscreen() {
-  if (!document.fullscreenElement) {
-    playerShell.requestFullscreen?.().catch((error) => {
-      console.warn('Fullscreen request failed.', error);
-    });
-    return;
-  }
-
-  document.exitFullscreen?.().catch((error) => {
-    console.warn('Exiting fullscreen failed.', error);
-  });
+  updateStatusReadout();
 }
 
 function initializePlayer() {
