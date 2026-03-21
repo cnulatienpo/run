@@ -1,0 +1,92 @@
+:root {
+  color-scheme: dark;
+  --overlay-bg: linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.55) 100%);
+  --text-color: #f5f7fb;
+  --muted-text: rgba(245, 247, 251, 0.78);
+  --panel-bg: rgba(9, 12, 20, 0.3);
+  --panel-border: rgba(255, 255, 255, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: #000;
+  color: var(--text-color);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  overflow: hidden;
+}
+
+.player-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.player-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+  background: #000;
+}
+
+.player-video.is-active {
+  opacity: 1;
+}
+
+.player-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  padding: 2rem;
+  pointer-events: none;
+  background: var(--overlay-bg);
+}
+
+.player-overlay > div {
+  max-width: 34rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: var(--panel-bg);
+  backdrop-filter: blur(10px);
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-text);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.5vw, 2.5rem);
+}
+
+.description {
+  margin: 0.75rem 0 0;
+  color: var(--muted-text);
+  line-height: 1.5;
+}
+
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
