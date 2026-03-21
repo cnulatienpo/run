@@ -13,9 +13,9 @@ const TEST_CONFIG = {
   autoStopStartMinMs: 4000,
   autoStopStartMaxMs: 7000,
   longSessionDurationSeconds: 30 * 60,
-  worldPoolSize: 2,
-  invalidClipWorld: 'clown',
-  invalidClipIndex: 1,
+  worldPoolSize: 5,
+  invalidClipWorld: null,
+  invalidClipIndex: -1,
   memoryLogIntervalMs: 5000,
 };
 
@@ -27,29 +27,27 @@ const clipGroups = {
 const WORLD_DEFINITIONS = {
   grey: {
     label: 'Grey',
-    folder: 'videos/grey',
+    folder: '/grey',
     clips: [
-      { file: 'clip1.mp4', floorAngle: 'flat', speed: 'run', motion: 'glide' },
-      { file: 'clip2.mp4', floorAngle: 'ramp_up', speed: 'run', motion: 'glide' },
-      { file: 'clip3.mp4', floorAngle: 'flat', speed: 'run', motion: 'sprint' },
-      { file: 'clip4.mp4', floorAngle: 'ramp_down', speed: 'run', motion: 'sprint' },
-      { file: 'clip5.mp4', floorAngle: 'flat', speed: 'run', motion: 'glide' },
+      { file: 'a.mp4', floorAngle: 'flat', speed: 'run', motion: 'glide' },
+      { file: 'grey partial.mp4', floorAngle: 'ramp_up', speed: 'run', motion: 'glide' },
+      { file: 'grey white.mp4', floorAngle: 'flat', speed: 'run', motion: 'sprint' },
     ],
   },
   clown: {
     label: 'Clown',
-    folder: 'videos/clown',
+    folder: '/clown',
     clips: [
-      { file: 'clip1.mp4', floorAngle: 'flat', speed: 'run', motion: 'bounce' },
-      { file: 'clip2.mp4', floorAngle: 'ramp_up', speed: 'run', motion: 'bounce' },
-      { file: 'clip3.mp4', floorAngle: 'flat', speed: 'run', motion: 'glide' },
-      { file: 'clip4.mp4', floorAngle: 'ramp_down', speed: 'run', motion: 'bounce' },
-      { file: 'clip5.mp4', floorAngle: 'flat', speed: 'run', motion: 'sprint' },
+      { file: 'video-1010505465482296.mp4', floorAngle: 'flat', speed: 'run', motion: 'bounce' },
+      { file: 'video-1018069851392524.mp4', floorAngle: 'ramp_up', speed: 'run', motion: 'bounce' },
+      { file: 'video-1018070068059169.mp4', floorAngle: 'flat', speed: 'run', motion: 'glide' },
+      { file: 'video-1018078004725042.mp4', floorAngle: 'ramp_down', speed: 'run', motion: 'bounce' },
+      { file: 'video-1018365751362934.mp4', floorAngle: 'flat', speed: 'run', motion: 'sprint' },
     ],
   },
 };
 
-const CROSSFADE_SECONDS = TEST_CONFIG.enabled ? TEST_CONFIG.crossfadeSeconds : 1.5;
+const CROSSFADE_SECONDS = Math.min(1.5, TEST_CONFIG.enabled ? TEST_CONFIG.crossfadeSeconds : 1.5);
 const MIN_VISIBLE_SECONDS = TEST_CONFIG.enabled ? TEST_CONFIG.minVisibleSeconds : 2.5;
 const MAX_VISIBLE_SECONDS = TEST_CONFIG.enabled ? TEST_CONFIG.maxVisibleSeconds : 4.5;
 const ENTRY_MIN_RATIO = 0.1;
@@ -82,7 +80,10 @@ let activeVideo = videoA;
 let standbyVideo = videoB;
 let currentWorld = 'grey';
 let pendingWorld = null;
-let worldQueues = {};
+let worldQueues = {
+  grey: [],
+  clown: [],
+};
 let lastPlayedByWorld = {};
 let continuityState = new Map();
 
@@ -110,7 +111,15 @@ let fadeScheduledAt = 0;
 let transitionCounter = 0;
 let standbyReadyPollTimerId = 0;
 let delayedFadeStartedAt = 0;
+let worldStartTime = Date.now();
+let minWorldDuration = 60000;
+let lastWorldBlockLogAt = 0;
 const videoLoadState = new WeakMap();
+const preloadCache = new Map();
+const preloadLoading = new Set();
+const preloadReady = new Set();
+const worldQueueInitialized = new Set();
+let lastClip = null;
 
 function logEvent(event, details = {}, level = 'log') {
   const payload = {
@@ -127,6 +136,74 @@ function logEvent(event, details = {}, level = 'log') {
   };
 
   console[level](payload);
+}
+
+function isWorldDwellSatisfied() {
+  return Date.now() - worldStartTime >= minWorldDuration;
+}
+
+function noteWorldLocked(world, reason = 'switch') {
+  worldStartTime = Date.now();
+  logEvent('world_locked', {
+    world,
+    minWorldDurationMs: minWorldDuration,
+    reason,
+  });
+}
+
+function preloadClip(src) {
+  if (!src) {
+    return;
+  }
+
+  if (preloadReady.has(src) || preloadLoading.has(src)) {
+    return;
+  }
+
+  const video = document.createElement('video');
+  video.preload = 'auto';
+  video.src = src;
+  video.muted = true;
+  video.playsInline = true;
+
+  preloadCache.set(src, video);
+  preloadLoading.add(src);
+
+  logEvent('preload_started', {
+    clip: src,
+  });
+
+  const markReady = () => {
+    if (preloadReady.has(src)) {
+      return;
+    }
+    preloadLoading.delete(src);
+    preloadReady.add(src);
+    logEvent('preload_ready', {
+      clip: src,
+      readyState: video.readyState,
+    });
+  };
+
+  video.addEventListener('canplaythrough', markReady, { once: true });
+  video.addEventListener('loadeddata', markReady, { once: true });
+  video.addEventListener('error', () => {
+    preloadLoading.delete(src);
+    preloadReady.delete(src);
+    preloadCache.delete(src);
+  }, { once: true });
+
+  video.load();
+}
+
+function preloadAheadForWorld(worldKey, count) {
+  if (!worldKey || count <= 0) {
+    return;
+  }
+
+  ensureWorldQueue(worldKey);
+  const queue = worldQueues[worldKey] || [];
+  queue.slice(0, count).forEach((clip) => preloadClip(clip?.src));
 }
 
 function initializeClipGroups() {
@@ -165,6 +242,14 @@ function initializeClipGroups() {
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
+}
+
+function shuffle(array) {
+  for (let index = array.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
+  }
+  return array;
 }
 
 function formatSeconds(totalSeconds) {
@@ -217,25 +302,29 @@ function stopVideo(video) {
   }
 }
 
-function buildShuffledQueue(worldKey) {
+function createWorldQueue(worldKey, reason) {
   const clips = [...(clipGroups[worldKey] || [])];
-  const previousSrc = lastPlayedByWorld[worldKey];
+  const shuffled = shuffle(clips);
 
-  for (let index = clips.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [clips[index], clips[swapIndex]] = [clips[swapIndex], clips[index]];
+  if (shuffled.length > 1 && lastClip && shuffled[0].src === lastClip) {
+    shuffled.push(shuffled.shift());
   }
 
-  if (clips.length > 1 && clips[0].src === previousSrc) {
-    clips.push(clips.shift());
-  }
+  worldQueues[worldKey] = shuffled;
 
-  return clips;
+  logEvent(reason === 'refill' ? 'queue_refilled' : 'queue_created', {
+    world: worldKey,
+    queueLength: worldQueues[worldKey].length,
+    firstClip: worldQueues[worldKey][0]?.src || null,
+    lastClip,
+  });
 }
 
 function ensureWorldQueue(worldKey) {
   if (!worldQueues[worldKey] || worldQueues[worldKey].length === 0) {
-    worldQueues[worldKey] = buildShuffledQueue(worldKey);
+    const initialized = worldQueueInitialized.has(worldKey);
+    createWorldQueue(worldKey, initialized ? 'refill' : 'create');
+    worldQueueInitialized.add(worldKey);
   }
 }
 
@@ -259,65 +348,48 @@ function isValidTransition(prevClip, nextClip) {
 
 function takeNextClipForWorld(worldKey, previousClip = currentPlaybackState?.clip) {
   ensureWorldQueue(worldKey);
-  const queue = worldQueues[worldKey];
-  let fallbackClip = null;
+  const nextClip = worldQueues[worldKey].shift();
 
-  for (let attempt = 0; attempt < TRANSITION_RETRY_LIMIT; attempt += 1) {
-    if (queue.length === 0) {
-      worldQueues[worldKey] = buildShuffledQueue(worldKey);
-    }
-
-    const candidate = worldQueues[worldKey].shift();
-    if (!candidate) {
-      break;
-    }
-
-    if (!fallbackClip) {
-      fallbackClip = candidate;
-    }
-
-    const repeatsImmediately = previousClip && previousClip.src === candidate.src;
-    if (repeatsImmediately) {
-      logEvent('repeat_candidate_rejected', {
-        world: worldKey,
-        previousClip: previousClip.src,
-        candidateClip: candidate.src,
-        attempt,
-      }, 'warn');
-    }
-
-    if (!repeatsImmediately && isValidTransition(previousClip, candidate)) {
-      lastPlayedByWorld[worldKey] = candidate.src;
-      return { ...candidate };
-    }
-
-    worldQueues[worldKey].push(candidate);
-  }
-
-  if (!fallbackClip) {
+  if (!nextClip) {
     return null;
   }
 
-  if (previousClip && fallbackClip.src === previousClip.src && worldQueues[worldKey].length > 0) {
-    const nextAvailable = worldQueues[worldKey].shift();
-    if (nextAvailable) {
-      lastPlayedByWorld[worldKey] = nextAvailable.src;
-      return { ...nextAvailable };
-    }
-  }
+  lastPlayedByWorld[worldKey] = nextClip.src;
+  lastClip = nextClip.src;
 
-  lastPlayedByWorld[worldKey] = fallbackClip.src;
-  return { ...fallbackClip };
+  logEvent('clip_selected', {
+    world: worldKey,
+    clip: nextClip.src,
+    queueLength: worldQueues[worldKey].length,
+  });
+
+  return { ...nextClip };
 }
 
 function applyPendingWorldIfNeeded() {
   if (pendingWorld && pendingWorld !== currentWorld) {
+    if (!isWorldDwellSatisfied()) {
+      const now = Date.now();
+      if (!lastWorldBlockLogAt || now - lastWorldBlockLogAt > 1000) {
+        logEvent('world_switch_blocked_due_to_dwell', {
+          fromWorld: currentWorld,
+          toWorld: pendingWorld,
+          elapsedMs: now - worldStartTime,
+          minWorldDurationMs: minWorldDuration,
+        }, 'warn');
+        lastWorldBlockLogAt = now;
+      }
+      return;
+    }
+
     logEvent('world_switch_applied', {
       fromWorld: currentWorld,
       toWorld: pendingWorld,
     });
     currentWorld = pendingWorld;
     pendingWorld = null;
+    noteWorldLocked(currentWorld, 'pending_switch');
+    createWorldQueue(currentWorld, 'create');
   }
 }
 
@@ -536,7 +608,13 @@ function scheduleVideoLoad(video, clip, reason = 'prepare') {
     return;
   }
 
-  const delayMs = TEST_CONFIG.enabled ? Math.round(randomBetween(TEST_CONFIG.loadDelayMinMs, TEST_CONFIG.loadDelayMaxMs)) : 0;
+  const preloaded = preloadCache.get(clip.src);
+  const hasPreloadedReady = Boolean(preloadReady.has(clip.src) && preloaded?.readyState >= STANDBY_READY_STATE);
+  const delayMs = hasPreloadedReady
+    ? 0
+    : TEST_CONFIG.enabled
+      ? Math.round(randomBetween(TEST_CONFIG.loadDelayMinMs, TEST_CONFIG.loadDelayMaxMs))
+      : 0;
   standbyLoadTarget = clip.src;
   standbyLoadAttemptedAt = Date.now();
   resetVideo(video);
@@ -554,6 +632,7 @@ function scheduleVideoLoad(video, clip, reason = 'prepare') {
     reason,
     artificialDelayMs: delayMs,
     invalidClip: Boolean(clip.testInjectedError),
+    usedPreload: hasPreloadedReady,
   });
 
   loadState.timeoutId = window.setTimeout(() => {
@@ -592,12 +671,35 @@ function setStandbySource(clip) {
     previewPlaybackRate: getPlaybackRate(clip),
   };
 
+  preloadClip(clip.src);
+  preloadAheadForWorld(clip.world, 2);
+
   scheduleVideoLoad(standbyVideo, clip, 'standby_prepare');
 }
 
 function prepareNextStandbyClip() {
-  const targetWorld = pendingWorld || currentWorld;
+  const wantsSwitch = pendingWorld && pendingWorld !== currentWorld;
+  const canSwitch = !wantsSwitch || isWorldDwellSatisfied();
+  const targetWorld = canSwitch ? (pendingWorld || currentWorld) : currentWorld;
+
+  if (wantsSwitch && !canSwitch) {
+    const now = Date.now();
+    if (!lastWorldBlockLogAt || now - lastWorldBlockLogAt > 1000) {
+      logEvent('world_switch_blocked_due_to_dwell', {
+        fromWorld: currentWorld,
+        toWorld: pendingWorld,
+        elapsedMs: now - worldStartTime,
+        minWorldDurationMs: minWorldDuration,
+      }, 'warn');
+      lastWorldBlockLogAt = now;
+    }
+  }
+
   setStandbySource(takeNextClipForWorld(targetWorld, currentPlaybackState?.clip));
+  preloadAheadForWorld(currentWorld, 2);
+  if (pendingWorld) {
+    preloadAheadForWorld(pendingWorld, 2);
+  }
 }
 
 async function safePlay(video) {
@@ -1166,6 +1268,8 @@ async function startSession() {
   clearStandbyReadyPoll();
   playbackStarted = true;
   beginSessionTimer();
+  noteWorldLocked(currentWorld, 'session_start');
+  createWorldQueue(currentWorld, 'create');
   await startPlaybackOnActiveVideo(firstClip);
   prepareNextStandbyClip();
   updateWorldButtons();
@@ -1174,6 +1278,7 @@ async function startSession() {
 
 function initializePlayer() {
   initializeClipGroups();
+  Object.keys(WORLD_DEFINITIONS).forEach((worldKey) => preloadAheadForWorld(worldKey, 2));
   attachVideoEvents(videoA);
   attachVideoEvents(videoB);
   worldButtons.forEach((button) => button.addEventListener('click', handleWorldButtonClick));
