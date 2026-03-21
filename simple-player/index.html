@@ -3,23 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Simple Video Player</title>
+    <title>Simple World Treadmill Player</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main class="player-shell">
+    <main class="player-shell" id="playerShell">
       <video id="videoA" class="player-video is-active" muted playsinline preload="auto"></video>
       <video id="videoB" class="player-video" muted playsinline preload="auto"></video>
+      <audio id="musicPlayer" class="music-player" controls preload="metadata"></audio>
 
-      <div class="player-overlay">
-        <div>
-          <p class="eyebrow">Simple Player</p>
-          <h1>Sequential looping video playlist</h1>
-          <p class="description">
-            Edit the <code>clips</code> array in <code>player.js</code> to point at local files or remote video URLs.
-          </p>
+      <section class="player-panel" aria-label="Player controls">
+        <div class="panel-border panel-border-one"></div>
+        <div class="panel-border panel-border-two"></div>
+
+        <div class="panel-inner">
+          <div class="panel-heading">
+            <p class="eyebrow">Simple Player Upgrade</p>
+            <h1>World treadmill</h1>
+            <p class="description">
+              Two stacked videos, circular clip continuity, hand-drawn controls, and session-based playback.
+            </p>
+          </div>
+
+          <div class="control-grid">
+            <button id="playButton" class="scribble-button" type="button">Play Session</button>
+
+            <label class="control-block" for="durationSelect">
+              <span class="control-label">Run duration</span>
+              <select id="durationSelect" class="scribble-select">
+                <option value="300">5 min</option>
+                <option value="600">10 min</option>
+                <option value="900" selected>15 min</option>
+                <option value="1200">20 min</option>
+                <option value="1800">30 min</option>
+                <option value="2700">45 min</option>
+                <option value="3600">60 min</option>
+              </select>
+            </label>
+
+            <label class="control-block" for="worldSelect">
+              <span class="control-label">World</span>
+              <select id="worldSelect" class="scribble-select"></select>
+            </label>
+
+            <div class="control-block music-block">
+              <span class="control-label">Music</span>
+              <label class="upload-label" for="musicUpload">Upload local audio</label>
+              <input id="musicUpload" type="file" accept="audio/*" />
+              <div class="placeholder-row">
+                <button type="button" class="placeholder-button" disabled>Spotify later</button>
+                <button type="button" class="placeholder-button" disabled>Google Music later</button>
+              </div>
+            </div>
+
+            <button id="fullscreenButton" class="scribble-button secondary" type="button">Fullscreen</button>
+          </div>
+
+          <div id="statusReadout" class="status-readout" aria-live="polite"></div>
         </div>
-      </div>
+      </section>
     </main>
 
     <script src="./player.js"></script>
