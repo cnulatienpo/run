@@ -6,34 +6,118 @@
 // - one visible active video and one hidden standby video
 // - crossfades handled with CSS opacity plus simple JavaScript timing
 //
-// The upgrade is in the playback logic. Instead of a flat playlist, clips live
-// inside worlds. Each clip gets a playout plan with an entry offset, a variable
-// visible duration, and optional wraparound. Each clip is treated like a
-// circular timeline so entering midstream still allows the beginning to appear
-// later on a future visit.
+// The upgrade stays behavioral. Instead of random-feeling clip swaps, each
+// world now carries clip metadata that constrains speed, floor angle, lighting,
+// and entry offsets so the resulting motion stays believable for running.
 
 const clipGroups = {
   ocean_tunnel: [
-    { src: 'videos/ocean_tunnel/clip01.mp4' },
-    { src: 'videos/ocean_tunnel/clip02.mp4' },
+    {
+      src: 'videos/ocean_tunnel/clip01.mp4',
+      tags: ['forward', 'glide'],
+      floorAngle: 'flat',
+      speed: 'run',
+      lighting: 'dim',
+    },
+    {
+      src: 'videos/ocean_tunnel/clip02.mp4',
+      tags: ['forward', 'glide'],
+      floorAngle: 'slight_tilt',
+      speed: 'fast',
+      lighting: 'color',
+    },
   ],
   fun_house: [
-    { src: 'videos/fun_house/clip01.mp4' },
-    { src: 'videos/fun_house/clip02.mp4' },
+    {
+      src: 'videos/fun_house/clip01.mp4',
+      tags: ['forward', 'bounce'],
+      floorAngle: 'flat',
+      speed: 'run',
+      lighting: 'bright',
+    },
+    {
+      src: 'videos/fun_house/clip02.mp4',
+      tags: ['forward', 'glide'],
+      floorAngle: 'slight_tilt',
+      speed: 'run',
+      lighting: 'color',
+    },
   ],
-  train_tunnel: [{ src: 'videos/train_tunnel/clip01.mp4' }],
-  tree_house: [{ src: 'videos/tree_house/clip01.mp4' }],
-  antique_shop: [{ src: 'videos/antique_shop/clip01.mp4' }],
-  prop_warehouse: [{ src: 'videos/prop_warehouse/clip01.mp4' }],
-  mountains: [{ src: 'videos/mountains/clip01.mp4' }],
-  woods: [{ src: 'videos/woods/clip01.mp4' }],
+  train_tunnel: [
+    {
+      src: 'videos/train_tunnel/clip01.mp4',
+      tags: ['forward', 'tunnel'],
+      floorAngle: 'flat',
+      speed: 'fast',
+      lighting: 'flicker',
+    },
+  ],
+  tree_house: [
+    {
+      src: 'videos/tree_house/clip01.mp4',
+      tags: ['forward', 'climb'],
+      floorAngle: 'ramp_up',
+      speed: 'run',
+      lighting: 'bright',
+    },
+  ],
+  antique_shop: [
+    {
+      src: 'videos/antique_shop/clip01.mp4',
+      tags: ['forward', 'glide'],
+      floorAngle: 'flat',
+      speed: 'run',
+      lighting: 'dim',
+    },
+  ],
+  prop_warehouse: [
+    {
+      src: 'videos/prop_warehouse/clip01.mp4',
+      tags: ['forward', 'warehouse'],
+      floorAngle: 'flat',
+      speed: 'fast',
+      lighting: 'bright',
+    },
+  ],
+  mountains: [
+    {
+      src: 'videos/mountains/clip01.mp4',
+      tags: ['forward', 'climb'],
+      floorAngle: 'ramp_up',
+      speed: 'fast',
+      lighting: 'bright',
+    },
+  ],
+  woods: [
+    {
+      src: 'videos/woods/clip01.mp4',
+      tags: ['forward', 'trail'],
+      floorAngle: 'ramp_down',
+      speed: 'run',
+      lighting: 'dim',
+    },
+  ],
 };
 
 const CROSSFADE_SECONDS = 1.5;
 const MIN_VISIBLE_SECONDS = 6;
 const MAX_VISIBLE_SECONDS = 18;
-const MIN_INITIAL_OFFSET_BUFFER = 2.5;
 const END_WRAP_SAFETY = 0.08;
+const CLIP_SELECTION_RETRY_LIMIT = 8;
+const CROSSFADE_BRIGHTNESS_FLOOR = 0.92;
+const CROSSFADE_BRIGHTNESS_CEILING = 1.04;
+const FLOOR_ANGLE_TRANSITIONS = {
+  flat: ['flat', 'ramp_up', 'ramp_down', 'slight_tilt'],
+  ramp_up: ['ramp_up', 'flat'],
+  ramp_down: ['ramp_down', 'flat'],
+  slight_tilt: ['slight_tilt', 'flat'],
+};
+const LIGHTING_BRIGHTNESS = {
+  dim: 0.92,
+  bright: 1.08,
+  flicker: 0.98,
+  color: 1.02,
+};
 
 const playerShell = document.getElementById('playerShell');
 const videoA = document.getElementById('videoA');
@@ -72,6 +156,19 @@ let musicObjectUrl = null;
 // circular path.
 const continuityState = new Map();
 
+function normalizeClip(clip) {
+  return {
+    tags: [],
+    speed: 'run',
+    lighting: 'dim',
+    ...clip,
+  };
+}
+
+Object.keys(clipGroups).forEach((worldKey) => {
+  clipGroups[worldKey] = clipGroups[worldKey].map(normalizeClip);
+});
+
 function getWorldLabel(worldKey) {
   return worldKey.replace(/_/g, ' ');
 }
@@ -91,20 +188,59 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
+function getPlaybackRate(clip) {
+  if (clip.speed === 'fast') {
+    return randomBetween(1.05, 1.2);
+  }
+
+  return randomBetween(1.0, 1.05);
+}
+
+function getTargetBrightness(clip) {
+  return LIGHTING_BRIGHTNESS[clip?.lighting] ?? 1;
+}
+
+function clampBrightness(value) {
+  return Math.min(CROSSFADE_BRIGHTNESS_CEILING, Math.max(CROSSFADE_BRIGHTNESS_FLOOR, value));
+}
+
+function applyShellBrightnessForClip(clip) {
+  playerShell.style.filter = `brightness(${clampBrightness(getTargetBrightness(clip)).toFixed(3)})`;
+}
+
 function resetVideo(video) {
   video.pause();
   video.removeAttribute('src');
   video.load();
+  video.playbackRate = 1;
 }
 
 function stopVideo(video) {
   video.pause();
   video.classList.remove('is-active');
+  video.playbackRate = 1;
   try {
     video.currentTime = 0;
   } catch (error) {
     // Ignore browsers that reject currentTime before metadata is available.
   }
+}
+
+function isValidTransition(prevClip, nextClip) {
+  if (!prevClip || !nextClip) {
+    return true;
+  }
+
+  const allowedNextAngles = FLOOR_ANGLE_TRANSITIONS[prevClip.floorAngle] || ['flat'];
+  if (!allowedNextAngles.includes(nextClip.floorAngle)) {
+    return false;
+  }
+
+  if (prevClip.floorAngle === 'slight_tilt' && nextClip.floorAngle === 'slight_tilt') {
+    return false;
+  }
+
+  return true;
 }
 
 // -----------------------------
@@ -134,20 +270,40 @@ function ensureWorldQueue(worldKey) {
   }
 }
 
-function takeNextClipForWorld(worldKey) {
+function takeNextClipForWorld(worldKey, previousClip = currentPlaybackState?.clip) {
   ensureWorldQueue(worldKey);
 
-  const clip = worldQueues[worldKey].shift();
-  if (!clip) {
+  const queue = worldQueues[worldKey];
+  let fallbackClip = null;
+
+  for (let attempt = 0; attempt < CLIP_SELECTION_RETRY_LIMIT; attempt += 1) {
+    const candidate = queue.shift();
+    if (!candidate) {
+      break;
+    }
+
+    if (!fallbackClip) {
+      fallbackClip = candidate;
+    }
+
+    if (queue.length === 0) {
+      worldQueues[worldKey] = buildShuffledQueue(worldKey);
+    }
+
+    if (isValidTransition(previousClip, candidate)) {
+      lastPlayedByWorld[worldKey] = candidate.src;
+      return { ...candidate, world: worldKey };
+    }
+
+    queue.push(candidate);
+  }
+
+  if (!fallbackClip) {
     return null;
   }
 
-  if (worldQueues[worldKey].length === 0) {
-    worldQueues[worldKey] = buildShuffledQueue(worldKey);
-  }
-
-  lastPlayedByWorld[worldKey] = clip.src;
-  return { ...clip, world: worldKey };
+  lastPlayedByWorld[worldKey] = fallbackClip.src;
+  return { ...fallbackClip, world: worldKey };
 }
 
 function applyPendingWorldIfNeeded() {
@@ -169,16 +325,15 @@ function chooseEntryOffset(videoElement, clipMetadata) {
     return 0;
   }
 
-  // First visit: begin inside the clip if possible so the world feels already
-  // underway. Later visits reuse the stored forward position, which makes the
-  // clip behave like a circular space rather than random fragments.
+  const safeMin = duration * 0.1;
+  const safeMax = duration * 0.8;
+
   if (!storedState) {
-    const maxOffset = Math.max(0, duration - MIN_INITIAL_OFFSET_BUFFER);
-    if (maxOffset <= MIN_INITIAL_OFFSET_BUFFER) {
-      return 0;
+    if (safeMax <= safeMin) {
+      return Math.max(0, Math.min(duration - 0.05, safeMin));
     }
 
-    return randomBetween(0, maxOffset);
+    return randomBetween(safeMin, safeMax);
   }
 
   return Math.min(storedState.nextOffsetSeconds, Math.max(0, duration - 0.05));
@@ -194,6 +349,7 @@ function getPlayoutPlan(videoElement, clipMetadata) {
       fadeStartSeconds: Math.max(0.15, MIN_VISIBLE_SECONDS - CROSSFADE_SECONDS),
       wraparoundNeeded: false,
       clipDurationSeconds: 0,
+      playbackRate: 1,
     };
   }
 
@@ -209,9 +365,8 @@ function getPlayoutPlan(videoElement, clipMetadata) {
   const fadeStartSeconds = Math.max(0.15, visibleDurationSeconds - CROSSFADE_SECONDS);
   const remainingUntilEnd = clipDurationSeconds - entryOffsetSeconds;
   const wraparoundNeeded = visibleDurationSeconds > remainingUntilEnd;
+  const playbackRate = getPlaybackRate(clipMetadata);
 
-  // Persist the next forward entry point. If the visible run extends past the
-  // end, modulo arithmetic makes the next visit continue at the wrapped point.
   const nextOffsetSeconds = (entryOffsetSeconds + visibleDurationSeconds) % clipDurationSeconds;
   continuityState.set(clipMetadata.src, { nextOffsetSeconds });
 
@@ -221,6 +376,7 @@ function getPlayoutPlan(videoElement, clipMetadata) {
     fadeStartSeconds,
     wraparoundNeeded,
     clipDurationSeconds,
+    playbackRate,
   };
 }
 
@@ -261,6 +417,11 @@ function updateStatusReadout() {
   const shownWorld = `${getWorldLabel(currentWorld)}${pendingWorld ? ` → next: ${getWorldLabel(pendingWorld)}` : ''}`;
   const entryOffset = currentPlaybackState?.plan?.entryOffsetSeconds ?? 0;
   const visibleDuration = currentPlaybackState?.plan?.visibleDurationSeconds ?? 0;
+  const playbackRate = currentPlaybackState?.plan?.playbackRate ?? nextPreparedClip?.previewPlaybackRate ?? 1;
+  const floorAngle = currentPlaybackState?.clip?.floorAngle ?? nextPreparedClip?.floorAngle ?? 'flat';
+  const lighting = currentPlaybackState?.clip?.lighting ?? nextPreparedClip?.lighting ?? 'dim';
+  const nextFloorAngle = nextPreparedClip?.floorAngle ?? 'waiting';
+  const nextLighting = nextPreparedClip?.lighting ?? 'waiting';
 
   const elapsedSeconds = sessionStartedAt ? (Date.now() - sessionStartedAt) / 1000 : 0;
   const remainingSeconds = sessionDeadlineAt ? Math.max(0, (sessionDeadlineAt - Date.now()) / 1000) : sessionDurationSeconds;
@@ -274,6 +435,9 @@ function updateStatusReadout() {
     `<strong>current world</strong> ${shownWorld}`,
     `<strong>current clip</strong> ${currentClip}`,
     `<strong>next clip</strong> ${nextClip}`,
+    `<strong>playback rate</strong> ${playbackRate.toFixed(2)}x`,
+    `<strong>floor angle</strong> ${floorAngle} → next: ${nextFloorAngle}`,
+    `<strong>lighting</strong> ${lighting} → next: ${nextLighting}`,
     `<strong>entry offset</strong> ${entryOffset.toFixed(2)}s`,
     `<strong>visible duration</strong> ${visibleDuration.toFixed(2)}s`,
     `<strong>session timer</strong> ${timerLine}`,
@@ -292,7 +456,10 @@ function setStandbySource(clip) {
     return;
   }
 
-  nextPreparedClip = clip;
+  nextPreparedClip = {
+    ...clip,
+    previewPlaybackRate: getPlaybackRate(clip),
+  };
   resetVideo(standbyVideo);
   standbyVideo.src = clip.src;
   standbyVideo.load();
@@ -301,7 +468,7 @@ function setStandbySource(clip) {
 
 function prepareNextStandbyClip() {
   const targetWorld = pendingWorld || currentWorld;
-  setStandbySource(takeNextClipForWorld(targetWorld));
+  setStandbySource(takeNextClipForWorld(targetWorld, currentPlaybackState?.clip));
 }
 
 async function safePlay(video) {
@@ -336,6 +503,7 @@ async function primeClipOnVideo(video, clip) {
     didWrap: false,
   };
 
+  video.playbackRate = Math.max(1, plan.playbackRate);
   video.currentTime = Math.min(plan.entryOffsetSeconds, Math.max(0, (video.duration || 0) - 0.05));
   return playbackState;
 }
@@ -347,6 +515,7 @@ async function startPlaybackOnActiveVideo(clip) {
   }
 
   currentPlaybackState = playbackState;
+  applyShellBrightnessForClip(playbackState.clip);
   activeVideo.classList.add('is-active');
   standbyVideo.classList.remove('is-active');
   await safePlay(activeVideo);
@@ -367,6 +536,7 @@ async function crossfadeToPreparedClip() {
     stopVideo(activeVideo);
     stopVideo(standbyVideo);
     playButton.textContent = 'Play Session';
+    playerShell.style.filter = 'brightness(1)';
     updateStatusReadout();
     return;
   }
@@ -388,6 +558,11 @@ async function crossfadeToPreparedClip() {
     return;
   }
 
+  const blendedBrightness = clampBrightness(
+    (getTargetBrightness(currentPlaybackState.clip) + getTargetBrightness(standbyPlaybackState.clip)) / 2,
+  );
+  playerShell.style.filter = `brightness(${blendedBrightness.toFixed(3)})`;
+
   await safePlay(standbyVideo);
   standbyVideo.classList.add('is-active');
   activeVideo.classList.remove('is-active');
@@ -399,6 +574,7 @@ async function crossfadeToPreparedClip() {
     activeVideo = standbyVideo;
     standbyVideo = previousActive;
     currentPlaybackState = standbyPlaybackState;
+    applyShellBrightnessForClip(currentPlaybackState.clip);
 
     prepareNextStandbyClip();
     updateWorldSelector();
@@ -412,8 +588,6 @@ function handleActiveVideoTimeUpdate(video) {
     return;
   }
 
-  // Wrap while the clip is still the visible source. This reveals the clip's
-  // beginning after entering somewhere later in the timeline.
   if (
     currentPlaybackState.plan.wraparoundNeeded
     && !currentPlaybackState.didWrap
@@ -558,7 +732,7 @@ async function startSession() {
     return;
   }
 
-  const firstClip = takeNextClipForWorld(currentWorld);
+  const firstClip = takeNextClipForWorld(currentWorld, null);
   if (!firstClip) {
     console.warn('No clips configured for the selected world.');
     return;
