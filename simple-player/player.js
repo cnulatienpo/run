@@ -1,7 +1,8 @@
-const TEST_MODE = true;
+const TEST_MODE = false;
 
 const TEST_CONFIG = {
   enabled: TEST_MODE,
+  autoStress: false,
   minVisibleSeconds: 1.0,
   maxVisibleSeconds: 2.0,
   crossfadeSeconds: 1.5,
@@ -47,14 +48,18 @@ const WORLD_DEFINITIONS = {
   },
 };
 
-const CROSSFADE_SECONDS = Math.min(1.5, TEST_CONFIG.enabled ? TEST_CONFIG.crossfadeSeconds : 1.5);
-const MIN_VISIBLE_SECONDS = TEST_CONFIG.enabled ? TEST_CONFIG.minVisibleSeconds : 2.5;
-const MAX_VISIBLE_SECONDS = TEST_CONFIG.enabled ? TEST_CONFIG.maxVisibleSeconds : 4.5;
+const SWITCH_INTERVAL_SECONDS = 30;
+const USE_SCRIPTED_TIMELINE = true;
+const SCRIPTED_DURATIONS_SECONDS = [60, 30, 10, 120, 75];
+const DEFAULT_TRANSITION_MODE = 'cut';
+const DEFAULT_TRANSITION_SECONDS = 0.8;
+const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
+const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const ENTRY_MIN_RATIO = 0.1;
 const ENTRY_MAX_RATIO = 0.8;
 const WRAP_SAFETY_SECONDS = 0.05;
 const TRANSITION_RETRY_LIMIT = 5;
-const STANDBY_READY_STATE = 3;
+const STANDBY_READY_STATE = 2;
 const STANDBY_RETRY_MS = TEST_CONFIG.enabled ? TEST_CONFIG.standbyRetryMs : 120;
 const STALL_DETECTION_MS = 1500;
 const ANGLE_COMPATIBILITY = {
@@ -92,6 +97,8 @@ let sessionRunning = false;
 let stopAfterCurrentClip = false;
 let pendingFade = false;
 let isCrossfading = false;
+let transitionMode = DEFAULT_TRANSITION_MODE;
+let transitionSeconds = DEFAULT_TRANSITION_SECONDS;
 let currentPlaybackState = null;
 let nextPreparedClip = null;
 let sessionDurationSeconds = Number(durationSelect?.value || 900);
@@ -111,6 +118,12 @@ let fadeScheduledAt = 0;
 let transitionCounter = 0;
 let standbyReadyPollTimerId = 0;
 let delayedFadeStartedAt = 0;
+let stallRecoveryInProgress = false;
+let lastStallRecoveryAt = 0;
+let stallProgressClockAt = 0;
+let stallProgressPosition = 0;
+let forceSwitchInProgress = false;
+let scriptedScheduleStep = 0;
 let worldStartTime = Date.now();
 let minWorldDuration = 60000;
 let lastWorldBlockLogAt = 0;
@@ -120,6 +133,33 @@ const preloadLoading = new Set();
 const preloadReady = new Set();
 const worldQueueInitialized = new Set();
 let lastClip = null;
+
+function getTransitionDurationSeconds() {
+  if (transitionMode === 'cut') {
+    return 0;
+  }
+  return Math.max(0.35, Number(transitionSeconds) || 0);
+}
+
+function applyTransitionDuration(seconds) {
+  const safe = Math.max(0, Number(seconds) || 0);
+  const durationText = `${safe.toFixed(3)}s`;
+  videoA.style.transitionDuration = durationText;
+  videoB.style.transitionDuration = durationText;
+}
+
+function setTransitionConfig(nextMode, nextSeconds) {
+  const allowedModes = new Set(['cut', 'crossfade', 'fade-through']);
+  transitionMode = allowedModes.has(nextMode) ? nextMode : DEFAULT_TRANSITION_MODE;
+  const requested = Math.max(0, Number(nextSeconds) || 0);
+  transitionSeconds = transitionMode === 'cut' ? 0 : Math.max(0.35, requested || DEFAULT_TRANSITION_SECONDS);
+  applyTransitionDuration(getTransitionDurationSeconds());
+}
+
+function getStandbyRequiredReadyState() {
+  // For visible transition modes, metadata readiness is enough to start the visual handoff.
+  return transitionMode === 'cut' ? STANDBY_READY_STATE : 1;
+}
 
 function logEvent(event, details = {}, level = 'log') {
   const payload = {
@@ -139,16 +179,45 @@ function logEvent(event, details = {}, level = 'log') {
 }
 
 function isWorldDwellSatisfied() {
-  return Date.now() - worldStartTime >= minWorldDuration;
+  const dev = window.__DEV__;
+  if (dev && dev.lockWorld === false) {
+    return true;
+  }
+
+  const minMs = dev && Number.isFinite(dev.minWorldTime)
+    ? dev.minWorldTime
+    : minWorldDuration;
+
+  return Date.now() - worldStartTime >= minMs;
+}
+
+function canSwitchWorld() {
+  if (typeof window.canSwitchWorld === 'function' && window.canSwitchWorld !== canSwitchWorld) {
+    return window.canSwitchWorld();
+  }
+
+  return isWorldDwellSatisfied();
 }
 
 function noteWorldLocked(world, reason = 'switch') {
   worldStartTime = Date.now();
+  const dev = window.__DEV__;
+  const minMs = dev && Number.isFinite(dev.minWorldTime)
+    ? dev.minWorldTime
+    : minWorldDuration;
   logEvent('world_locked', {
     world,
-    minWorldDurationMs: minWorldDuration,
+    minWorldDurationMs: minMs,
     reason,
   });
+}
+
+if (typeof window.canSwitchWorld !== 'function') {
+  window.canSwitchWorld = canSwitchWorld;
+}
+
+if (typeof window.getNextWorld !== 'function') {
+  window.getNextWorld = () => null;
 }
 
 function preloadClip(src) {
@@ -263,13 +332,26 @@ function getPlaybackRate() {
   return randomBetween(1.0, 1.1);
 }
 
-function getVisibleDuration(video) {
-  const duration = Number(video.duration || 0);
-  if (!Number.isFinite(duration) || duration <= 0) {
-    return MIN_VISIBLE_SECONDS;
+function getVisibleDuration(video, clip) {
+  const dev = window.__DEV__;
+  if (dev && dev.forceDuration !== null && Number.isFinite(dev.forceDuration)) {
+    return dev.forceDuration;
   }
 
-  return Math.min(duration, randomBetween(MIN_VISIBLE_SECONDS, MAX_VISIBLE_SECONDS));
+  if (USE_SCRIPTED_TIMELINE && Number.isFinite(clip?.scriptedDurationSeconds)) {
+    return Math.max(0.2, clip.scriptedDurationSeconds);
+  }
+
+  const duration = Number(video.duration || 0);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return SWITCH_INTERVAL_SECONDS;
+  }
+
+  return SWITCH_INTERVAL_SECONDS;
+}
+
+if (typeof window.getVisibleDuration !== 'function') {
+  window.getVisibleDuration = getVisibleDuration;
 }
 
 function resetVideo(video) {
@@ -289,17 +371,23 @@ function resetVideo(video) {
   video.load();
   video.playbackRate = 1;
   video.dataset.lastTimeupdateAt = '';
+  video.style.opacity = '0';
 }
 
 function stopVideo(video) {
   video.pause();
   video.classList.remove('is-active');
   video.playbackRate = 1;
+  video.style.opacity = '0';
   try {
     video.currentTime = 0;
   } catch (error) {
     // Some browsers reject seeking before metadata is loaded.
   }
+}
+
+function setVideoOpacity(video, opacity) {
+  video.style.opacity = String(opacity);
 }
 
 function createWorldQueue(worldKey, reason) {
@@ -328,6 +416,66 @@ function ensureWorldQueue(worldKey) {
   }
 }
 
+function getScriptedWorldSequence() {
+  return [
+    { world: 'grey', direction: 'forward' },
+    { world: 'clown', direction: 'forward' },
+    { world: 'clown', direction: 'reverse' },
+    { world: 'grey', direction: 'reverse' },
+  ];
+}
+
+function getScriptedIndicesForWorld(worldKey) {
+  const clips = clipGroups[worldKey] || [];
+  const count = clips.length;
+  if (count === 0) {
+    return { forward: [], reverse: [] };
+  }
+
+  const forward = SCRIPTED_DURATIONS_SECONDS.map((_, index) => index % count);
+  const reverse = [...forward].reverse();
+  return { forward, reverse };
+}
+
+function takeNextScriptedClip() {
+  const worlds = getScriptedWorldSequence();
+  const stepsPerWorld = SCRIPTED_DURATIONS_SECONDS.length;
+  const stepInCycle = scriptedScheduleStep % (worlds.length * stepsPerWorld);
+  const worldPhase = Math.floor(stepInCycle / stepsPerWorld);
+  const stepInPhase = stepInCycle % stepsPerWorld;
+  const phase = worlds[worldPhase];
+  const indices = getScriptedIndicesForWorld(phase.world);
+  const sequence = phase.direction === 'reverse' ? indices.reverse : indices.forward;
+  const clipIndex = sequence[stepInPhase];
+  const clip = clipGroups[phase.world]?.[clipIndex];
+
+  if (!clip) {
+    return null;
+  }
+
+  scriptedScheduleStep += 1;
+  lastPlayedByWorld[phase.world] = clip.src;
+  lastClip = clip.src;
+
+  const result = {
+    ...clip,
+    scriptedDurationSeconds: SCRIPTED_DURATIONS_SECONDS[stepInPhase],
+    scriptedDirection: phase.direction,
+    scriptedStepInPhase: stepInPhase,
+  };
+
+  logEvent('scripted_clip_selected', {
+    clip: result.src,
+    world: result.world,
+    durationSeconds: result.scriptedDurationSeconds,
+    direction: result.scriptedDirection,
+    stepInPhase: result.scriptedStepInPhase,
+    absoluteStep: scriptedScheduleStep,
+  });
+
+  return result;
+}
+
 function isValidTransition(prevClip, nextClip) {
   if (!prevClip || !nextClip) {
     return true;
@@ -347,6 +495,10 @@ function isValidTransition(prevClip, nextClip) {
 }
 
 function takeNextClipForWorld(worldKey, previousClip = currentPlaybackState?.clip) {
+  if (USE_SCRIPTED_TIMELINE) {
+    return takeNextScriptedClip();
+  }
+
   ensureWorldQueue(worldKey);
   const nextClip = worldQueues[worldKey].shift();
 
@@ -368,14 +520,18 @@ function takeNextClipForWorld(worldKey, previousClip = currentPlaybackState?.cli
 
 function applyPendingWorldIfNeeded() {
   if (pendingWorld && pendingWorld !== currentWorld) {
-    if (!isWorldDwellSatisfied()) {
+    const dev = window.__DEV__;
+    if (!canSwitchWorld()) {
       const now = Date.now();
       if (!lastWorldBlockLogAt || now - lastWorldBlockLogAt > 1000) {
         logEvent('world_switch_blocked_due_to_dwell', {
           fromWorld: currentWorld,
           toWorld: pendingWorld,
           elapsedMs: now - worldStartTime,
-          minWorldDurationMs: minWorldDuration,
+          minWorldDurationMs: dev && Number.isFinite(dev.minWorldTime)
+            ? dev.minWorldTime
+            : minWorldDuration,
+          disabled: Boolean(dev?.disableWorldSwitch),
         }, 'warn');
         lastWorldBlockLogAt = now;
       }
@@ -397,6 +553,12 @@ function chooseEntryOffset(video, clip) {
   const duration = Number(video.duration || 0);
   if (!Number.isFinite(duration) || duration <= 0) {
     return 0;
+  }
+
+  const dev = window.__DEV__;
+  if (dev && dev.forceEntryOffset !== null && Number.isFinite(dev.forceEntryOffset)) {
+    const ratio = Math.min(1, Math.max(0, dev.forceEntryOffset));
+    return ratio * duration;
   }
 
   const storedState = continuityState.get(clip.src);
@@ -425,23 +587,28 @@ function chooseEntryOffset(video, clip) {
   return offset;
 }
 
+if (typeof window.chooseEntryOffset !== 'function') {
+  window.chooseEntryOffset = chooseEntryOffset;
+}
+
 function buildPlaybackPlan(video, clip) {
   const duration = Number(video.duration || 0);
   const playbackRate = getPlaybackRate(clip);
+  const transitionLeadSeconds = getTransitionDurationSeconds();
   if (!Number.isFinite(duration) || duration <= 0) {
     return {
       entryOffsetSeconds: 0,
       visibleDurationSeconds: MIN_VISIBLE_SECONDS,
-      fadeStartSeconds: Math.max(0, MIN_VISIBLE_SECONDS - CROSSFADE_SECONDS),
+      fadeStartSeconds: Math.max(0, MIN_VISIBLE_SECONDS - transitionLeadSeconds),
       wraps: false,
       playbackRate,
       clipDurationSeconds: 0,
     };
   }
 
-  const entryOffsetSeconds = chooseEntryOffset(video, clip);
-  const visibleDurationSeconds = getVisibleDuration(video);
-  const fadeStartSeconds = Math.max(0.2, visibleDurationSeconds - CROSSFADE_SECONDS);
+  const entryOffsetSeconds = window.chooseEntryOffset(video, clip);
+  const visibleDurationSeconds = window.getVisibleDuration(video, clip);
+  const fadeStartSeconds = Math.max(0.2, visibleDurationSeconds - transitionLeadSeconds);
   const wraps = entryOffsetSeconds + visibleDurationSeconds > duration;
   const nextOffsetSeconds = (entryOffsetSeconds + visibleDurationSeconds) % duration;
 
@@ -474,7 +641,7 @@ function shouldStartFade(video, playbackState) {
   return getJourneyElapsed(video, playbackState) >= playbackState.plan.fadeStartSeconds;
 }
 function isStandbyReadyForCrossfade() {
-  return Boolean(nextPreparedClip) && standbyVideo.readyState >= STANDBY_READY_STATE;
+  return Boolean(nextPreparedClip) && standbyVideo.readyState >= getStandbyRequiredReadyState();
 }
 
 function extendCurrentClip() {
@@ -545,6 +712,87 @@ function beginDelayedCrossfadePolling() {
   standbyReadyPollTimerId = window.setTimeout(poll, 100);
 }
 
+function recoverPlaybackStall(reason) {
+  if (!playbackStarted || !currentPlaybackState || isCrossfading || pendingFade) {
+    return;
+  }
+
+  const now = Date.now();
+  if (stallRecoveryInProgress || now - lastStallRecoveryAt < 2500) {
+    return;
+  }
+
+  stallRecoveryInProgress = true;
+  lastStallRecoveryAt = now;
+
+  logEvent('playback_stall_recovery_started', {
+    reason,
+    clip: currentPlaybackState.clip.src,
+    currentTime: activeVideo.currentTime,
+    paused: activeVideo.paused,
+    readyState: activeVideo.readyState,
+  }, 'warn');
+
+  if (!nextPreparedClip) {
+    prepareNextStandbyClip();
+  }
+
+  if (isStandbyReadyForCrossfade()) {
+    fadeScheduledAt = fadeScheduledAt || Date.now();
+    void crossfadeToPreparedClip('stall_recovery').finally(() => {
+      stallRecoveryInProgress = false;
+    });
+    return;
+  }
+
+  void safePlay(activeVideo).finally(() => {
+    window.setTimeout(() => {
+      stallRecoveryInProgress = false;
+    }, 300);
+  });
+}
+
+async function forceSwitchToNextClip(reason) {
+  if (!playbackStarted || !currentPlaybackState || forceSwitchInProgress) {
+    return;
+  }
+
+  forceSwitchInProgress = true;
+  try {
+    let forcedClip = nextPreparedClip;
+    if (!forcedClip) {
+      prepareNextStandbyClip();
+      forcedClip = nextPreparedClip;
+    }
+
+    if (!forcedClip) {
+      forcedClip = takeNextClipForWorld(currentWorld, currentPlaybackState.clip);
+    }
+
+    if (!forcedClip) {
+      return;
+    }
+
+    clearStandbyReadyPoll();
+    pendingFade = false;
+    isCrossfading = false;
+
+    logEvent('clip_force_switch', {
+      reason,
+      fromClip: currentPlaybackState.clip.src,
+      toClip: forcedClip.src,
+      elapsedMs: Date.now() - currentPlaybackState.startedAt,
+    }, 'warn');
+
+    await startPlaybackOnActiveVideo(forcedClip);
+    prepareNextStandbyClip();
+    updateWorldButtons();
+    updateStatusReadout();
+  } finally {
+    forceSwitchInProgress = false;
+  }
+}
+
 function updateWorldButtons() {
   worldButtons.forEach((button) => {
     const worldKey = button.dataset.worldButton;
@@ -574,6 +822,7 @@ function updateStatusReadout() {
     `<strong>next clip path</strong> ${nextPreparedClip?.src || 'waiting'}`,
     `<strong>current world</strong> ${WORLD_DEFINITIONS[currentWorld]?.label || currentWorld}`,
     `<strong>next world</strong> ${pendingWorld ? WORLD_DEFINITIONS[pendingWorld]?.label || pendingWorld : '—'}`,
+    `<strong>transition</strong> ${transitionMode} (${getTransitionDurationSeconds().toFixed(2)}s)`,
     `<strong>playback rate</strong> ${(currentPlaybackState?.plan?.playbackRate || nextPreparedClip?.previewPlaybackRate || 1).toFixed(2)}x`,
     `<strong>entry offset</strong> ${(currentPlaybackState?.plan?.entryOffsetSeconds || 0).toFixed(2)}s`,
     `<strong>planned duration</strong> ${(currentPlaybackState?.plan?.visibleDurationSeconds || 0).toFixed(2)}s`,
@@ -678,9 +927,17 @@ function setStandbySource(clip) {
 }
 
 function prepareNextStandbyClip() {
+  if (USE_SCRIPTED_TIMELINE) {
+    setStandbySource(takeNextScriptedClip());
+    return;
+  }
+
   const wantsSwitch = pendingWorld && pendingWorld !== currentWorld;
-  const canSwitch = !wantsSwitch || isWorldDwellSatisfied();
-  const targetWorld = canSwitch ? (pendingWorld || currentWorld) : currentWorld;
+  const canSwitch = !wantsSwitch || canSwitchWorld();
+  const forcedWorld = typeof window.getNextWorld === 'function'
+    ? window.getNextWorld()
+    : null;
+  const targetWorld = forcedWorld || (canSwitch ? (pendingWorld || currentWorld) : currentWorld);
 
   if (wantsSwitch && !canSwitch) {
     const now = Date.now();
@@ -813,8 +1070,12 @@ async function startPlaybackOnActiveVideo(clip) {
   }
 
   currentPlaybackState = playbackState;
+  currentWorld = playbackState.clip.world;
+  pendingWorld = null;
   activeVideo.classList.add('is-active');
   standbyVideo.classList.remove('is-active');
+  setVideoOpacity(activeVideo, 1);
+  setVideoOpacity(standbyVideo, 0);
   await safePlay(activeVideo);
   updateWorldButtons();
   updateStatusReadout();
@@ -830,6 +1091,10 @@ function finishStopAfterClip() {
   clearStandbyReadyPoll();
   fadeScheduledAt = 0;
   delayedFadeStartedAt = 0;
+  stallRecoveryInProgress = false;
+  stallProgressClockAt = 0;
+  stallProgressPosition = 0;
+  forceSwitchInProgress = false;
   currentPlaybackState = null;
   stopVideo(activeVideo);
   stopVideo(standbyVideo);
@@ -860,6 +1125,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
 
   pendingFade = true;
   fadeScheduledAt = fadeScheduledAt || Date.now();
+  const standbyRequiredState = getStandbyRequiredReadyState();
 
   if (!isStandbyReadyForCrossfade()) {
     pendingFade = false;
@@ -885,7 +1151,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     return;
   }
 
-  if (standbyVideo.readyState < STANDBY_READY_STATE) {
+  if (standbyVideo.readyState < standbyRequiredState) {
     pendingFade = false;
     isCrossfading = false;
     extendCurrentClip();
@@ -914,6 +1180,8 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     transitionNumber: transitionCounter += 1,
     currentClip: previousPlaybackState.clip.src,
     nextClip: standbyPlaybackState.clip.src,
+    transitionMode,
+    transitionSeconds: getTransitionDurationSeconds(),
     world: standbyPlaybackState.clip.world,
     playbackRate: standbyPlaybackState.plan.playbackRate,
     entryOffset: standbyPlaybackState.plan.entryOffsetSeconds,
@@ -929,26 +1197,54 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     world: standbyPlaybackState.clip.world,
   });
 
+  const transitionDurationMs = Math.round(getTransitionDurationSeconds() * 1000);
   await safePlay(standbyVideo);
-  standbyVideo.classList.add('is-active');
-  activeVideo.classList.remove('is-active');
 
-  window.setTimeout(() => {
-    const previousActive = activeVideo;
-    previousActive.pause();
+  if (transitionMode === 'crossfade' && transitionDurationMs > 0) {
+    activeVideo.classList.add('is-active');
+    standbyVideo.classList.add('is-active');
+    setVideoOpacity(activeVideo, 1);
+    setVideoOpacity(standbyVideo, 0);
+    window.requestAnimationFrame(() => {
+      setVideoOpacity(activeVideo, 0);
+      setVideoOpacity(standbyVideo, 1);
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, transitionDurationMs));
+  } else if (transitionMode === 'fade-through' && transitionDurationMs > 0) {
+    const halfMs = Math.max(1, Math.floor(transitionDurationMs / 2));
+    activeVideo.classList.add('is-active');
+    standbyVideo.classList.add('is-active');
+    setVideoOpacity(activeVideo, 1);
+    setVideoOpacity(standbyVideo, 0);
+    window.requestAnimationFrame(() => {
+      setVideoOpacity(activeVideo, 0);
+      setVideoOpacity(standbyVideo, 0);
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, halfMs));
+    setVideoOpacity(standbyVideo, 1);
+    await new Promise((resolve) => window.setTimeout(resolve, Math.max(1, transitionDurationMs - halfMs)));
+  }
 
-    activeVideo = standbyVideo;
-    standbyVideo = previousActive;
-    currentPlaybackState = standbyPlaybackState;
+  const previousActive = activeVideo;
+  activeVideo = standbyVideo;
+  standbyVideo = previousActive;
+  currentPlaybackState = standbyPlaybackState;
+  currentWorld = standbyPlaybackState.clip.world;
+  pendingWorld = null;
 
-    prepareNextStandbyClip();
-    updateWorldButtons();
-    updateStatusReadout();
-    pendingFade = false;
-    isCrossfading = false;
-    fadeScheduledAt = 0;
-    delayedFadeStartedAt = 0;
-  }, CROSSFADE_SECONDS * 1000);
+  activeVideo.classList.add('is-active');
+  standbyVideo.classList.remove('is-active');
+  setVideoOpacity(activeVideo, 1);
+  setVideoOpacity(standbyVideo, 0);
+  standbyVideo.pause();
+
+  prepareNextStandbyClip();
+  updateWorldButtons();
+  updateStatusReadout();
+  pendingFade = false;
+  isCrossfading = false;
+  fadeScheduledAt = 0;
+  delayedFadeStartedAt = 0;
 }
 
 function handleActiveVideoTimeUpdate(video) {
@@ -1144,6 +1440,26 @@ function handleFullscreen() {
 }
 
 function requestWorldSwitch(selectedWorld, reason = 'manual') {
+  if (USE_SCRIPTED_TIMELINE) {
+    logEvent('world_switch_ignored_scripted_timeline', {
+      requestedWorld: selectedWorld,
+      reason,
+    }, 'warn');
+    return;
+  }
+
+  const dev = window.__DEV__;
+  if (dev?.disableWorldSwitch) {
+    logEvent('world_switch_blocked_due_to_dwell', {
+      fromWorld: currentWorld,
+      toWorld: selectedWorld,
+      elapsedMs: Date.now() - worldStartTime,
+      minWorldDurationMs: minWorldDuration,
+      disabled: true,
+    }, 'warn');
+    return;
+  }
+
   pendingWorld = selectedWorld === currentWorld ? null : selectedWorld;
   logEvent('world_switch_requested', {
     requestedWorld: selectedWorld,
@@ -1168,7 +1484,7 @@ function handleDurationChange() {
 }
 
 function scheduleStressWorldSwitch() {
-  if (!TEST_CONFIG.enabled) {
+  if (!TEST_CONFIG.enabled || !TEST_CONFIG.autoStress) {
     return;
   }
 
@@ -1185,7 +1501,7 @@ function scheduleStressWorldSwitch() {
 }
 
 function scheduleStressControls() {
-  if (!TEST_CONFIG.enabled) {
+  if (!TEST_CONFIG.enabled || !TEST_CONFIG.autoStress) {
     return;
   }
 
@@ -1200,9 +1516,6 @@ function scheduleStressControls() {
     } else {
       void startSession();
     }
-
-    handleFullscreen();
-    window.setTimeout(handleFullscreen, Math.min(1200, CROSSFADE_SECONDS * 1000));
     scheduleStressControls();
   }, delayMs);
 }
@@ -1230,25 +1543,52 @@ function startMemoryLogging() {
 }
 
 function startStallWatchdog() {
-  if (!TEST_CONFIG.enabled || stallWatchdogIntervalId) {
+  if (stallWatchdogIntervalId) {
     return;
   }
 
   stallWatchdogIntervalId = window.setInterval(() => {
-    if (!playbackStarted || !currentPlaybackState) {
+    if (!playbackStarted || !currentPlaybackState || isCrossfading || pendingFade) {
+      stallProgressClockAt = 0;
+      stallProgressPosition = 0;
       return;
     }
 
+    const elapsedOnClipMs = Date.now() - currentPlaybackState.startedAt;
+    const plannedClipSeconds = Math.max(0.2, Number(currentPlaybackState.plan?.visibleDurationSeconds) || SWITCH_INTERVAL_SECONDS);
+    if (elapsedOnClipMs > (plannedClipSeconds + 1) * 1000) {
+      fadeScheduledAt = fadeScheduledAt || Date.now();
+      void crossfadeToPreparedClip('time_guard');
+    }
+
+    if (elapsedOnClipMs > (plannedClipSeconds + 8) * 1000) {
+      void forceSwitchToNextClip('time_guard_hard_limit');
+      return;
+    }
+
+    const now = Date.now();
+    const currentPosition = Number(activeVideo.currentTime || 0);
+    const progressed = currentPosition > stallProgressPosition + 0.01;
+
+    if (!stallProgressClockAt || progressed) {
+      stallProgressClockAt = now;
+      stallProgressPosition = currentPosition;
+      return;
+    }
+
+    const msWithoutProgress = now - stallProgressClockAt;
     const lastTimeupdateAt = Number(activeVideo.dataset.lastTimeupdateAt || 0);
     const msSinceUpdate = lastTimeupdateAt ? Date.now() - lastTimeupdateAt : null;
-    if (msSinceUpdate && msSinceUpdate > STALL_DETECTION_MS) {
+    if (msWithoutProgress > STALL_DETECTION_MS && (!msSinceUpdate || msSinceUpdate > STALL_DETECTION_MS)) {
       logEvent('playback_stall_detected', {
         clip: currentPlaybackState.clip.src,
+        msWithoutProgress,
         msSinceUpdate,
         currentTime: activeVideo.currentTime,
         paused: activeVideo.paused,
         readyState: activeVideo.readyState,
       }, 'error');
+      recoverPlaybackStall('watchdog_no_progress');
     }
   }, 500);
 }
@@ -1259,17 +1599,24 @@ async function startSession() {
     return;
   }
 
-  const firstClip = takeNextClipForWorld(currentWorld, null);
+  const firstClip = USE_SCRIPTED_TIMELINE
+    ? takeNextScriptedClip()
+    : takeNextClipForWorld(currentWorld, null);
   if (!firstClip) {
     logEvent('start_failed_no_clips', { world: currentWorld }, 'error');
     return;
   }
 
+  currentWorld = firstClip.world;
+  pendingWorld = null;
+
   clearStandbyReadyPoll();
   playbackStarted = true;
   beginSessionTimer();
   noteWorldLocked(currentWorld, 'session_start');
-  createWorldQueue(currentWorld, 'create');
+  if (!USE_SCRIPTED_TIMELINE) {
+    createWorldQueue(currentWorld, 'create');
+  }
   await startPlaybackOnActiveVideo(firstClip);
   prepareNextStandbyClip();
   updateWorldButtons();
@@ -1277,6 +1624,8 @@ async function startSession() {
 }
 
 function initializePlayer() {
+  scriptedScheduleStep = 0;
+  setTransitionConfig(DEFAULT_TRANSITION_MODE, DEFAULT_TRANSITION_SECONDS);
   initializeClipGroups();
   Object.keys(WORLD_DEFINITIONS).forEach((worldKey) => preloadAheadForWorld(worldKey, 2));
   attachVideoEvents(videoA);
@@ -1294,9 +1643,10 @@ function initializePlayer() {
     });
   });
 
+  startStallWatchdog();
+
   if (TEST_CONFIG.enabled) {
     startMemoryLogging();
-    startStallWatchdog();
     scheduleStressWorldSwitch();
     scheduleStressControls();
   }
@@ -1306,3 +1656,188 @@ function initializePlayer() {
 }
 
 initializePlayer();
+
+// ==========================
+// DEV CONTROL PANEL
+// ==========================
+(function () {
+  const DEV = {
+    enabled: true,
+
+    // controls
+    lockWorld: true,
+    minWorldTime: 60000, // 1 minute
+    forceWorld: null, // "grey" | "clown" | null
+    disableWorldSwitch: false,
+
+    forceEntryOffset: null, // number (0–1) or null
+    forceDuration: null, // seconds or null
+    transitionMode: DEFAULT_TRANSITION_MODE, // cut | crossfade | fade-through
+    transitionSeconds: DEFAULT_TRANSITION_SECONDS,
+
+    showOverlay: true,
+  };
+
+  window.__DEV__ = DEV;
+
+  // ---------- Hook advanced controls in main UI ----------
+  const lockWorldInput = document.getElementById('uiLockWorld');
+  const minWorldTimeInput = document.getElementById('uiMinWorldTime');
+  const forceWorldInput = document.getElementById('uiForceWorld');
+  const disableSwitchInput = document.getElementById('uiDisableSwitch');
+  const entryOffsetInput = document.getElementById('uiEntryOffset');
+  const durationInput = document.getElementById('uiForcedDuration');
+  const transitionModeInput = document.getElementById('uiTransitionMode');
+  const transitionSecondsInput = document.getElementById('uiTransitionSeconds');
+  const devPanelToggleButton = document.getElementById('uiToggleDevPanel');
+  const advancedControlsSection = document.getElementById('advancedControls');
+  const logStateButton = document.getElementById('uiLogState');
+
+  function setDevPanelVisible(isVisible) {
+    DEV.showOverlay = Boolean(isVisible);
+    if (advancedControlsSection) {
+      advancedControlsSection.hidden = !DEV.showOverlay;
+    }
+    if (devPanelToggleButton) {
+      devPanelToggleButton.textContent = DEV.showOverlay ? 'Hide Dev UI' : 'Show Dev UI';
+      devPanelToggleButton.setAttribute('aria-expanded', String(DEV.showOverlay));
+    }
+  }
+
+  setDevPanelVisible(DEV.showOverlay);
+
+  if (lockWorldInput) {
+    lockWorldInput.checked = DEV.lockWorld;
+    lockWorldInput.onchange = (event) => {
+      DEV.lockWorld = event.target.checked;
+    };
+  }
+
+  if (minWorldTimeInput) {
+    minWorldTimeInput.value = String(DEV.minWorldTime);
+    minWorldTimeInput.oninput = (event) => {
+      DEV.minWorldTime = Number(event.target.value);
+    };
+  }
+
+  if (forceWorldInput) {
+    forceWorldInput.value = DEV.forceWorld || '';
+    forceWorldInput.onchange = (event) => {
+      DEV.forceWorld = event.target.value || null;
+    };
+  }
+
+  if (disableSwitchInput) {
+    disableSwitchInput.checked = DEV.disableWorldSwitch;
+    disableSwitchInput.onchange = (event) => {
+      DEV.disableWorldSwitch = event.target.checked;
+    };
+  }
+
+  if (entryOffsetInput) {
+    entryOffsetInput.value = DEV.forceEntryOffset === null ? '' : String(DEV.forceEntryOffset);
+    entryOffsetInput.oninput = (event) => {
+      DEV.forceEntryOffset = event.target.value === '' ? null : Number(event.target.value);
+    };
+  }
+
+  if (durationInput) {
+    durationInput.value = DEV.forceDuration === null ? '' : String(DEV.forceDuration);
+    durationInput.oninput = (event) => {
+      DEV.forceDuration = event.target.value === '' ? null : Number(event.target.value);
+    };
+  }
+
+  if (transitionModeInput) {
+    transitionModeInput.value = DEV.transitionMode;
+    transitionModeInput.onchange = (event) => {
+      DEV.transitionMode = event.target.value || DEFAULT_TRANSITION_MODE;
+      setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
+      DEV.transitionSeconds = transitionSeconds;
+      if (transitionSecondsInput) {
+        transitionSecondsInput.value = String(DEV.transitionSeconds);
+      }
+      updateStatusReadout();
+    };
+  }
+
+  if (transitionSecondsInput) {
+    transitionSecondsInput.value = String(DEV.transitionSeconds);
+    transitionSecondsInput.oninput = (event) => {
+      DEV.transitionSeconds = Math.max(0, Number(event.target.value) || 0);
+      setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
+      DEV.transitionSeconds = transitionSeconds;
+      updateStatusReadout();
+    };
+  }
+
+  if (logStateButton) {
+    logStateButton.onclick = () => {
+    console.log('DEV STATE:', {
+      currentWorld,
+      pendingWorld,
+      worldStartTime,
+      queue: worldQueues[currentWorld],
+      activeClip: currentPlaybackState?.clip?.src || null,
+      nextClip: nextPreparedClip?.src || null,
+    });
+    };
+  }
+
+  if (devPanelToggleButton) {
+    devPanelToggleButton.onclick = () => {
+      setDevPanelVisible(!DEV.showOverlay);
+    };
+  }
+
+  // ==========================
+  // HOOK INTO YOUR PLAYER LOGIC
+  // ==========================
+
+  const originalCanSwitchWorld = () => isWorldDwellSatisfied();
+
+  window.canSwitchWorld = function () {
+    if (DEV.disableWorldSwitch) return false;
+
+    if (DEV.lockWorld) {
+      const elapsed = Date.now() - worldStartTime;
+      if (elapsed < DEV.minWorldTime) {
+        console.log('DEV: world locked', elapsed);
+        return false;
+      }
+    }
+
+    return originalCanSwitchWorld();
+  };
+
+  const originalGetNextWorld = typeof window.getNextWorld === 'function'
+    ? window.getNextWorld
+    : () => null;
+
+  window.getNextWorld = function () {
+    if (DEV.forceWorld) return DEV.forceWorld;
+    return originalGetNextWorld();
+  };
+
+  const originalChooseEntryOffset = typeof window.chooseEntryOffset === 'function'
+    ? window.chooseEntryOffset
+    : () => 0;
+
+  window.chooseEntryOffset = function (video, clip) {
+    if (DEV.forceEntryOffset !== null) {
+      return DEV.forceEntryOffset * video.duration;
+    }
+    return originalChooseEntryOffset(video, clip);
+  };
+
+  const originalGetDuration = typeof window.getVisibleDuration === 'function'
+    ? window.getVisibleDuration
+    : () => 3;
+
+  window.getVisibleDuration = function (video, clip) {
+    if (DEV.forceDuration !== null) {
+      return DEV.forceDuration;
+    }
+    return originalGetDuration(video, clip);
+  };
+})();

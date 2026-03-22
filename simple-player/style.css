@@ -34,6 +34,11 @@ input {
   font: inherit;
 }
 
+input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
 .player-shell {
   position: relative;
   width: 100%;
@@ -64,17 +69,19 @@ input {
   left: clamp(1rem, 2vw, 2rem);
   bottom: clamp(1rem, 2vw, 2rem);
   z-index: 5;
-  width: min(42rem, calc(100vw - 2rem));
+  width: min(52rem, calc(100vw - 2rem));
   pointer-events: auto;
 }
 
 .panel-inner {
   position: relative;
-  padding: 1.5rem;
+  padding: 1.9rem;
   border-radius: 1rem;
   background: var(--panel-bg);
   box-shadow: 0 1.3rem 3rem var(--panel-shadow);
   backdrop-filter: blur(8px);
+  max-height: calc(100vh - 4.5rem);
+  overflow: auto;
 }
 
 .panel-border,
@@ -150,17 +157,24 @@ h1 {
 
 .description {
   margin: 0.65rem 0 0;
-  max-width: 34rem;
+  max-width: 42rem;
   color: var(--muted-text);
   line-height: 1.45;
-  font-size: 1rem;
+  font-size: 1.08rem;
+}
+
+.dev-toggle-button {
+  margin-top: 0.85rem;
+  min-height: 2.8rem;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.9rem;
 }
 
 .control-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-  margin-bottom: 1rem;
+  gap: 1.1rem;
+  margin-bottom: 1.1rem;
 }
 
 .control-block {
@@ -170,7 +184,7 @@ h1 {
 }
 
 .control-label {
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -179,15 +193,17 @@ h1 {
 
 .scribble-button,
 .scribble-select,
+.scribble-input,
 .upload-label,
 .placeholder-button {
-  min-height: 3.15rem;
+  min-height: 3.5rem;
   padding: 0.85rem 1rem;
   border: 2px solid rgba(255, 255, 255, 0.92);
   border-radius: 0.8rem;
   background: var(--button-bg);
   color: var(--text-color);
   font-weight: 800;
+  font-size: 1.05rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -215,6 +231,10 @@ h1 {
 .scribble-select {
   width: 100%;
   appearance: none;
+}
+
+.scribble-input {
+  width: 100%;
 }
 
 .music-block input[type="file"] {
@@ -248,13 +268,13 @@ h1 {
 }
 
 .status-readout {
-  min-height: 8.5rem;
-  padding: 0.95rem 1rem;
+  min-height: 10rem;
+  padding: 1rem 1.1rem;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.8rem;
   background: rgba(0, 0, 0, 0.28);
   color: var(--muted-text);
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.55;
   white-space: pre-line;
 }
@@ -265,6 +285,46 @@ h1 {
   font-size: 0.76rem;
   letter-spacing: 0.07em;
   margin-right: 0.4rem;
+}
+
+.advanced-controls {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.advanced-title {
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 1rem;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.advanced-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.advanced-control-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3.5rem;
+  padding: 0.65rem 0.85rem;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.advanced-actions {
+  margin-top: 0.9rem;
 }
 
 @media (max-width: 720px) {
@@ -278,6 +338,24 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .advanced-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scribble-button,
+  .scribble-select,
+  .scribble-input,
+  .upload-label,
+  .placeholder-button,
+  .advanced-control-inline {
+    min-height: 3.9rem;
+    font-size: 1.06rem;
+  }
+
+  .control-label {
+    font-size: 0.98rem;
+  }
+
   .music-player {
     top: auto;
     bottom: 0.75rem;
@@ -286,12 +364,18 @@ h1 {
   }
 }
 
+@media (max-width: 1080px) {
+  .advanced-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 
 .world-switcher {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .world-button.is-current {
@@ -308,12 +392,12 @@ h1 {
   gap: 1rem;
   margin-bottom: 1rem;
   color: var(--muted-text);
-  font-size: 0.95rem;
+  font-size: 1.02rem;
 }
 
 .status-readout {
   white-space: pre-line;
   line-height: 1.6;
   color: var(--muted-text);
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
