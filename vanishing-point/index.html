@@ -109,10 +109,8 @@
       width: 100%;
       max-width: 900px;
       background: #000;
-      border-radius: 0.6rem;
-      overflow: hidden;
-      cursor: crosshair;
-      /* Expand height naturally with video, but fall back to 16:9. */
+      border-radius: 0.6rem 0.6rem 0 0;
+      /* No overflow:hidden here — let the controls bar sit below naturally. */
       aspect-ratio: 16 / 9;
     }
     .player-wrap video {
@@ -120,13 +118,66 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
+      /* Disable native controls; we have our own bar. */
     }
     .player-wrap canvas {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
-      pointer-events: none; /* mouse events go to the wrapper div */
+      pointer-events: none;
+    }
+    /* Transparent div that captures mouse for recording — sits on top of the
+       video frame. Only interactive when armed (JS toggles pointer-events). */
+    .capture-surface {
+      position: absolute;
+      inset: 0;
+      cursor: crosshair;
+      pointer-events: none; /* off by default; enabled only when armed */
+    }
+    .capture-surface.armed {
+      pointer-events: auto;
+    }
+
+    /* ─── Custom playback bar ─────────────────────────────────────────────── */
+    .playback-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 900px;
+      background: #0e0e16;
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 0.6rem 0.6rem;
+      padding: 0.45rem 0.75rem;
+    }
+    .playback-bar button {
+      padding: 0.3rem 0.65rem;
+      font-size: 0.85rem;
+      min-width: 2.4rem;
+      border-radius: 0.3rem;
+    }
+    .playback-bar input[type='range'] {
+      flex: 1;
+      accent-color: var(--accent);
+      height: 3px;
+      cursor: pointer;
+    }
+    .playback-bar .time-display {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .volume-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .volume-wrap input[type='range'] {
+      width: 60px;
+      flex: none;
     }
 
     /* ─── Controls row ────────────────────────────────────────────────────── */
@@ -207,6 +258,107 @@
       resize: vertical;
       display: none; /* shown when data exists */
     }
+
+    /* ─── Quick-clip buttons ──────────────────────────────────────────────── */
+    .quick-clips {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .quick-clips-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 0.25rem;
+      white-space: nowrap;
+    }
+    .quick-clips button {
+      padding: 0.28rem 0.65rem;
+      font-size: 0.78rem;
+      border-radius: 0.3rem;
+    }
+
+    /* ─── Video status overlay ────────────────────────────────────────────── */
+    .video-status {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.88rem;
+      color: var(--muted);
+      background: rgba(0,0,0,0.55);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .video-status.visible { opacity: 1; }
+    .video-status.error   { color: var(--danger); }
+
+    /* ─── Export ledger ───────────────────────────────────────────────────── */
+    .export-ledger {
+      width: 100%;
+      max-width: 900px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .export-ledger-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .export-ledger-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .export-ledger-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      max-height: 14rem;
+      overflow: auto;
+    }
+    .export-ledger-item {
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.45rem 0.6rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.3rem 0.7rem;
+      align-items: center;
+    }
+    .export-ledger-clip {
+      font-size: 0.82rem;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      word-break: break-all;
+    }
+    .export-ledger-meta {
+      font-size: 0.76rem;
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .export-ledger-empty {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -219,24 +371,59 @@
   <!-- Load controls -->
   <div class="load-row">
     <input type="text" id="srcInput"
-      placeholder="Video URL or path  (e.g. /grey/a.mp4)" />
+      placeholder="/grey/a.mp4  or  /clown/video-….mp4" />
     <button id="loadBtn">Load</button>
     <label class="file-label">
-      🗂 Browse
+      🗂 Browse local file
       <input type="file" id="fileInput" accept="video/*" style="display:none" />
     </label>
   </div>
 
-  <!-- Player + canvas overlay -->
+  <!-- Quick-load known clips -->
+  <div class="quick-clips">
+    <span class="quick-clips-label">Quick load:</span>
+    <button data-clip="/grey/a.mp4">grey / a</button>
+    <button data-clip="/grey/grey partial.mp4">grey / partial</button>
+    <button data-clip="/grey/grey white.mp4">grey / white</button>
+    <button data-clip="/grey/grey marble.mp4">grey / marble</button>
+    <button data-clip="/grey/chegall tunnel 2.mp4">chegall tunnel</button>
+    <button data-clip="/grey/high school hallway.mp4">hallway</button>
+    <button data-clip="/grey/stained sqaures 1.mp4">stained squares</button>
+    <button data-clip="/clown/video-1010505465482296.mp4">clown 1</button>
+    <button data-clip="/clown/video-1011496565383186.mp4">clown 2</button>
+    <button data-clip="/clown/video-1018069851392524.mp4">clown 3</button>
+    <button data-clip="/clown/video-1018070068059169.mp4">clown 4</button>
+    <button data-clip="/clown/video-1018078004725042.mp4">clown 5</button>
+    <button data-clip="/clown/video-1018365751362934.mp4">clown 6</button>
+  </div>
+
+  <!-- Player + canvas overlay + capture surface -->
   <div class="player-wrap" id="playerWrap">
-    <video id="video" controls preload="metadata"></video>
+    <video id="video" preload="metadata"></video>
     <canvas id="vpCanvas"></canvas>
+    <!-- Status overlay: loading / error messages -->
+    <div class="video-status" id="videoStatus">Select a clip above to begin</div>
+    <!-- Transparent; pointer-events toggled by JS when recording is armed -->
+    <div class="capture-surface" id="captureSurface"></div>
+  </div>
+
+  <!-- Custom playback bar (sits outside playerWrap so it is never covered) -->
+  <div class="playback-bar" id="playbackBar">
+    <button id="playPauseBtn" title="Play / Pause">▶</button>
+    <span class="time-display" id="currentTimeDisplay">0:00</span>
+    <input type="range" id="scrubBar" min="0" max="1" step="0.001" value="0" />
+    <span class="time-display" id="durationDisplay">0:00</span>
+    <div class="volume-wrap">
+      <span style="font-size:0.82rem;color:var(--muted)">🔊</span>
+      <input type="range" id="volumeBar" min="0" max="1" step="0.01" value="1" />
+    </div>
   </div>
 
   <!-- Action row -->
   <div class="controls-row">
     <button id="recordBtn">⏺ Arm Recording  <kbd>R</kbd></button>
     <button id="clearBtn">✕ Clear Data  <kbd>C</kbd></button>
+    <button id="import88Btn">✨ Import 88 Coords</button>
     <button id="exportBtn">⬇ Export JSON</button>
     <div class="spacer"></div>
     <span class="data-status" id="dataStatus">No data for this clip</span>
@@ -273,38 +460,246 @@
   <!-- JSON export preview -->
   <pre class="export-pre" id="exportPre"></pre>
 
+  <!-- Export ledger -->
+  <section class="export-ledger">
+    <div class="export-ledger-header">
+      <span class="export-ledger-title">Marked + Exported Ledger</span>
+      <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+        <button id="exportLedgerCsvBtn" type="button">Export Ledger CSV</button>
+        <button id="clearLedgerBtn" type="button">Clear Ledger</button>
+      </div>
+    </div>
+    <ul class="export-ledger-list" id="exportLedgerList"></ul>
+    <p class="export-ledger-empty" id="exportLedgerEmpty">No exports tracked yet.</p>
+  </section>
+
   <!-- Keybind hints -->
   <p class="hints">
     <kbd>R</kbd> arm / disarm recording mode &nbsp;·&nbsp;
     <kbd>C</kbd> clear saved data for this clip &nbsp;·&nbsp;
+    <strong>Import 88</strong> loads your shared coordinate preset &nbsp;·&nbsp;
+    <strong>Export</strong> saves JSON to your chosen folder &nbsp;·&nbsp;
     <strong>hold mouse</strong> on video to capture while playing
   </p>
 
   <script type="module">
     import { Recorder }                     from './recorder.js';
     import { Overlay }                      from './overlay.js';
-    import { clearPoints, loadPoints }      from './storage.js';
+    import { clearPoints, loadPoints, savePoints } from './storage.js';
     import { getVanishingPoint }            from './interpolation.js';
 
     // ── Expose public integration API on window ──────────────────────────────
     window.getVanishingPoint = getVanishingPoint;
 
     // ── DOM refs ─────────────────────────────────────────────────────────────
-    const video      = document.getElementById('video');
-    const canvas     = document.getElementById('vpCanvas');
-    const playerWrap = document.getElementById('playerWrap');
-    const srcInput   = document.getElementById('srcInput');
-    const recordBtn  = document.getElementById('recordBtn');
-    const clearBtn   = document.getElementById('clearBtn');
-    const exportBtn  = document.getElementById('exportBtn');
-    const exportPre  = document.getElementById('exportPre');
-    const dataStatus = document.getElementById('dataStatus');
+    const video          = document.getElementById('video');
+    const canvas         = document.getElementById('vpCanvas');
+    const playerWrap     = document.getElementById('playerWrap');
+    const captureSurface = document.getElementById('captureSurface');
+    const videoStatus    = document.getElementById('videoStatus');
+    const srcInput       = document.getElementById('srcInput');
+    const recordBtn      = document.getElementById('recordBtn');
+    const clearBtn       = document.getElementById('clearBtn');
+    const import88Btn    = document.getElementById('import88Btn');
+    const exportBtn      = document.getElementById('exportBtn');
+    const exportPre      = document.getElementById('exportPre');
+    const dataStatus     = document.getElementById('dataStatus');
+    const exportLedgerCsvBtn = document.getElementById('exportLedgerCsvBtn');
+    const clearLedgerBtn = document.getElementById('clearLedgerBtn');
+    const exportLedgerList = document.getElementById('exportLedgerList');
+    const exportLedgerEmpty = document.getElementById('exportLedgerEmpty');
+
+    // One-time directory selection for auto-export.
+    const exportState = {
+      dirHandle: null,
+    };
+
+    const EXPORT_LEDGER_KEY = 'vp:export-ledger:v1';
+
+    function loadExportLedger() {
+      try {
+        const raw = localStorage.getItem(EXPORT_LEDGER_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveExportLedger(entries) {
+      localStorage.setItem(EXPORT_LEDGER_KEY, JSON.stringify(entries));
+    }
+
+    function summarizeLedger(entries) {
+      const bySrc = new Map();
+      for (const entry of entries) {
+        const prev = bySrc.get(entry.src);
+        if (!prev) {
+          bySrc.set(entry.src, {
+            src: entry.src,
+            count: 1,
+            lastAt: entry.exportedAt,
+            points: entry.points,
+            method: entry.method,
+          });
+        } else {
+          prev.count += 1;
+          if (entry.exportedAt > prev.lastAt) {
+            prev.lastAt = entry.exportedAt;
+            prev.points = entry.points;
+            prev.method = entry.method;
+          }
+        }
+      }
+      return [...bySrc.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+    }
+
+    function renderExportLedger() {
+      const entries = summarizeLedger(loadExportLedger());
+      exportLedgerList.innerHTML = '';
+
+      if (!entries.length) {
+        exportLedgerEmpty.style.display = 'block';
+        return;
+      }
+
+      exportLedgerEmpty.style.display = 'none';
+      for (const row of entries) {
+        const li = document.createElement('li');
+        li.className = 'export-ledger-item';
+
+        const clip = document.createElement('div');
+        clip.className = 'export-ledger-clip';
+        clip.textContent = row.src;
+
+        const meta = document.createElement('div');
+        meta.className = 'export-ledger-meta';
+        const when = new Date(row.lastAt).toLocaleString();
+        meta.textContent = `${row.count} exports | ${row.points} pts | ${row.method} | ${when}`;
+
+        li.appendChild(clip);
+        li.appendChild(meta);
+        exportLedgerList.appendChild(li);
+      }
+    }
+
+    function addExportLedgerEntry(src, pointCount, method) {
+      const entries = loadExportLedger();
+      entries.push({
+        src,
+        points: pointCount,
+        method,
+        exportedAt: new Date().toISOString(),
+      });
+      // Keep recent history bounded so localStorage remains tidy.
+      const capped = entries.slice(-500);
+      saveExportLedger(capped);
+      renderExportLedger();
+    }
+
+    function csvEscape(v) {
+      const s = String(v ?? '');
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function buildLedgerCsv(entries) {
+      const header = ['src', 'points', 'method', 'exportedAt'];
+      const rows = entries.map((entry) => [
+        entry.src,
+        entry.points,
+        entry.method,
+        entry.exportedAt,
+      ]);
+      return [header, ...rows]
+        .map((row) => row.map(csvEscape).join(','))
+        .join('\n');
+    }
+
+    function downloadLedgerCsv(entries) {
+      const csv = buildLedgerCsv(entries);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      a.href = url;
+      a.download = `vp-export-ledger-${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    // ── Video status overlay helpers ──────────────────────────────────────────
+    function setVideoStatus(msg, isError = false) {
+      videoStatus.textContent = msg;
+      videoStatus.classList.toggle('visible', Boolean(msg));
+      videoStatus.classList.toggle('error', isError);
+    }
+
+    // Show initial hint.
+    setVideoStatus('Select a clip above to begin');
+
+    video.addEventListener('loadstart', () => setVideoStatus('Loading…'));
+    video.addEventListener('loadeddata', () => setVideoStatus(''));
+    video.addEventListener('canplay',   () => setVideoStatus(''));
+    video.addEventListener('error', () => {
+      const err = video.error;
+      const msg = err ? `Load error (code ${err.code}): check the URL or file` : 'Load error: check the URL or file';
+      setVideoStatus(msg, true);
+    });
+
+    // ── Custom playback controls ──────────────────────────────────────────────
+    const playPauseBtn       = document.getElementById('playPauseBtn');
+    const scrubBar           = document.getElementById('scrubBar');
+    const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+    const durationDisplay    = document.getElementById('durationDisplay');
+    const volumeBar          = document.getElementById('volumeBar');
+
+    function formatTime(s) {
+      if (!Number.isFinite(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    playPauseBtn.addEventListener('click', () => {
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    });
+
+    video.addEventListener('play',  () => { playPauseBtn.textContent = '⏸'; });
+    video.addEventListener('pause', () => { playPauseBtn.textContent = '▶'; });
+    video.addEventListener('ended', () => { playPauseBtn.textContent = '▶'; });
+
+    video.addEventListener('loadedmetadata', () => {
+      scrubBar.max = video.duration || 1;
+      durationDisplay.textContent = formatTime(video.duration);
+    });
+
+    let scrubbing = false;
+    scrubBar.addEventListener('mousedown', () => { scrubbing = true; });
+    scrubBar.addEventListener('input', () => {
+      video.currentTime = Number(scrubBar.value);
+    });
+    window.addEventListener('mouseup', () => { scrubbing = false; });
+
+    video.addEventListener('timeupdate', () => {
+      if (!scrubbing) scrubBar.value = video.currentTime;
+      currentTimeDisplay.textContent = formatTime(video.currentTime);
+    });
+
+    volumeBar.addEventListener('input', () => {
+      video.volume = Number(volumeBar.value);
+    });
 
     // ── Overlay ───────────────────────────────────────────────────────────────
     const overlay = new Overlay(canvas, video);
 
-    // ── Recorder ──────────────────────────────────────────────────────────────
-    const recorder = new Recorder(video, playerWrap, {
+    // ── Recorder ─────────────────────────────────────────────────────────────
+    // Attach to captureSurface (not playerWrap) so the controls bar stays free.
+    const recorder = new Recorder(video, captureSurface, {
       onUpdate(state) {
         renderDevPanel(state);
       },
@@ -320,18 +715,31 @@
     // ── Load helpers ──────────────────────────────────────────────────────────
 
     /**
-     * Assign a logical storage key to the video element and start loading.
-     * The key is the raw src string before the browser resolves it to an
-     * absolute URL, so getVanishingPoint(src, t) will find the data when
-     * called with the same original string.
-     *
-     * @param {string} src  URL or path
-     * @param {string} [storageKey]  override; defaults to src
+     * Normalise a user-typed path so it always resolves from the server root.
+     * - Absolute URLs (http/https/blob) are left alone.
+     * - Paths not starting with '/' get one prepended.
+     * - Backslashes are converted to forward slashes.
      */
-    function loadSrc(src, storageKey) {
+    function normaliseSrc(src) {
+      if (/^(https?:|blob:)/i.test(src)) return src;
+      const forward = src.replace(/\\/g, '/');
+      return forward.startsWith('/') ? forward : '/' + forward;
+    }
+
+    /**
+     * Assign a logical storage key to the video element and start loading.
+     * The key is normalised src so getVanishingPoint(src, t) works with the
+     * same string used to load.
+     *
+     * @param {string} rawSrc  URL or path as typed / given by file input
+     * @param {string} [storageKey]  override; defaults to normalised src
+     */
+    function loadSrc(rawSrc, storageKey) {
+      const src = normaliseSrc(rawSrc);
       video.dataset.storageKey = storageKey || src;
       video.src  = src;
       video.load();
+      srcInput.value = storageKey || src;
     }
 
     document.getElementById('loadBtn').addEventListener('click', () => {
@@ -350,8 +758,16 @@
       const file = e.target.files[0];
       if (!file) return;
       // Use the filename as the stable storage key so data survives page reloads.
-      loadSrc(URL.createObjectURL(file), file.name);
+      const blobUrl = URL.createObjectURL(file);
+      video.dataset.storageKey = file.name;
+      video.src  = blobUrl;
+      video.load();
       srcInput.value = file.name;
+    });
+
+    // Quick-load buttons.
+    document.querySelectorAll('.quick-clips button[data-clip]').forEach((btn) => {
+      btn.addEventListener('click', () => loadSrc(btn.dataset.clip));
     });
 
     // Reload overlay points whenever the video finishes loading metadata.
@@ -367,6 +783,11 @@
       refreshRecordButton();
     });
 
+    /** Sync capture surface pointer-events to armed state. */
+    function syncCaptureSurface() {
+      captureSurface.classList.toggle('armed', recorder.isEnabled);
+    }
+
     clearBtn.addEventListener('click', () => {
       const key = video.dataset.storageKey || video.currentSrc || video.src;
       if (key) {
@@ -378,15 +799,131 @@
       }
     });
 
-    exportBtn.addEventListener('click', () => {
+    function sanitizeFilenamePart(value) {
+      return String(value || 'clip')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80) || 'clip';
+    }
+
+    function buildExportFilename(src) {
+      const stem = sanitizeFilenamePart(src.split('/').pop());
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      return `${stem}-vp-${stamp}.json`;
+    }
+
+    function triggerJsonDownload(data, src) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = buildExportFilename(src);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    async function ensureExportDirHandle() {
+      if (exportState.dirHandle) return exportState.dirHandle;
+      if (!window.showDirectoryPicker) return null;
+      exportState.dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      return exportState.dirHandle;
+    }
+
+    async function writeJsonToChosenDirectory(data, src) {
+      const dirHandle = await ensureExportDirHandle();
+      if (!dirHandle) return null;
+
+      const fileName = buildExportFilename(src);
+      const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+      return fileName;
+    }
+
+    import88Btn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('./presets/amazing-88.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data || typeof data.src !== 'string' || !Array.isArray(data.points)) {
+          throw new Error('Invalid preset format');
+        }
+
+        savePoints(data.src, data.points);
+
+        if ((video.dataset.storageKey || video.currentSrc || video.src) === data.src) {
+          overlay.reloadPoints();
+          refreshDataStatus();
+        }
+
+        dataStatus.textContent = `Imported 88 preset (${data.points.length} points)`;
+        dataStatus.classList.add('has-data');
+        console.log('[vp:app] Imported preset', data.src, data.points.length);
+      } catch (err) {
+        dataStatus.textContent = `Import failed: ${err?.message || err}`;
+        dataStatus.classList.remove('has-data');
+        console.error('[vp:app] Import failed', err);
+      }
+    });
+
+    exportBtn.addEventListener('click', async () => {
       const key  = video.dataset.storageKey || video.currentSrc || video.src;
       const data = key ? loadPoints(key) : null;
       if (!data) {
         exportPre.style.display = 'none';
         return;
       }
+
       exportPre.textContent  = JSON.stringify(data, null, 2);
       exportPre.style.display = 'block';
+
+      try {
+        const fileName = await writeJsonToChosenDirectory(data, key);
+        if (fileName) {
+          addExportLedgerEntry(key, data.points.length, 'folder');
+          dataStatus.textContent = `Exported JSON to folder: ${fileName}`;
+          dataStatus.classList.add('has-data');
+          return;
+        }
+
+        triggerJsonDownload(data, key);
+        addExportLedgerEntry(key, data.points.length, 'download');
+        dataStatus.textContent = 'Exported JSON via browser download';
+        dataStatus.classList.add('has-data');
+      } catch (err) {
+        // If folder write is denied/cancelled, fallback to normal download.
+        triggerJsonDownload(data, key);
+        addExportLedgerEntry(key, data.points.length, 'download-fallback');
+        dataStatus.textContent = `Folder export unavailable, downloaded instead`;
+        dataStatus.classList.add('has-data');
+        console.warn('[vp:app] Folder export fallback', err);
+      }
+    });
+
+    clearLedgerBtn.addEventListener('click', () => {
+      localStorage.removeItem(EXPORT_LEDGER_KEY);
+      renderExportLedger();
+      dataStatus.textContent = 'Export ledger cleared';
+      dataStatus.classList.remove('has-data');
+    });
+
+    exportLedgerCsvBtn.addEventListener('click', () => {
+      const entries = loadExportLedger();
+      if (!entries.length) {
+        dataStatus.textContent = 'No ledger entries to export';
+        dataStatus.classList.remove('has-data');
+        return;
+      }
+
+      downloadLedgerCsv(entries);
+      dataStatus.textContent = `Ledger CSV exported (${entries.length} rows)`;
+      dataStatus.classList.add('has-data');
     });
 
     // ── Keybinds ─────────────────────────────────────────────────────────────
@@ -397,7 +934,14 @@
 
       if (e.key === 'r' || e.key === 'R') {
         recorder.setEnabled(!recorder.isEnabled);
-        refreshRecordButton();
+        refreshRecordButton(); // also calls syncCaptureSurface
+      }
+
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (video.src) {
+          video.paused ? video.play() : video.pause();
+        }
       }
 
       if (e.key === 'c' || e.key === 'C') {
@@ -417,6 +961,7 @@
     video.addEventListener('timeupdate', () => {
       document.getElementById('statTime').textContent =
         video.currentTime.toFixed(2) + ' s';
+      // scrubBar / time display updated in the playback block above
     });
 
     // ── UI helpers ────────────────────────────────────────────────────────────
@@ -429,6 +974,7 @@
         recordBtn.textContent = '⏺ Arm Recording  R';
         recordBtn.classList.remove('armed');
       }
+      syncCaptureSurface();
     }
 
     function refreshDataStatus() {
@@ -475,6 +1021,7 @@
     // ── Initial render ────────────────────────────────────────────────────────
     renderDevPanel({ enabled: false, recording: false, sampleCount: 0, mouse: null });
     refreshDataStatus();
+    renderExportLedger();
   </script>
 </body>
 </html>

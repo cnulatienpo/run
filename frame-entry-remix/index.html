@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frame Entry Remix System</title>
+  <style>
+    :root {
+      --bg: #0b0f12;
+      --panel: #131a20;
+      --border: rgba(255, 255, 255, 0.14);
+      --text: #eaf0f5;
+      --muted: rgba(234, 240, 245, 0.6);
+      --accent: #49dcb1;
+      --warn: #ffcf5d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top right, #1b2631 0%, var(--bg) 60%);
+      color: var(--text);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .app {
+      width: min(100%, 980px);
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+    }
+
+    .video-shell,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .video-shell {
+      position: relative;
+      min-height: 260px;
+      display: flex;
+      align-items: stretch;
+    }
+
+    video {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      object-fit: contain;
+    }
+
+    .debug-overlay {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      pointer-events: none;
+    }
+
+    .panel {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .row {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    select,
+    button {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 0.9rem;
+    }
+
+    button { cursor: pointer; }
+    button:hover { background: rgba(255, 255, 255, 0.1); }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.88rem;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .stats {
+      border-top: 1px dashed var(--border);
+      padding-top: 10px;
+      display: grid;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.86rem;
+    }
+
+    .stat-key { color: var(--muted); }
+    .stat-val { color: var(--warn); text-align: right; word-break: break-all; }
+
+    .status {
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      min-height: 48px;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="video-shell">
+      <video id="playerVideo" playsinline muted></video>
+      <div class="debug-overlay" id="debugOverlay">START / FORWARD</div>
+    </section>
+
+    <section class="panel">
+      <h1>Frame Entry Remix System</h1>
+
+      <div class="row">
+        <label for="entryModeSelect">Entry Mode</label>
+        <select id="entryModeSelect"></select>
+      </div>
+
+      <div class="row">
+        <label for="strategySelect">Strategy Mode</label>
+        <select id="strategySelect">
+          <option value="manual">manual</option>
+          <option value="auto">auto</option>
+          <option value="smart">smart</option>
+        </select>
+      </div>
+
+      <button id="applyNextBtn" type="button">Apply to Next Clip</button>
+      <button id="cycleBtn" type="button">Cycle Modes Automatically: OFF</button>
+      <button id="nextClipBtn" type="button">Load Next Clip</button>
+
+      <div class="toggle">
+        <span>Randomize Entry Mode</span>
+        <input id="randomizeToggle" type="checkbox" />
+      </div>
+
+      <div class="stats">
+        <div class="stat-line">
+          <span class="stat-key">Current mode</span>
+          <span class="stat-val" id="currentModeValue">start_forward</span>
+        </div>
+        <div class="stat-line">
+          <span class="stat-key">Current time</span>
+          <span class="stat-val" id="currentTimeValue">0.000</span>
+        </div>
+        <div class="stat-line">
+          <span class="stat-key">Playback direction</span>
+          <span class="stat-val" id="directionValue">forward</span>
+        </div>
+        <div class="stat-line">
+          <span class="stat-key">Reverse method</span>
+          <span class="stat-val" id="reverseMethodValue">n/a</span>
+        </div>
+        <div class="stat-line">
+          <span class="stat-key">Clip</span>
+          <span class="stat-val" id="clipValue">/grey/a.mp4</span>
+        </div>
+      </div>
+
+      <div class="status" id="statusText">Ready.</div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { startDemo } from './modules/demo.js';
+
+    startDemo().catch((error) => {
+      const el = document.getElementById('statusText');
+      el.textContent = `Startup error: ${error?.message || error}`;
+      console.error(error);
+    });
+  </script>
+</body>
+</html>
