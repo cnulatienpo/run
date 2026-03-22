@@ -48,15 +48,26 @@ input[type="checkbox"] {
   transition: filter 0.32s ease;
 }
 
-.player-video {
+.video-layer {
   position: absolute;
   inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.player-video {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 100%;
   height: 100%;
   object-fit: contain;
   object-position: center center;
   opacity: 0;
-  transition: opacity 1.5s linear;
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: 50% 50%;
+  transition: opacity 0.9s linear, transform 0.9s linear, filter 0.9s linear;
+  will-change: transform, opacity, filter;
   background: #000;
 }
 

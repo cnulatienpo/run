@@ -8,8 +8,12 @@
   </head>
   <body>
     <main class="player-shell" id="playerShell">
-      <video id="videoA" class="player-video is-active" muted playsinline preload="auto"></video>
-      <video id="videoB" class="player-video" muted playsinline preload="auto"></video>
+      <div class="video-layer" id="layerA">
+        <video id="videoA" class="player-video is-active" muted playsinline preload="auto"></video>
+      </div>
+      <div class="video-layer" id="layerB">
+        <video id="videoB" class="player-video" muted playsinline preload="auto"></video>
+      </div>
       <audio id="musicPlayer" class="music-player" controls preload="metadata"></audio>
 
       <section class="player-panel" aria-label="Player controls">
@@ -111,8 +115,7 @@
                 <span class="control-label">Transition mode</span>
                 <select id="uiTransitionMode" class="scribble-select">
                   <option value="cut" selected>Cut</option>
-                  <option value="crossfade">Crossfade</option>
-                  <option value="fade-through">Fade Through</option>
+                  <option value="zoom-quilt">Zoom Quilt</option>
                 </select>
               </label>
 

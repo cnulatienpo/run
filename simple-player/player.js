@@ -51,8 +51,8 @@ const WORLD_DEFINITIONS = {
 const SWITCH_INTERVAL_SECONDS = 30;
 const USE_SCRIPTED_TIMELINE = true;
 const SCRIPTED_DURATIONS_SECONDS = [60, 30, 10, 120, 75];
-const DEFAULT_TRANSITION_MODE = 'cut';
-const DEFAULT_TRANSITION_SECONDS = 0.8;
+const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
+const DEFAULT_TRANSITION_SECONDS = 1.5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const ENTRY_MIN_RATIO = 0.1;
@@ -149,7 +149,7 @@ function applyTransitionDuration(seconds) {
 }
 
 function setTransitionConfig(nextMode, nextSeconds) {
-  const allowedModes = new Set(['cut', 'crossfade', 'fade-through']);
+  const allowedModes = new Set(['cut', 'zoom-quilt']);
   transitionMode = allowedModes.has(nextMode) ? nextMode : DEFAULT_TRANSITION_MODE;
   const requested = Math.max(0, Number(nextSeconds) || 0);
   transitionSeconds = transitionMode === 'cut' ? 0 : Math.max(0.35, requested || DEFAULT_TRANSITION_SECONDS);
@@ -157,8 +157,21 @@ function setTransitionConfig(nextMode, nextSeconds) {
 }
 
 function getStandbyRequiredReadyState() {
-  // For visible transition modes, metadata readiness is enough to start the visual handoff.
-  return transitionMode === 'cut' ? STANDBY_READY_STATE : 1;
+  return transitionMode === 'zoom-quilt' ? 3 : STANDBY_READY_STATE;
+}
+
+function setVideoScale(video, scale) {
+  video.style.transform = `translate(-50%, -50%) scale(${scale})`;
+}
+
+function setVideoBlur(video, blurPx) {
+  video.style.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+}
+
+function resetVideoVisualState(video) {
+  setVideoScale(video, 1);
+  setVideoOpacity(video, 1);
+  setVideoBlur(video, 0);
 }
 
 function logEvent(event, details = {}, level = 'log') {
@@ -372,6 +385,8 @@ function resetVideo(video) {
   video.playbackRate = 1;
   video.dataset.lastTimeupdateAt = '';
   video.style.opacity = '0';
+  setVideoScale(video, 1);
+  setVideoBlur(video, 0);
 }
 
 function stopVideo(video) {
@@ -379,6 +394,8 @@ function stopVideo(video) {
   video.classList.remove('is-active');
   video.playbackRate = 1;
   video.style.opacity = '0';
+  setVideoScale(video, 1);
+  setVideoBlur(video, 0);
   try {
     video.currentTime = 0;
   } catch (error) {
@@ -1074,8 +1091,10 @@ async function startPlaybackOnActiveVideo(clip) {
   pendingWorld = null;
   activeVideo.classList.add('is-active');
   standbyVideo.classList.remove('is-active');
-  setVideoOpacity(activeVideo, 1);
+  resetVideoVisualState(activeVideo);
   setVideoOpacity(standbyVideo, 0);
+  setVideoScale(standbyVideo, 1);
+  setVideoBlur(standbyVideo, 0);
   await safePlay(activeVideo);
   updateWorldButtons();
   updateStatusReadout();
@@ -1200,29 +1219,28 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   const transitionDurationMs = Math.round(getTransitionDurationSeconds() * 1000);
   await safePlay(standbyVideo);
 
-  if (transitionMode === 'crossfade' && transitionDurationMs > 0) {
-    activeVideo.classList.add('is-active');
-    standbyVideo.classList.add('is-active');
+  activeVideo.classList.add('is-active');
+  standbyVideo.classList.add('is-active');
+
+  if (transitionMode === 'zoom-quilt' && transitionDurationMs > 0) {
+    setVideoScale(activeVideo, 1);
     setVideoOpacity(activeVideo, 1);
-    setVideoOpacity(standbyVideo, 0);
+    setVideoBlur(activeVideo, 0);
+
+    setVideoScale(standbyVideo, 0.05);
+    setVideoOpacity(standbyVideo, 1);
+    setVideoBlur(standbyVideo, 0);
+
     window.requestAnimationFrame(() => {
+      setVideoScale(activeVideo, 2);
       setVideoOpacity(activeVideo, 0);
+      setVideoBlur(activeVideo, 2);
+
+      setVideoScale(standbyVideo, 1);
       setVideoOpacity(standbyVideo, 1);
     });
+
     await new Promise((resolve) => window.setTimeout(resolve, transitionDurationMs));
-  } else if (transitionMode === 'fade-through' && transitionDurationMs > 0) {
-    const halfMs = Math.max(1, Math.floor(transitionDurationMs / 2));
-    activeVideo.classList.add('is-active');
-    standbyVideo.classList.add('is-active');
-    setVideoOpacity(activeVideo, 1);
-    setVideoOpacity(standbyVideo, 0);
-    window.requestAnimationFrame(() => {
-      setVideoOpacity(activeVideo, 0);
-      setVideoOpacity(standbyVideo, 0);
-    });
-    await new Promise((resolve) => window.setTimeout(resolve, halfMs));
-    setVideoOpacity(standbyVideo, 1);
-    await new Promise((resolve) => window.setTimeout(resolve, Math.max(1, transitionDurationMs - halfMs)));
   }
 
   const previousActive = activeVideo;
@@ -1234,8 +1252,10 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
 
   activeVideo.classList.add('is-active');
   standbyVideo.classList.remove('is-active');
-  setVideoOpacity(activeVideo, 1);
+  resetVideoVisualState(activeVideo);
   setVideoOpacity(standbyVideo, 0);
+  setVideoScale(standbyVideo, 1);
+  setVideoBlur(standbyVideo, 0);
   standbyVideo.pause();
 
   prepareNextStandbyClip();
@@ -1750,6 +1770,10 @@ initializePlayer();
 
   if (transitionModeInput) {
     transitionModeInput.value = DEV.transitionMode;
+    if (!transitionModeInput.value) {
+      transitionModeInput.value = DEFAULT_TRANSITION_MODE;
+      DEV.transitionMode = DEFAULT_TRANSITION_MODE;
+    }
     transitionModeInput.onchange = (event) => {
       DEV.transitionMode = event.target.value || DEFAULT_TRANSITION_MODE;
       setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
