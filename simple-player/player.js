@@ -1,4 +1,12 @@
-const TEST_MODE = false;
+const TEST_MODE = (() => {
+  const raw = new URLSearchParams(window.location.search).get('test');
+  if (raw == null) {
+    return false;
+  }
+
+  const normalized = String(raw).trim().toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+})();
 
 const TEST_CONFIG = {
   enabled: TEST_MODE,
@@ -52,7 +60,7 @@ const SWITCH_INTERVAL_SECONDS = 30;
 const USE_SCRIPTED_TIMELINE = true;
 const SCRIPTED_DURATIONS_SECONDS = [60, 30, 10, 120, 75];
 const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
-const DEFAULT_TRANSITION_SECONDS = 1.5;
+const DEFAULT_TRANSITION_SECONDS = 5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const ENTRY_MIN_RATIO = 0.1;
@@ -144,8 +152,13 @@ function getTransitionDurationSeconds() {
 function applyTransitionDuration(seconds) {
   const safe = Math.max(0, Number(seconds) || 0);
   const durationText = `${safe.toFixed(3)}s`;
+  const timingFunction = transitionMode === 'zoom-quilt'
+    ? 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+    : 'linear';
   videoA.style.transitionDuration = durationText;
   videoB.style.transitionDuration = durationText;
+  videoA.style.transitionTimingFunction = timingFunction;
+  videoB.style.transitionTimingFunction = timingFunction;
 }
 
 function setTransitionConfig(nextMode, nextSeconds) {
@@ -834,7 +847,7 @@ function updateStatusReadout() {
       : `ready / ${formatSeconds(sessionDurationSeconds)} session`;
 
   statusReadout.innerHTML = [
-    `<strong>test mode</strong> ${TEST_CONFIG.enabled ? 'enabled' : 'disabled'}`,
+    `<strong>test mode</strong> ${TEST_CONFIG.enabled ? 'enabled' : 'disabled (add ?test=1 to URL)'}`,
     `<strong>current clip path</strong> ${currentPlaybackState?.clip?.src || 'waiting'}`,
     `<strong>next clip path</strong> ${nextPreparedClip?.src || 'waiting'}`,
     `<strong>current world</strong> ${WORLD_DEFINITIONS[currentWorld]?.label || currentWorld}`,
@@ -1227,17 +1240,19 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     setVideoOpacity(activeVideo, 1);
     setVideoBlur(activeVideo, 0);
 
-    setVideoScale(standbyVideo, 0.05);
-    setVideoOpacity(standbyVideo, 1);
-    setVideoBlur(standbyVideo, 0);
+    // Start incoming clip smaller and transparent so zoom/fade is clearly visible.
+    setVideoScale(standbyVideo, 0.35);
+    setVideoOpacity(standbyVideo, 0);
+    setVideoBlur(standbyVideo, 8);
 
     window.requestAnimationFrame(() => {
-      setVideoScale(activeVideo, 2);
+      setVideoScale(activeVideo, 1.8);
       setVideoOpacity(activeVideo, 0);
-      setVideoBlur(activeVideo, 2);
+      setVideoBlur(activeVideo, 10);
 
       setVideoScale(standbyVideo, 1);
       setVideoOpacity(standbyVideo, 1);
+      setVideoBlur(standbyVideo, 0);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, transitionDurationMs));
@@ -1670,6 +1685,9 @@ function initializePlayer() {
     scheduleStressWorldSwitch();
     scheduleStressControls();
   }
+
+  // Ensure the selected transition mode/seconds are actually applied before first clip switch.
+  setTransitionConfig(transitionMode, transitionSeconds);
 
   updateWorldButtons();
   updateStatusReadout();

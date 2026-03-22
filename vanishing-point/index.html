@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vanishing Point Recorder</title>
+  <style>
+    :root {
+      --bg:      #08080c;
+      --panel:   #111118;
+      --border:  rgba(255,255,255,0.11);
+      --accent:  #00ffaa;
+      --danger:  #ff2244;
+      --warn:    #f3e060;
+      --text:    #e8e4da;
+      --muted:   rgba(232,228,218,0.58);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem 3rem;
+      gap: 1rem;
+    }
+
+    /* ─── Header ──────────────────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .header p {
+      margin-top: 0.25rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    /* ─── Load row ────────────────────────────────────────────────────────── */
+    .load-row {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 900px;
+      flex-wrap: wrap;
+    }
+    .load-row input[type="text"] {
+      flex: 1;
+      min-width: 180px;
+      padding: 0.5rem 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      color: var(--text);
+      font: inherit;
+      outline-offset: 2px;
+    }
+    .load-row input[type="text"]:focus { outline: 1px solid var(--accent); }
+
+    /* ─── Buttons (shared) ────────────────────────────────────────────────── */
+    button, .file-label {
+      padding: 0.5rem 1rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.88rem;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    button:hover, .file-label:hover {
+      background: rgba(255,255,255,0.13);
+    }
+    button.armed {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: rgba(255,34,68,0.08);
+    }
+    button.armed:hover { background: rgba(255,34,68,0.16); }
+
+    .file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    /* ─── Player area ─────────────────────────────────────────────────────── */
+    .player-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      background: #000;
+      border-radius: 0.6rem;
+      overflow: hidden;
+      cursor: crosshair;
+      /* Expand height naturally with video, but fall back to 16:9. */
+      aspect-ratio: 16 / 9;
+    }
+    .player-wrap video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .player-wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none; /* mouse events go to the wrapper div */
+    }
+
+    /* ─── Controls row ────────────────────────────────────────────────────── */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      width: 100%;
+      max-width: 900px;
+      flex-wrap: wrap;
+    }
+    .controls-row .spacer { flex: 1; }
+    .data-status {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .data-status.has-data { color: var(--accent); }
+
+    /* ─── Dev panel ───────────────────────────────────────────────────────── */
+    .dev-panel {
+      width: 100%;
+      max-width: 900px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75rem 1.25rem;
+    }
+    .stat { display: flex; flex-direction: column; gap: 0.2rem; }
+    .stat-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-value.idle    { color: var(--muted); }
+    .stat-value.armed   { color: var(--warn);  }
+    .stat-value.record  { color: var(--danger); }
+
+    /* ─── Keybind hint ────────────────────────────────────────────────────── */
+    .hints {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.8;
+    }
+    .hints kbd {
+      display: inline-block;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 5px;
+      font-family: inherit;
+      font-size: 0.8rem;
+    }
+    .export-pre {
+      width: 100%;
+      max-width: 900px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: pre;
+      overflow-x: auto;
+      max-height: 12rem;
+      resize: vertical;
+      display: none; /* shown when data exists */
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Vanishing Point Recorder</h1>
+    <p>Hold mouse on the vanishing point while the video plays to record its path over time.</p>
+  </div>
+
+  <!-- Load controls -->
+  <div class="load-row">
+    <input type="text" id="srcInput"
+      placeholder="Video URL or path  (e.g. /grey/a.mp4)" />
+    <button id="loadBtn">Load</button>
+    <label class="file-label">
+      🗂 Browse
+      <input type="file" id="fileInput" accept="video/*" style="display:none" />
+    </label>
+  </div>
+
+  <!-- Player + canvas overlay -->
+  <div class="player-wrap" id="playerWrap">
+    <video id="video" controls preload="metadata"></video>
+    <canvas id="vpCanvas"></canvas>
+  </div>
+
+  <!-- Action row -->
+  <div class="controls-row">
+    <button id="recordBtn">⏺ Arm Recording  <kbd>R</kbd></button>
+    <button id="clearBtn">✕ Clear Data  <kbd>C</kbd></button>
+    <button id="exportBtn">⬇ Export JSON</button>
+    <div class="spacer"></div>
+    <span class="data-status" id="dataStatus">No data for this clip</span>
+  </div>
+
+  <!-- Dev stats panel -->
+  <div class="dev-panel">
+    <div class="stat">
+      <span class="stat-label">Mode</span>
+      <span class="stat-value idle" id="statMode">Idle</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Samples (session)</span>
+      <span class="stat-value" id="statSamples">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Mouse X</span>
+      <span class="stat-value" id="statX">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Mouse Y</span>
+      <span class="stat-value" id="statY">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Video Time</span>
+      <span class="stat-value" id="statTime">0.00 s</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Saved Points</span>
+      <span class="stat-value" id="statSaved">0</span>
+    </div>
+  </div>
+
+  <!-- JSON export preview -->
+  <pre class="export-pre" id="exportPre"></pre>
+
+  <!-- Keybind hints -->
+  <p class="hints">
+    <kbd>R</kbd> arm / disarm recording mode &nbsp;·&nbsp;
+    <kbd>C</kbd> clear saved data for this clip &nbsp;·&nbsp;
+    <strong>hold mouse</strong> on video to capture while playing
+  </p>
+
+  <script type="module">
+    import { Recorder }                     from './recorder.js';
+    import { Overlay }                      from './overlay.js';
+    import { clearPoints, loadPoints }      from './storage.js';
+    import { getVanishingPoint }            from './interpolation.js';
+
+    // ── Expose public integration API on window ──────────────────────────────
+    window.getVanishingPoint = getVanishingPoint;
+
+    // ── DOM refs ─────────────────────────────────────────────────────────────
+    const video      = document.getElementById('video');
+    const canvas     = document.getElementById('vpCanvas');
+    const playerWrap = document.getElementById('playerWrap');
+    const srcInput   = document.getElementById('srcInput');
+    const recordBtn  = document.getElementById('recordBtn');
+    const clearBtn   = document.getElementById('clearBtn');
+    const exportBtn  = document.getElementById('exportBtn');
+    const exportPre  = document.getElementById('exportPre');
+    const dataStatus = document.getElementById('dataStatus');
+
+    // ── Overlay ───────────────────────────────────────────────────────────────
+    const overlay = new Overlay(canvas, video);
+
+    // ── Recorder ──────────────────────────────────────────────────────────────
+    const recorder = new Recorder(video, playerWrap, {
+      onUpdate(state) {
+        renderDevPanel(state);
+      },
+      onFinalize(_points) {
+        // Recording session finished — reload overlay and update counts.
+        overlay.reloadPoints();
+        refreshDataStatus();
+      },
+    });
+
+    overlay.setRecorder(recorder);
+
+    // ── Load helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Assign a logical storage key to the video element and start loading.
+     * The key is the raw src string before the browser resolves it to an
+     * absolute URL, so getVanishingPoint(src, t) will find the data when
+     * called with the same original string.
+     *
+     * @param {string} src  URL or path
+     * @param {string} [storageKey]  override; defaults to src
+     */
+    function loadSrc(src, storageKey) {
+      video.dataset.storageKey = storageKey || src;
+      video.src  = src;
+      video.load();
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', () => {
+      const src = srcInput.value.trim();
+      if (src) loadSrc(src);
+    });
+
+    srcInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const src = srcInput.value.trim();
+        if (src) loadSrc(src);
+      }
+    });
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      // Use the filename as the stable storage key so data survives page reloads.
+      loadSrc(URL.createObjectURL(file), file.name);
+      srcInput.value = file.name;
+    });
+
+    // Reload overlay points whenever the video finishes loading metadata.
+    video.addEventListener('loadedmetadata', () => {
+      overlay.reloadPoints();
+      refreshDataStatus();
+    });
+
+    // ── Record / Clear / Export buttons ──────────────────────────────────────
+
+    recordBtn.addEventListener('click', () => {
+      recorder.setEnabled(!recorder.isEnabled);
+      refreshRecordButton();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      const key = video.dataset.storageKey || video.currentSrc || video.src;
+      if (key) {
+        clearPoints(key);
+        overlay.reloadPoints();
+        refreshDataStatus();
+        exportPre.style.display = 'none';
+        console.log('[vp:app] Cleared data for', key);
+      }
+    });
+
+    exportBtn.addEventListener('click', () => {
+      const key  = video.dataset.storageKey || video.currentSrc || video.src;
+      const data = key ? loadPoints(key) : null;
+      if (!data) {
+        exportPre.style.display = 'none';
+        return;
+      }
+      exportPre.textContent  = JSON.stringify(data, null, 2);
+      exportPre.style.display = 'block';
+    });
+
+    // ── Keybinds ─────────────────────────────────────────────────────────────
+
+    document.addEventListener('keydown', (e) => {
+      // Don't fire while typing in the URL input.
+      if (e.target.tagName === 'INPUT') return;
+
+      if (e.key === 'r' || e.key === 'R') {
+        recorder.setEnabled(!recorder.isEnabled);
+        refreshRecordButton();
+      }
+
+      if (e.key === 'c' || e.key === 'C') {
+        const key = video.dataset.storageKey || video.currentSrc || video.src;
+        if (key) {
+          clearPoints(key);
+          overlay.reloadPoints();
+          refreshDataStatus();
+          exportPre.style.display = 'none';
+          console.log('[vp:app] Cleared data for', key);
+        }
+      }
+    });
+
+    // ── Continuous stats ─────────────────────────────────────────────────────
+
+    video.addEventListener('timeupdate', () => {
+      document.getElementById('statTime').textContent =
+        video.currentTime.toFixed(2) + ' s';
+    });
+
+    // ── UI helpers ────────────────────────────────────────────────────────────
+
+    function refreshRecordButton() {
+      if (recorder.isEnabled) {
+        recordBtn.textContent = '⏹ Disarm Recording  R';
+        recordBtn.classList.add('armed');
+      } else {
+        recordBtn.textContent = '⏺ Arm Recording  R';
+        recordBtn.classList.remove('armed');
+      }
+    }
+
+    function refreshDataStatus() {
+      const key   = video.dataset.storageKey || video.currentSrc || video.src;
+      const data  = key ? loadPoints(key) : null;
+      const count = data ? data.points.length : 0;
+
+      document.getElementById('statSaved').textContent = count;
+
+      if (count > 0) {
+        dataStatus.textContent = `${count} points saved for this clip`;
+        dataStatus.classList.add('has-data');
+      } else {
+        dataStatus.textContent = 'No data for this clip';
+        dataStatus.classList.remove('has-data');
+      }
+    }
+
+    function renderDevPanel(state) {
+      const modeEl = document.getElementById('statMode');
+
+      if (state.recording) {
+        modeEl.textContent = 'Recording ●';
+        modeEl.className   = 'stat-value record';
+      } else if (state.enabled) {
+        modeEl.textContent = 'Armed — hold to capture';
+        modeEl.className   = 'stat-value armed';
+      } else {
+        modeEl.textContent = 'Idle';
+        modeEl.className   = 'stat-value idle';
+      }
+
+      document.getElementById('statSamples').textContent = state.sampleCount;
+
+      if (state.mouse) {
+        document.getElementById('statX').textContent = state.mouse.x.toFixed(4);
+        document.getElementById('statY').textContent = state.mouse.y.toFixed(4);
+      } else {
+        document.getElementById('statX').textContent = '—';
+        document.getElementById('statY').textContent = '—';
+      }
+    }
+
+    // ── Initial render ────────────────────────────────────────────────────────
+    renderDevPanel({ enabled: false, recording: false, sampleCount: 0, mouse: null });
+    refreshDataStatus();
+  </script>
+</body>
+</html>

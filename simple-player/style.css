@@ -84,6 +84,12 @@ input[type="checkbox"] {
   pointer-events: auto;
 }
 
+/* Shrink the full overlay while Dev UI is visible so it obstructs less video area. */
+.player-panel:has(.advanced-controls:not([hidden])) {
+  transform: scale(0.5);
+  transform-origin: left bottom;
+}
+
 .panel-inner {
   position: relative;
   padding: 1.9rem;
