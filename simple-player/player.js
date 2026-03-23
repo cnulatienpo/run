@@ -63,8 +63,9 @@ const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
 const DEFAULT_TRANSITION_SECONDS = 5;
 const FIXED_PLAYBACK_RATE = 1.0;
 const ACTIVE_SCALE_RANGE = 1.0;
-const STANDBY_ENTRY_SCALE = 0.15;
-const STANDBY_REVEAL_START = 0.5;
+const ACTIVE_MAX_SCALE = 2.0;
+const STANDBY_ENTRY_SCALE = 0.08;
+const STANDBY_REVEAL_START = 0.05;
 const MAX_STRETCH_FACTOR = 1.5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
@@ -274,12 +275,19 @@ function getStretchFactors(video) {
 }
 
 function setVideoScale(video, scale, playbackState = null) {
-  const vp = applyTransformOrigin(video, playbackState);
+  if (!video) return;
+
+  const vp = getVanishingPoint(video, playbackState);
+  const x = (vp?.x ?? 0.5) * 100;
+  const y = (vp?.y ?? 0.5) * 100;
+  video.style.transformOrigin = `${x}% ${y}%`;
+
   const stretch = getStretchFactors(video);
+  const aspectMode = getAspectMode();
   video.dataset.currentScale = String(scale);
   video.style.transform = `translate(-50%, -50%) scale(${scale * stretch.x}, ${scale * stretch.y})`;
-  video.style.objectFit = 'cover';
-  video.style.objectPosition = `${vp.x * 100}% ${vp.y * 100}%`;
+  video.style.objectFit = aspectMode === 'stretch' ? 'fill' : aspectMode;
+  video.style.objectPosition = `${x}% ${y}%`;
 }
 
 function setVideoBlur(video, blurPx) {
@@ -308,7 +316,10 @@ function updateZoomState() {
 
   const progress = clamp01(journeyElapsed / visibleDurationSecs);
   const easedProgress = progress * progress * 0.8;
-  const activeScale = 1 + (easedProgress * ACTIVE_SCALE_RANGE);
+  const activeScale = Math.min(
+    ACTIVE_MAX_SCALE,
+    1 + (easedProgress * ACTIVE_SCALE_RANGE)
+  );
   const activeOpacity = 1 - (easedProgress * 0.18);
 
   setVideoScale(activeVideo, activeScale, currentPlaybackState);
