@@ -1,3 +1,14 @@
+<!--
+  THIS IS THE ONLY ACTIVE PLAYER.
+
+  Do NOT create new players.
+  Do NOT duplicate this file.
+  Do NOT route any dev server to another HTML file.
+
+  All fixes must happen HERE: simple-player/
+
+  Other players are archived under archive/players/
+-->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -7,6 +18,7 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
+    <div id="activePlayerLabel" style="position:fixed;top:0;left:0;z-index:9999;background:rgba(0,0,0,0.75);color:#f3e8ae;font:700 11px/1 monospace;letter-spacing:.1em;padding:5px 10px;pointer-events:none;">ACTIVE PLAYER: simple-player</div>
     <main class="player-shell" id="playerShell">
       <div class="video-layer" id="layerA">
         <video id="videoA" class="player-video is-active" muted playsinline preload="auto"></video>
