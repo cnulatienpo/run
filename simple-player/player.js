@@ -1,3 +1,9 @@
+/*
+  THIS IS THE ONLY ACTIVE VIDEO PLAYER.
+  DO NOT CREATE ANOTHER PLAYER.
+  ALL FEATURE WORK MUST MODIFY THIS PLAYER IN PLACE.
+*/
+
 const TEST_MODE = (() => {
   const raw = new URLSearchParams(window.location.search).get('test');
   if (raw == null) {
@@ -63,8 +69,8 @@ const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
 const DEFAULT_TRANSITION_SECONDS = 5;
 const FIXED_PLAYBACK_RATE = 1.0;
 const ACTIVE_SCALE_RANGE = 1.0;
-const STANDBY_ENTRY_SCALE = 0.15;
-const STANDBY_REVEAL_START = 0.5;
+const STANDBY_ENTRY_SCALE = 0.12;
+const STANDBY_REVEAL_START = 0.22;
 const MAX_STRETCH_FACTOR = 1.5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
@@ -149,9 +155,6 @@ const worldQueueInitialized = new Set();
 let lastClip = null;
 
 function getTransitionDurationSeconds() {
-  if (transitionMode === 'cut') {
-    return 0;
-  }
   return Math.max(0.35, Number(transitionSeconds) || 0);
 }
 
@@ -168,13 +171,9 @@ function applyTransitionDuration(seconds) {
 }
 
 function setTransitionConfig(nextMode, nextSeconds) {
-  const allowedModes = new Set(['cut', 'zoom-quilt']);
-  transitionMode = allowedModes.has(nextMode) ? nextMode : DEFAULT_TRANSITION_MODE;
-  const requested = Math.max(0, Number(nextSeconds) || 0);
-  transitionSeconds = transitionMode === 'cut' ? 0 : Math.max(0.35, requested || DEFAULT_TRANSITION_SECONDS);
-  if (transitionMode !== 'zoom-quilt') {
-    transitionMode = 'zoom-quilt';
-  }
+  transitionMode = 'zoom-quilt';
+  const requested = Math.max(0.35, Number(nextSeconds) || 0);
+  transitionSeconds = Math.max(0.35, requested || DEFAULT_TRANSITION_SECONDS);
   applyTransitionDuration(getTransitionDurationSeconds());
 }
 
@@ -243,10 +242,16 @@ function applyTransformOrigin(video, playbackState = null) {
 }
 
 function getAspectMode() {
-  return window.__DEV__?.aspectMode === 'stretch' ? 'stretch' : 'cover';
+  const requestedMode = window.__DEV__?.aspectMode;
+  return ['cover', 'contain', 'stretch'].includes(requestedMode) ? requestedMode : 'cover';
+}
+
+function clampStretchFactor(value) {
+  return Math.min(MAX_STRETCH_FACTOR, Math.max(0.5, Number(value) || 1));
 }
 
 function getStretchFactors(video) {
+  const dev = window.__DEV__;
   const shellWidth = playerShell?.clientWidth || window.innerWidth || 1;
   const shellHeight = playerShell?.clientHeight || window.innerHeight || 1;
   const videoWidth = Number(video.videoWidth || shellWidth || 1);
@@ -258,27 +263,39 @@ function getStretchFactors(video) {
     return { x: 1, y: 1 };
   }
 
-  if (getAspectMode() !== 'stretch') {
+  const aspectMode = getAspectMode();
+
+  if (aspectMode === 'contain' || aspectMode === 'cover') {
     return { x: 1, y: 1 };
   }
 
+  const manualStretchX = clampStretchFactor(dev?.stretchX ?? 1);
+  const manualStretchY = clampStretchFactor(dev?.stretchY ?? 1);
+
   if (videoRatio > viewportRatio) {
-    return { x: 1, y: Math.min(MAX_STRETCH_FACTOR, videoRatio / viewportRatio) };
+    return {
+      x: manualStretchX,
+      y: clampStretchFactor((videoRatio / viewportRatio) * manualStretchY),
+    };
   }
 
   if (videoRatio < viewportRatio) {
-    return { x: Math.min(MAX_STRETCH_FACTOR, viewportRatio / videoRatio), y: 1 };
+    return {
+      x: clampStretchFactor((viewportRatio / videoRatio) * manualStretchX),
+      y: manualStretchY,
+    };
   }
 
-  return { x: 1, y: 1 };
+  return { x: manualStretchX, y: manualStretchY };
 }
 
 function setVideoScale(video, scale, playbackState = null) {
   const vp = applyTransformOrigin(video, playbackState);
   const stretch = getStretchFactors(video);
+  const aspectMode = getAspectMode();
   video.dataset.currentScale = String(scale);
   video.style.transform = `translate(-50%, -50%) scale(${scale * stretch.x}, ${scale * stretch.y})`;
-  video.style.objectFit = 'cover';
+  video.style.objectFit = aspectMode === 'stretch' ? 'fill' : aspectMode;
   video.style.objectPosition = `${vp.x * 100}% ${vp.y * 100}%`;
 }
 
@@ -307,9 +324,11 @@ function updateZoomState() {
   }
 
   const progress = clamp01(journeyElapsed / visibleDurationSecs);
-  const easedProgress = progress * progress * 0.8;
-  const activeScale = 1 + (easedProgress * ACTIVE_SCALE_RANGE);
-  const activeOpacity = 1 - (easedProgress * 0.18);
+  const vp = getVanishingPoint(activeVideo, currentPlaybackState);
+  const vpBias = 1 + (Math.abs(vp.x - 0.5) + Math.abs(vp.y - 0.5)) * 0.6;
+  const easedProgress = 1 - Math.pow(1 - progress, 2.15);
+  const activeScale = 1 + (easedProgress * ACTIVE_SCALE_RANGE * vpBias);
+  const activeOpacity = 1 - (easedProgress * 0.14);
 
   setVideoScale(activeVideo, activeScale, currentPlaybackState);
   setVideoOpacity(activeVideo, activeOpacity);
@@ -320,8 +339,9 @@ function updateZoomState() {
     const revealProgress = progress <= STANDBY_REVEAL_START
       ? 0
       : clamp01((progress - STANDBY_REVEAL_START) / (1 - STANDBY_REVEAL_START));
-    const standbyOpacity = revealProgress;
-    const standbyScale = STANDBY_ENTRY_SCALE + ((1 - STANDBY_ENTRY_SCALE) * (revealProgress * revealProgress));
+    const curvedReveal = 1 - Math.pow(1 - revealProgress, 2.5);
+    const standbyOpacity = Math.min(1, curvedReveal * 0.98);
+    const standbyScale = STANDBY_ENTRY_SCALE + ((1 - STANDBY_ENTRY_SCALE) * curvedReveal);
 
     setVideoScale(standbyVideo, standbyScale, standbyPlaybackState);
     setVideoOpacity(standbyVideo, standbyOpacity);
@@ -1016,11 +1036,14 @@ function updateStatusReadout() {
 
   statusReadout.innerHTML = [
     `<strong>test mode</strong> ${TEST_CONFIG.enabled ? 'enabled' : 'disabled (add ?test=1 to URL)'}`,
+    `<strong>active player</strong> simple-player/index.html`,
     `<strong>current clip path</strong> ${currentPlaybackState?.clip?.src || 'waiting'}`,
     `<strong>next clip path</strong> ${nextPreparedClip?.src || 'waiting'}`,
     `<strong>current world</strong> ${WORLD_DEFINITIONS[currentWorld]?.label || currentWorld}`,
     `<strong>next world</strong> ${pendingWorld ? WORLD_DEFINITIONS[pendingWorld]?.label || pendingWorld : '—'}`,
     `<strong>transition</strong> ${transitionMode} (${getTransitionDurationSeconds().toFixed(2)}s)`,
+    `<strong>aspect mode</strong> ${getAspectMode()}`,
+    `<strong>stretch</strong> ${clampStretchFactor(window.__DEV__?.stretchX ?? 1).toFixed(2)}x / ${clampStretchFactor(window.__DEV__?.stretchY ?? 1).toFixed(2)}y`,
     `<strong>playback rate</strong> ${(currentPlaybackState?.plan?.playbackRate || nextPreparedClip?.previewPlaybackRate || 1).toFixed(2)}x`,
     `<strong>entry offset</strong> ${(currentPlaybackState?.plan?.entryOffsetSeconds || 0).toFixed(2)}s`,
     `<strong>planned duration</strong> ${(currentPlaybackState?.plan?.visibleDurationSeconds || 0).toFixed(2)}s`,
@@ -1907,8 +1930,11 @@ initializePlayer();
 
     forceEntryOffset: null, // number (0–1) or null
     forceDuration: null, // seconds or null
-    transitionMode: DEFAULT_TRANSITION_MODE, // cut | crossfade | fade-through
+    transitionMode: DEFAULT_TRANSITION_MODE,
     transitionSeconds: DEFAULT_TRANSITION_SECONDS,
+    aspectMode: 'cover',
+    stretchX: 1,
+    stretchY: 1,
 
     showOverlay: true,
   };
@@ -1924,6 +1950,9 @@ initializePlayer();
   const durationInput = document.getElementById('uiForcedDuration');
   const transitionModeInput = document.getElementById('uiTransitionMode');
   const transitionSecondsInput = document.getElementById('uiTransitionSeconds');
+  const aspectModeInput = document.getElementById('uiAspectMode');
+  const stretchXInput = document.getElementById('uiStretchX');
+  const stretchYInput = document.getElementById('uiStretchY');
   const devPanelToggleButton = document.getElementById('uiToggleDevPanel');
   const advancedControlsSection = document.getElementById('advancedControls');
   const logStateButton = document.getElementById('uiLogState');
@@ -1985,12 +2014,9 @@ initializePlayer();
 
   if (transitionModeInput) {
     transitionModeInput.value = DEV.transitionMode;
-    if (!transitionModeInput.value) {
-      transitionModeInput.value = DEFAULT_TRANSITION_MODE;
-      DEV.transitionMode = DEFAULT_TRANSITION_MODE;
-    }
     transitionModeInput.onchange = (event) => {
-      DEV.transitionMode = event.target.value || DEFAULT_TRANSITION_MODE;
+      DEV.transitionMode = DEFAULT_TRANSITION_MODE;
+      event.target.value = DEFAULT_TRANSITION_MODE;
       setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
       DEV.transitionSeconds = transitionSeconds;
       if (transitionSecondsInput) {
@@ -2007,6 +2033,38 @@ initializePlayer();
       setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
       DEV.transitionSeconds = transitionSeconds;
       updateStatusReadout();
+    };
+  }
+
+  const refreshAspectPreview = () => {
+    resetVideoVisualState(activeVideo, currentPlaybackState);
+    resetVideoVisualState(standbyVideo, standbyVideo.__playbackState || null);
+    updateStatusReadout();
+  };
+
+  if (aspectModeInput) {
+    aspectModeInput.value = DEV.aspectMode;
+    aspectModeInput.onchange = (event) => {
+      DEV.aspectMode = event.target.value || 'cover';
+      refreshAspectPreview();
+    };
+  }
+
+  if (stretchXInput) {
+    stretchXInput.value = String(DEV.stretchX);
+    stretchXInput.oninput = (event) => {
+      DEV.stretchX = clampStretchFactor(event.target.value);
+      event.target.value = String(DEV.stretchX);
+      refreshAspectPreview();
+    };
+  }
+
+  if (stretchYInput) {
+    stretchYInput.value = String(DEV.stretchY);
+    stretchYInput.oninput = (event) => {
+      DEV.stretchY = clampStretchFactor(event.target.value);
+      event.target.value = String(DEV.stretchY);
+      refreshAspectPreview();
     };
   }
 
@@ -2080,3 +2138,11 @@ initializePlayer();
     return originalGetDuration(video, clip);
   };
 })();
+
+window.addEventListener('load', () => {
+  window.setTimeout(() => {
+    if (!sessionRunning && !playbackStarted) {
+      void startSession();
+    }
+  }, 120);
+});

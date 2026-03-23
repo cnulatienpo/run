@@ -1,5 +1,11 @@
 # RunnyVision – Developer Guide
 
+## Canonical video player rule
+- `simple-player/index.html` is the one and only active video player in this repo.
+- `dev/hud-dev-server.js` is the one and only dev-server entrypoint for video-player work.
+- Do not create, duplicate, fork, or revive another player for zoom, portrait, transitions, stretch, or dev-panel work.
+- All video-player feature work must modify `simple-player/` in place.
+
 ## Dev Setup
 - **HUD (renderer):** `npm run start:browser` (Express dev server @3000 with /api proxy)
 - **RV API (canonical backend):** `npx ts-node src/server.ts` (port 3001)
