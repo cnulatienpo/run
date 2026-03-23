@@ -61,6 +61,11 @@ const USE_SCRIPTED_TIMELINE = true;
 const SCRIPTED_DURATIONS_SECONDS = [60, 30, 10, 120, 75];
 const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
 const DEFAULT_TRANSITION_SECONDS = 5;
+const FIXED_PLAYBACK_RATE = 1.0;
+const ACTIVE_SCALE_RANGE = 1.0;
+const STANDBY_ENTRY_SCALE = 0.15;
+const STANDBY_REVEAL_START = 0.5;
+const MAX_STRETCH_FACTOR = 1.5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const ENTRY_MIN_RATIO = 0.1;
@@ -167,55 +172,133 @@ function setTransitionConfig(nextMode, nextSeconds) {
   transitionMode = allowedModes.has(nextMode) ? nextMode : DEFAULT_TRANSITION_MODE;
   const requested = Math.max(0, Number(nextSeconds) || 0);
   transitionSeconds = transitionMode === 'cut' ? 0 : Math.max(0.35, requested || DEFAULT_TRANSITION_SECONDS);
+  if (transitionMode !== 'zoom-quilt') {
+    transitionMode = 'zoom-quilt';
+  }
   applyTransitionDuration(getTransitionDurationSeconds());
 }
+
 
 function getStandbyRequiredReadyState() {
   return transitionMode === 'zoom-quilt' ? 3 : STANDBY_READY_STATE;
 }
 
-function getVanishingPoint(video) {
+function clamp01(value) {
+  return Math.min(1, Math.max(0, Number(value) || 0));
+}
+
+function getVanishingPoint(video, playbackState = null) {
   if (!video || !video.src) {
     return { x: 0.5, y: 0.5 };
   }
+
   try {
     const vpData = localStorage.getItem('vp:' + video.src);
     if (!vpData) return { x: 0.5, y: 0.5 };
     const parsed = JSON.parse(vpData);
-    if (parsed && parsed.points && Array.isArray(parsed.points) && parsed.points.length > 0) {
-      const pt = parsed.points[0];
-      return { x: pt.x || 0.5, y: pt.y || 0.5 };
+    const points = Array.isArray(parsed?.points) ? parsed.points : [];
+    if (!points.length) return { x: 0.5, y: 0.5 };
+
+    const clipTime = playbackState
+      ? getJourneyElapsed(video, playbackState) + (playbackState.plan?.entryOffsetSeconds || 0)
+      : Number(video.currentTime || 0);
+
+    const timedPoint = points.find((point) => Number.isFinite(point?.t) || Number.isFinite(point?.time));
+    if (!timedPoint) {
+      const pt = points[0];
+      return { x: clamp01(pt.x ?? 0.5), y: clamp01(pt.y ?? 0.5) };
     }
+
+    let previous = points[0];
+    let next = points[points.length - 1];
+    for (const point of points) {
+      const pointTime = Number(point?.t ?? point?.time ?? 0);
+      if (pointTime <= clipTime) {
+        previous = point;
+      }
+      if (pointTime >= clipTime) {
+        next = point;
+        break;
+      }
+    }
+
+    const previousTime = Number(previous?.t ?? previous?.time ?? 0);
+    const nextTime = Number(next?.t ?? next?.time ?? previousTime);
+    const span = Math.max(0.0001, nextTime - previousTime);
+    const mix = clamp01((clipTime - previousTime) / span);
+    const x = clamp01((Number(previous?.x ?? 0.5) * (1 - mix)) + (Number(next?.x ?? 0.5) * mix));
+    const y = clamp01((Number(previous?.y ?? 0.5) * (1 - mix)) + (Number(next?.y ?? 0.5) * mix));
+    return { x, y };
   } catch {}
+
   return { x: 0.5, y: 0.5 };
 }
 
-function applyTransformOrigin(video) {
-  const vp = getVanishingPoint(video);
+function applyTransformOrigin(video, playbackState = null) {
+  const vp = getVanishingPoint(video, playbackState);
   video.style.transformOrigin = `${vp.x * 100}% ${vp.y * 100}%`;
+  video.dataset.vpX = String(vp.x);
+  video.dataset.vpY = String(vp.y);
+  return vp;
 }
 
-function setVideoScale(video, scale) {
-  video.style.transform = `translate(-50%, -50%) scale(${scale})`;
+function getAspectMode() {
+  return window.__DEV__?.aspectMode === 'stretch' ? 'stretch' : 'cover';
+}
+
+function getStretchFactors(video) {
+  const shellWidth = playerShell?.clientWidth || window.innerWidth || 1;
+  const shellHeight = playerShell?.clientHeight || window.innerHeight || 1;
+  const videoWidth = Number(video.videoWidth || shellWidth || 1);
+  const videoHeight = Number(video.videoHeight || shellHeight || 1);
+  const viewportRatio = shellWidth / shellHeight;
+  const videoRatio = videoWidth / videoHeight;
+
+  if (!Number.isFinite(viewportRatio) || !Number.isFinite(videoRatio) || viewportRatio <= 0 || videoRatio <= 0) {
+    return { x: 1, y: 1 };
+  }
+
+  if (getAspectMode() !== 'stretch') {
+    return { x: 1, y: 1 };
+  }
+
+  if (videoRatio > viewportRatio) {
+    return { x: 1, y: Math.min(MAX_STRETCH_FACTOR, videoRatio / viewportRatio) };
+  }
+
+  if (videoRatio < viewportRatio) {
+    return { x: Math.min(MAX_STRETCH_FACTOR, viewportRatio / videoRatio), y: 1 };
+  }
+
+  return { x: 1, y: 1 };
+}
+
+function setVideoScale(video, scale, playbackState = null) {
+  const vp = applyTransformOrigin(video, playbackState);
+  const stretch = getStretchFactors(video);
+  video.dataset.currentScale = String(scale);
+  video.style.transform = `translate(-50%, -50%) scale(${scale * stretch.x}, ${scale * stretch.y})`;
+  video.style.objectFit = 'cover';
+  video.style.objectPosition = `${vp.x * 100}% ${vp.y * 100}%`;
 }
 
 function setVideoBlur(video, blurPx) {
-  video.style.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+  video.style.filter = 'none';
 }
 
-function resetVideoVisualState(video) {
-  setVideoScale(video, 1);
+function resetVideoVisualState(video, playbackState = null) {
+  setVideoScale(video, 1, playbackState);
   setVideoOpacity(video, 1);
   setVideoBlur(video, 0);
-  applyTransformOrigin(video);
+  applyTransformOrigin(video, playbackState);
 }
 
+
 function updateZoomState() {
-  if (!playbackStarted || !currentPlaybackState || isCrossfading) {
+  if (!playbackStarted || !currentPlaybackState) {
     return;
   }
 
-  const elapsedMs = Date.now() - currentPlaybackState.startedAt;
   const journeyElapsed = getJourneyElapsed(activeVideo, currentPlaybackState);
   const visibleDurationSecs = currentPlaybackState.plan.visibleDurationSeconds;
 
@@ -223,41 +306,29 @@ function updateZoomState() {
     return;
   }
 
-  const progress = Math.min(1, Math.max(0, journeyElapsed / visibleDurationSecs));
-  const easeProgress = progress * progress;
+  const progress = clamp01(journeyElapsed / visibleDurationSecs);
+  const easedProgress = progress * progress * 0.8;
+  const activeScale = 1 + (easedProgress * ACTIVE_SCALE_RANGE);
+  const activeOpacity = 1 - (easedProgress * 0.18);
 
-  // ACTIVE VIDEO: zoom out / scale up and fade
-  const activeScale = 1 + easeProgress * 1.5;
-  const activeOpacity = 1 - easeProgress * 0.5;
-  const activeBlurAmount = easeProgress > 0.6 ? (easeProgress - 0.6) * 10 : 0;
-
-  setVideoScale(activeVideo, activeScale);
+  setVideoScale(activeVideo, activeScale, currentPlaybackState);
   setVideoOpacity(activeVideo, activeOpacity);
-  setVideoBlur(activeVideo, activeBlurAmount);
+  setVideoBlur(activeVideo, 0);
 
-  // STANDBY VIDEO: show early as small portal, grow as time passes
   if (standbyVideo && nextPreparedClip && standbyVideo.readyState >= 2) {
-    const ENTRY_SCALE = 0.15;
-    const ENTRY_PROGRESS_THRESHOLD = 0.4;
+    const standbyPlaybackState = standbyVideo.__playbackState || null;
+    const revealProgress = progress <= STANDBY_REVEAL_START
+      ? 0
+      : clamp01((progress - STANDBY_REVEAL_START) / (1 - STANDBY_REVEAL_START));
+    const standbyOpacity = revealProgress;
+    const standbyScale = STANDBY_ENTRY_SCALE + ((1 - STANDBY_ENTRY_SCALE) * (revealProgress * revealProgress));
 
-    let standbyOpacity = 0;
-    let standbyScale = ENTRY_SCALE;
-
-    if (progress >= ENTRY_PROGRESS_THRESHOLD) {
-      const fadeInProgress = (progress - ENTRY_PROGRESS_THRESHOLD) / (1 - ENTRY_PROGRESS_THRESHOLD);
-      standbyOpacity = fadeInProgress;
-
-      const smoothFade = fadeInProgress * fadeInProgress;
-      standbyScale = ENTRY_SCALE + (1 - ENTRY_SCALE) * smoothFade;
-    }
-
-    setVideoScale(standbyVideo, standbyScale);
+    setVideoScale(standbyVideo, standbyScale, standbyPlaybackState);
     setVideoOpacity(standbyVideo, standbyOpacity);
-
-    const standbyBlurAmount = progress > 0.6 ? Math.max(0, (1 - progress) * 6) : 6;
-    setVideoBlur(standbyVideo, standbyBlurAmount);
+    setVideoBlur(standbyVideo, 0);
   }
 }
+
 
 function startZoomEngine() {
   if (transitionMode !== 'zoom-quilt' || zoomFrameId) {
@@ -451,7 +522,7 @@ function formatSeconds(totalSeconds) {
 }
 
 function getPlaybackRate() {
-  return randomBetween(1.0, 1.1);
+  return FIXED_PLAYBACK_RATE;
 }
 
 function getVisibleDuration(video, clip) {
@@ -491,7 +562,8 @@ function resetVideo(video) {
   video.pause();
   video.removeAttribute('src');
   video.load();
-  video.playbackRate = 1;
+  video.playbackRate = FIXED_PLAYBACK_RATE;
+  video.__playbackState = null;
   video.dataset.lastTimeupdateAt = '';
   video.style.opacity = '0';
   setVideoScale(video, 1);
@@ -501,7 +573,8 @@ function resetVideo(video) {
 function stopVideo(video) {
   video.pause();
   video.classList.remove('is-active');
-  video.playbackRate = 1;
+  video.playbackRate = FIXED_PLAYBACK_RATE;
+  video.__playbackState = null;
   video.style.opacity = '0';
   setVideoScale(video, 1);
   setVideoBlur(video, 0);
@@ -546,8 +619,8 @@ function getScriptedWorldSequence() {
   return [
     { world: 'grey', direction: 'forward' },
     { world: 'clown', direction: 'forward' },
-    { world: 'clown', direction: 'reverse' },
-    { world: 'grey', direction: 'reverse' },
+    { world: 'clown', direction: 'forward' },
+    { world: 'grey', direction: 'forward' },
   ];
 }
 
@@ -559,8 +632,7 @@ function getScriptedIndicesForWorld(worldKey) {
   }
 
   const forward = SCRIPTED_DURATIONS_SECONDS.map((_, index) => index % count);
-  const reverse = [...forward].reverse();
-  return { forward, reverse };
+  return { forward, reverse: forward };
 }
 
 function takeNextScriptedClip() {
@@ -571,7 +643,7 @@ function takeNextScriptedClip() {
   const stepInPhase = stepInCycle % stepsPerWorld;
   const phase = worlds[worldPhase];
   const indices = getScriptedIndicesForWorld(phase.world);
-  const sequence = phase.direction === 'reverse' ? indices.reverse : indices.forward;
+  const sequence = indices.forward;
   const clipIndex = sequence[stepInPhase];
   const clip = clipGroups[phase.world]?.[clipIndex];
 
@@ -1054,9 +1126,9 @@ function setStandbySource(clip) {
   // In zoom-quilt mode, prepare standby as a visible portal layer early
   if (transitionMode === 'zoom-quilt') {
     setVideoOpacity(standbyVideo, 0);
-    setVideoScale(standbyVideo, 0.15);
-    setVideoBlur(standbyVideo, 6);
-    applyTransformOrigin(standbyVideo);
+    setVideoScale(standbyVideo, STANDBY_ENTRY_SCALE, standbyVideo.__playbackState || null);
+    setVideoBlur(standbyVideo, 0);
+    applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
   }
 }
 
@@ -1168,10 +1240,10 @@ async function primeClipOnVideo(video, clip) {
   }
 
   const plan = buildPlaybackPlan(video, clip);
-  video.playbackRate = plan.playbackRate;
+  video.playbackRate = FIXED_PLAYBACK_RATE;
   video.currentTime = Math.min(plan.entryOffsetSeconds, Math.max(0, (video.duration || 0) - WRAP_SAFETY_SECONDS));
 
-  applyTransformOrigin(video);
+  applyTransformOrigin(video, null);
 
   logEvent('clip_primed', {
     clip: clip.src,
@@ -1185,14 +1257,17 @@ async function primeClipOnVideo(video, clip) {
     clipDuration: plan.clipDurationSeconds,
   });
 
-  return {
+  const playbackState = {
     clip,
-    plan,
+    plan: { ...plan, playbackRate: FIXED_PLAYBACK_RATE },
     didWrap: false,
     isExtended: false,
     startedAt: Date.now(),
   };
+  video.__playbackState = playbackState;
+  return playbackState;
 }
+
 
 async function startPlaybackOnActiveVideo(clip) {
   const playbackState = await primeClipOnVideo(activeVideo, clip);
@@ -1210,12 +1285,13 @@ async function startPlaybackOnActiveVideo(clip) {
   pendingWorld = null;
   activeVideo.classList.add('is-active');
   standbyVideo.classList.remove('is-active');
-  resetVideoVisualState(activeVideo);
-  applyTransformOrigin(activeVideo);
+  resetVideoVisualState(activeVideo, currentPlaybackState);
+  applyTransformOrigin(activeVideo, currentPlaybackState);
   setVideoOpacity(standbyVideo, 0);
-  setVideoScale(standbyVideo, 1);
+  setVideoScale(standbyVideo, STANDBY_ENTRY_SCALE);
   setVideoBlur(standbyVideo, 0);
-  applyTransformOrigin(standbyVideo);
+  standbyVideo.__playbackState = null;
+  applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
   await safePlay(activeVideo);
   updateWorldButtons();
   updateStatusReadout();
@@ -1223,8 +1299,10 @@ async function startPlaybackOnActiveVideo(clip) {
   // Start continuous zoom engine if using zoom-quilt
   if (transitionMode === 'zoom-quilt') {
     startZoomEngine();
+    updateZoomState();
   }
 }
+
 
 function finishStopAfterClip() {
   pendingFade = false;
@@ -1349,12 +1427,21 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   activeVideo.classList.add('is-active');
   standbyVideo.classList.add('is-active');
 
-  // CONTINUOUS ZOOM QUILT: standby is already small and visible via updateZoomState,
-  // so we just let the zoom complete naturally. No burst animation needed.
   if (transitionMode === 'zoom-quilt') {
-    // Standby is controlled by updateZoomState() during playback
-    // No burst transform needed here
-    await new Promise((resolve) => window.setTimeout(resolve, transitionDurationMs));
+    const visualReadyAt = Date.now() + transitionDurationMs;
+    while (Date.now() < visualReadyAt) {
+      updateZoomState();
+      await new Promise((resolve) => window.setTimeout(resolve, 16));
+    }
+    updateZoomState();
+    const standbyScaleNow = Number.parseFloat(standbyVideo.dataset.currentScale || '0');
+    if (!Number.isFinite(standbyScaleNow) || standbyScaleNow < 0.985) {
+      pendingFade = false;
+      isCrossfading = false;
+      extendCurrentClip();
+      beginDelayedCrossfadePolling();
+      return;
+    }
   }
 
   const previousActive = activeVideo;
@@ -1366,12 +1453,14 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
 
   activeVideo.classList.add('is-active');
   standbyVideo.classList.remove('is-active');
-  resetVideoVisualState(activeVideo);
-  applyTransformOrigin(activeVideo);
+  resetVideoVisualState(activeVideo, currentPlaybackState);
+  applyTransformOrigin(activeVideo, currentPlaybackState);
   setVideoOpacity(standbyVideo, 0);
-  setVideoScale(standbyVideo, 0.15);
-  setVideoBlur(standbyVideo, 6);
-  applyTransformOrigin(standbyVideo);
+  setVideoScale(standbyVideo, STANDBY_ENTRY_SCALE, standbyVideo.__playbackState || null);
+  setVideoOpacity(standbyVideo, 0);
+  setVideoBlur(standbyVideo, 0);
+  applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
+  standbyVideo.__playbackState = null;
   standbyVideo.pause();
 
   prepareNextStandbyClip();
@@ -1385,8 +1474,10 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   // Restart zoom engine for new active video
   if (transitionMode === 'zoom-quilt') {
     startZoomEngine();
+    updateZoomState();
   }
 }
+
 
 function handleActiveVideoTimeUpdate(video) {
   video.dataset.lastTimeupdateAt = String(Date.now());
