@@ -74,8 +74,10 @@ const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
 const DEFAULT_TRANSITION_SECONDS = 5;
 const FIXED_PLAYBACK_RATE = 1.0;
 const ACTIVE_SCALE_RANGE = 1.0;
-const STANDBY_ENTRY_SCALE = 0.12;
-const STANDBY_REVEAL_START = 0.22;
+const ACTIVE_MAX_SCALE = 2.0;
+const STANDBY_ENTRY_SCALE_MIN = 0.08;
+const STANDBY_ENTRY_SCALE_MAX = 0.12;
+const STANDBY_REVEAL_START = 0.05;
 const MAX_STRETCH_FACTOR = 1.5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
@@ -313,6 +315,11 @@ function resetVideoVisualState(video, playbackState = null) {
   applyTransformOrigin(video, playbackState);
 }
 
+function getStandbyEntryScale(video, playbackState = null) {
+  const vp = getVanishingPoint(video, playbackState);
+  const bias = clamp01((Math.abs(vp.x - 0.5) + Math.abs(vp.y - 0.5)) * 2);
+  return STANDBY_ENTRY_SCALE_MAX - ((STANDBY_ENTRY_SCALE_MAX - STANDBY_ENTRY_SCALE_MIN) * bias);
+}
 
 function updateZoomState() {
   if (!playbackStarted || !currentPlaybackState) {
@@ -329,8 +336,8 @@ function updateZoomState() {
   const progress = clamp01(journeyElapsed / visibleDurationSecs);
   const vp = getVanishingPoint(activeVideo, currentPlaybackState);
   const vpBias = 1 + (Math.abs(vp.x - 0.5) + Math.abs(vp.y - 0.5)) * 0.6;
-  const easedProgress = 1 - Math.pow(1 - progress, 2.15);
-  const activeScale = 1 + (easedProgress * ACTIVE_SCALE_RANGE * vpBias);
+  const easedProgress = clamp01(progress * progress * 0.8);
+  const activeScale = Math.min(ACTIVE_MAX_SCALE, 1 + (easedProgress * ACTIVE_SCALE_RANGE * vpBias));
   const activeOpacity = 1 - (easedProgress * 0.14);
 
   setVideoScale(activeVideo, activeScale, currentPlaybackState);
@@ -344,7 +351,8 @@ function updateZoomState() {
       : clamp01((progress - STANDBY_REVEAL_START) / (1 - STANDBY_REVEAL_START));
     const curvedReveal = 1 - Math.pow(1 - revealProgress, 2.5);
     const standbyOpacity = Math.min(1, curvedReveal * 0.98);
-    const standbyScale = STANDBY_ENTRY_SCALE + ((1 - STANDBY_ENTRY_SCALE) * curvedReveal);
+    const standbyEntryScale = getStandbyEntryScale(standbyVideo, standbyPlaybackState);
+    const standbyScale = standbyEntryScale + ((1 - standbyEntryScale) * curvedReveal);
 
     setVideoScale(standbyVideo, standbyScale, standbyPlaybackState);
     setVideoOpacity(standbyVideo, standbyOpacity);
@@ -1131,7 +1139,7 @@ function setStandbySource(clip) {
   // In zoom-quilt mode, prepare standby as a visible portal layer early
   if (transitionMode === 'zoom-quilt') {
     setVideoOpacity(standbyVideo, 0);
-    setVideoScale(standbyVideo, STANDBY_ENTRY_SCALE, standbyVideo.__playbackState || null);
+    setVideoScale(standbyVideo, getStandbyEntryScale(standbyVideo, standbyVideo.__playbackState || null), standbyVideo.__playbackState || null);
     setVideoBlur(standbyVideo, 0);
     applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
   }
@@ -1292,7 +1300,7 @@ async function startPlaybackOnActiveVideo(clip) {
   resetVideoVisualState(activeVideo, currentPlaybackState);
   applyTransformOrigin(activeVideo, currentPlaybackState);
   setVideoOpacity(standbyVideo, 0);
-  setVideoScale(standbyVideo, STANDBY_ENTRY_SCALE);
+  setVideoScale(standbyVideo, getStandbyEntryScale(standbyVideo, standbyVideo.__playbackState || null));
   setVideoBlur(standbyVideo, 0);
   standbyVideo.__playbackState = null;
   applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
@@ -1460,7 +1468,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   resetVideoVisualState(activeVideo, currentPlaybackState);
   applyTransformOrigin(activeVideo, currentPlaybackState);
   setVideoOpacity(standbyVideo, 0);
-  setVideoScale(standbyVideo, STANDBY_ENTRY_SCALE, standbyVideo.__playbackState || null);
+  setVideoScale(standbyVideo, getStandbyEntryScale(standbyVideo, standbyVideo.__playbackState || null), standbyVideo.__playbackState || null);
   setVideoOpacity(standbyVideo, 0);
   setVideoBlur(standbyVideo, 0);
   applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
