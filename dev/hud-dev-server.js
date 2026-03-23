@@ -2,7 +2,7 @@
 // ============================================================
 // DEV HALLWAY — ONE DOOR ONLY
 //
-// CANONICAL PLAYER: simple-player
+// CANONICAL PLAYER: simple-player/index.html
 // DO NOT change WEB_ROOT to any other directory.
 // DO NOT add fallback candidates.
 // All other players are archived under archive/players/.
@@ -68,13 +68,10 @@ app.use('/api', (req, res, next) => {
   ws: true,
 }));
 
-// Proxy /rv → backend
-app.use('/rv', createProxyMiddleware({
-  target: RV_BACKEND_TARGET,
-  changeOrigin: true,
-  ws: true,
-  logLevel: 'warn',
-}));
+// Archived route guard: /rv must never open another player.
+app.use('/rv', (_req, res) => {
+  res.status(410).type('text/plain').send('ARCHIVED: /rv is disabled. Use /simple-player/index.html.');
+});
 
 // All unmatched routes return the canonical player index — no fallback to other HTML
 app.get('*', (_req, res) => {
@@ -83,7 +80,7 @@ app.get('*', (_req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log('=================================================');
-  console.log(`ACTIVE PLAYER: simple-player`);
+  console.log(`ACTIVE PLAYER: simple-player/index.html`);
   console.log(`URL:           http://localhost:${PORT}`);
   console.log(`Root:          ${WEB_ROOT}`);
   console.log('=================================================');

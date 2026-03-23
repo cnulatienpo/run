@@ -1,9 +1,16 @@
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
 /**
  * RunnyVision Player - Atom-based video streaming
  * Uses authenticated B2 proxy to play video atoms
  */
 
-export class RunnyVisionPlayer {
+class RunnyVisionPlayer {
   constructor(videoAElement, videoBElement, options = {}) {
     this.videoA = videoAElement;
     this.videoB = videoBElement;
@@ -122,4 +129,8 @@ export class RunnyVisionPlayer {
     this.standby.pause();
     this.onStatusChange('Stopped');
   }
+}
+
+if (typeof window !== 'undefined') {
+  window.__ARCHIVED_RUNNYVISION_PLAYER_AUTH__ = { RunnyVisionPlayer };
 }

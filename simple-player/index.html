@@ -1,13 +1,12 @@
 <!--
-  THIS IS THE ONLY ACTIVE PLAYER.
+/*
+THIS IS THE ONLY VIDEO PLAYER.
 
-  Do NOT create new players.
-  Do NOT duplicate this file.
-  Do NOT route any dev server to another HTML file.
+ALL FIXES MUST HAPPEN HERE.
 
-  All fixes must happen HERE: simple-player/
-
-  Other players are archived under archive/players/
+DO NOT CREATE NEW PLAYERS.
+DO NOT EDIT ARCHIVED PLAYERS.
+*/
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +17,7 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div id="activePlayerLabel" style="position:fixed;top:0;left:0;z-index:9999;background:rgba(0,0,0,0.75);color:#f3e8ae;font:700 11px/1 monospace;letter-spacing:.1em;padding:5px 10px;pointer-events:none;">ACTIVE PLAYER: simple-player</div>
+    <div id="activePlayerLabel" style="position:fixed;top:0;left:0;z-index:9999;background:rgba(0,0,0,0.75);color:#f3e8ae;font:700 11px/1 monospace;letter-spacing:.1em;padding:5px 10px;pointer-events:none;">ACTIVE PLAYER: simple-player/index.html</div>
     <main class="player-shell" id="playerShell">
       <div class="video-layer" id="layerA">
         <video id="videoA" class="player-video is-active" muted playsinline preload="auto"></video>
@@ -26,6 +25,7 @@
       <div class="video-layer" id="layerB">
         <video id="videoB" class="player-video" muted playsinline preload="auto"></video>
       </div>
+      <canvas id="loopFreezeFrame" class="loop-freeze-frame" aria-hidden="true"></canvas>
       <audio id="musicPlayer" class="music-player" controls preload="metadata"></audio>
 
       <section class="player-panel" aria-label="Player controls">
@@ -122,18 +122,28 @@
                 <span class="control-label">Force duration (seconds)</span>
                 <input id="uiForcedDuration" class="scribble-input" type="number" step="0.1" min="0" placeholder="Auto" />
               </label>
-
-              <label class="advanced-control" for="uiTransitionMode">
-                <span class="control-label">Transition mode</span>
-                <select id="uiTransitionMode" class="scribble-select">
-                  <option value="cut" selected>Cut</option>
-                  <option value="zoom-quilt">Zoom Quilt</option>
-                </select>
-              </label>
-
               <label class="advanced-control" for="uiTransitionSeconds">
                 <span class="control-label">Transition seconds</span>
                 <input id="uiTransitionSeconds" class="scribble-input" type="number" step="0.1" min="0" value="0.8" />
+              </label>
+
+              <label class="advanced-control" for="uiAspectMode">
+                <span class="control-label">Aspect mode</span>
+                <select id="uiAspectMode" class="scribble-select">
+                  <option value="cover" selected>Cover</option>
+                  <option value="contain">Contain</option>
+                  <option value="stretch">Stretch</option>
+                </select>
+              </label>
+
+              <label class="advanced-control" for="uiStretchX">
+                <span class="control-label">Stretch X (0.5-1.5)</span>
+                <input id="uiStretchX" class="scribble-input" type="number" step="0.05" min="0.5" max="1.5" value="1" />
+              </label>
+
+              <label class="advanced-control" for="uiStretchY">
+                <span class="control-label">Stretch Y (0.5-1.5)</span>
+                <input id="uiStretchY" class="scribble-input" type="number" step="0.05" min="0.5" max="1.5" value="1" />
               </label>
             </div>
 
