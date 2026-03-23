@@ -407,7 +407,10 @@ function updateZoomState() {
   const vp = getVanishingPoint(activeVideo, currentPlaybackState);
   const vpBias = 1 + (Math.abs(vp.x - 0.5) + Math.abs(vp.y - 0.5)) * 0.6;
   const easedProgress = clamp01(progress * progress * 0.8);
-  const activeScale = Math.min(ACTIVE_MAX_SCALE, 1 + (easedProgress * ACTIVE_SCALE_RANGE * vpBias));
+ const activeScale = Math.min(
+  ACTIVE_MAX_SCALE,
+  1 + (easedProgress * ACTIVE_SCALE_RANGE)
+);
   const activeOpacity = 1 - (easedProgress * 0.14);
 
   setVideoScale(activeVideo, activeScale, currentPlaybackState);
@@ -416,7 +419,7 @@ function updateZoomState() {
 
   if (standbyVideo && nextPreparedClip && standbyVideo.readyState >= 2) {
     const standbyPlaybackState = standbyVideo.__playbackState || null;
-    const revealProgress = progress <= STANDBY_REVEAL_START
+    const revealProgress = progress <= STANDBY_REVEAL_START= 0.22
       ? 0
       : clamp01((progress - STANDBY_REVEAL_START) / (1 - STANDBY_REVEAL_START));
     const curvedReveal = 1 - Math.pow(1 - revealProgress, 2.5);
