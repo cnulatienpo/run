@@ -103,6 +103,7 @@ const fullscreenButton = document.getElementById('fullscreenButton');
 const statusReadout = document.getElementById('statusReadout');
 const musicUpload = document.getElementById('musicUpload');
 const musicPlayer = document.getElementById('musicPlayer');
+const loopFreezeFrame = document.getElementById('loopFreezeFrame');
 
 let activeVideo = videoA;
 let standbyVideo = videoB;
@@ -150,6 +151,7 @@ let worldStartTime = Date.now();
 let minWorldDuration = 60000;
 let lastWorldBlockLogAt = 0;
 let zoomFrameId = 0;
+let activeLoopSeekToken = 0;
 const videoLoadState = new WeakMap();
 const preloadCache = new Map();
 const preloadLoading = new Set();
@@ -301,6 +303,59 @@ function setVideoScale(video, scale, playbackState = null) {
 
 function setVideoBlur(video, blurPx) {
   video.style.filter = 'none';
+}
+
+function showLoopFreezeFrame(video, playbackState = null) {
+  if (!loopFreezeFrame || !video || video.readyState < 2) {
+    return false;
+  }
+
+  const shellWidth = playerShell?.clientWidth || window.innerWidth || video.videoWidth || 1;
+  const shellHeight = playerShell?.clientHeight || window.innerHeight || video.videoHeight || 1;
+  if (!shellWidth || !shellHeight) {
+    return false;
+  }
+
+  const width = Math.max(1, Math.round(shellWidth));
+  const height = Math.max(1, Math.round(shellHeight));
+  if (loopFreezeFrame.width !== width || loopFreezeFrame.height !== height) {
+    loopFreezeFrame.width = width;
+    loopFreezeFrame.height = height;
+  }
+
+  const context = loopFreezeFrame.getContext('2d');
+  if (!context) {
+    return false;
+  }
+
+  const computedStyle = window.getComputedStyle(video);
+  context.save();
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = '#000';
+  context.fillRect(0, 0, width, height);
+  context.translate(width / 2, height / 2);
+  const matrix = new DOMMatrixReadOnly(computedStyle.transform === 'none' ? undefined : computedStyle.transform);
+  context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+  context.drawImage(video, -width / 2, -height / 2, width, height);
+  context.restore();
+
+  if (playbackState) {
+    loopFreezeFrame.dataset.clip = playbackState.clip?.src || '';
+    loopFreezeFrame.dataset.journeyElapsed = String(getJourneyElapsed(video, playbackState));
+  }
+
+  loopFreezeFrame.classList.add('is-visible');
+  return true;
+}
+
+function hideLoopFreezeFrame() {
+  if (!loopFreezeFrame) {
+    return;
+  }
+
+  loopFreezeFrame.classList.remove('is-visible');
+  delete loopFreezeFrame.dataset.clip;
+  delete loopFreezeFrame.dataset.journeyElapsed;
 }
 
 function resetVideoVisualState(video, playbackState = null) {
@@ -847,6 +902,64 @@ function getJourneyElapsed(video, playbackState) {
 function shouldStartFade(video, playbackState) {
   return getJourneyElapsed(video, playbackState) >= playbackState.plan.fadeStartSeconds;
 }
+
+async function continueWrappedClip(video, playbackState) {
+  if (!video || !playbackState) {
+    return;
+  }
+
+  const seekToken = ++activeLoopSeekToken;
+  const frozeFrame = showLoopFreezeFrame(video, playbackState);
+  const wrapTarget = Math.max(0, Math.min(
+    Math.max(0, (video.duration || 0) - WRAP_SAFETY_SECONDS),
+    WRAP_SAFETY_SECONDS
+  ));
+  const wasPaused = video.paused;
+
+  playbackState.didWrap = true;
+
+  try {
+    video.pause();
+    video.currentTime = wrapTarget;
+    await new Promise((resolve) => {
+      let settled = false;
+      const cleanup = () => {
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onError);
+      };
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve();
+      };
+      const onSeeked = () => finish();
+      const onError = () => finish();
+      video.addEventListener('seeked', onSeeked, { once: true });
+      video.addEventListener('error', onError, { once: true });
+      window.setTimeout(finish, frozeFrame ? 120 : 0);
+    });
+
+    if (!wasPaused) {
+      await safePlay(video);
+    }
+  } finally {
+    window.setTimeout(() => {
+      if (seekToken === activeLoopSeekToken) {
+        hideLoopFreezeFrame();
+      }
+    }, frozeFrame ? 80 : 0);
+  }
+
+  logEvent('clip_wrapped', {
+    clip: playbackState.clip?.src || null,
+    world: playbackState.clip?.world || null,
+    extendedLoop: false,
+    freezeFrameUsed: frozeFrame,
+  });
+}
 function isStandbyReadyForCrossfade() {
   return Boolean(nextPreparedClip) && standbyVideo.readyState >= getStandbyRequiredReadyState();
 }
@@ -1274,6 +1387,7 @@ async function primeClipOnVideo(video, clip) {
 
 
 async function startPlaybackOnActiveVideo(clip) {
+  hideLoopFreezeFrame();
   const playbackState = await primeClipOnVideo(activeVideo, clip);
   if (!playbackState) {
     const fallbackClip = takeNextClipForWorld(currentWorld, currentPlaybackState?.clip || null);
@@ -1306,6 +1420,7 @@ async function startPlaybackOnActiveVideo(clip) {
 
 
 function finishStopAfterClip() {
+  hideLoopFreezeFrame();
   pendingFade = false;
   playbackStarted = false;
   sessionRunning = false;
@@ -1331,6 +1446,7 @@ function finishStopAfterClip() {
 }
 
 async function crossfadeToPreparedClip(trigger = 'timing') {
+  hideLoopFreezeFrame();
   if (pendingFade || isCrossfading || !currentPlaybackState) {
     return;
   }
@@ -1488,16 +1604,7 @@ function handleActiveVideoTimeUpdate(video) {
     && currentPlaybackState.plan.wraps
     && !currentPlaybackState.didWrap
   ) {
-    if (!currentPlaybackState.didWrap) {
-      currentPlaybackState.didWrap = true;
-    }
-    video.currentTime = 0.01;
-    void safePlay(video);
-    logEvent('clip_wrapped', {
-      clip: currentPlaybackState.clip.src,
-      world: currentPlaybackState.clip.world,
-      extendedLoop: false,
-    });
+    void continueWrappedClip(video, currentPlaybackState);
     return;
   }
 
@@ -1513,16 +1620,7 @@ function handleActiveVideoEnded(video) {
   }
 
   if (currentPlaybackState?.plan.wraps && !currentPlaybackState.didWrap) {
-    if (!currentPlaybackState.didWrap) {
-      currentPlaybackState.didWrap = true;
-    }
-    video.currentTime = 0.01;
-    void safePlay(video);
-    logEvent('clip_wrapped', {
-      clip: currentPlaybackState?.clip?.src || null,
-      world: currentPlaybackState?.clip?.world || null,
-      extendedLoop: false,
-    });
+    void continueWrappedClip(video, currentPlaybackState);
     return;
   }
 
