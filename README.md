@@ -6,14 +6,17 @@
 - Do not create, duplicate, fork, or revive another player for zoom, portrait, transitions, stretch, or dev-panel work.
 - All video-player feature work must modify `simple-player/` in place.
 
+## ONLY PLAYER
+- `simple-player/index.html`
+
 ## Dev Setup
-- **HUD (renderer):** `npm run start:browser` (Express dev server @3000 with /api proxy)
+- **Player:** `npm run start:browser` (Express dev server @3000 serving `simple-player/index.html` with /api proxy)
 - **RV API (canonical backend):** `npx ts-node src/server.ts` (port 3001)
 - **Legacy backend:** `node backend/server.js` (port 4000; only needed for streaming ingest)
 - **rv-app static preview:** `npx tsc -p rv-app && http-server rv-app/public -p 4173`
 
 ## Ports
-- HUD: 3000
+- Player: 3000
 - RV API: 3001
 - Legacy: 4000
 - rv-app: 4173 (optional dev serve)
@@ -22,14 +25,14 @@
 The RV API on **port 3001** is the canonical backend. `backend/server.js` is a legacy ingest service—only run it when you specifically need streaming ingest or SSE playback. For standard development, rely on `src/server.ts` exclusively.
 
 ## Proxying
-HUD calls to `/api/*` are automatically proxied to `http://localhost:3001` by the Express dev server. No browser CORS errors should occur when using `npm run start:browser`.
+The active player calls to `/api/*` are automatically proxied to `http://localhost:3001` by the Express dev server. No browser CORS errors should occur when using `npm run start:browser`.
 
 ## Electron packaging
-The packaged Electron app serves HUD and rv-app assets from the `app://` custom protocol, keeping both surfaces on a single origin.
+The packaged Electron app serves the active player and rv-app assets from the `app://` custom protocol, keeping both surfaces on a single origin.
 
 # Quick Verification Steps
 
-These steps verify that all components (HUD, rv-app, RV API) are built and serve correctly.
+These steps verify that the active player, rv-app, and RV API are built and serve correctly.
 
 ### 1. Build rv-app
 
@@ -71,23 +74,17 @@ Listens at:
 http://localhost:3001
 
 
-### 4. Serve the HUD
+### 4. Serve the player
 Recommended (proxy-capable):
 
 
 node dev/hud-dev-server.js
 
-Temporary (not recommended):
-
-
-python3 -m http.server 3000
-
 Then open:
-  • /index.html (modern HUD), or  
-  • /renderer/index.html (legacy HUD)
+  • /simple-player/index.html
 
 ### 5. End-to-End Check
-  • HUD loads at http://localhost:3000  
+  • simple-player loads at http://localhost:3000/simple-player/index.html  
   • rv-app loads at http://localhost:4173  
   • RV API answers at http://localhost:3001/api/health  
 

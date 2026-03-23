@@ -1,4 +1,11 @@
-export const ENTRY_MODES = [
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
+const ENTRY_MODES = [
   'start_forward',
   'middle_forward',
   'end_forward',
@@ -48,7 +55,7 @@ function supportsNegativePlaybackRate(video) {
   }
 }
 
-export function stopReverse(video) {
+function stopReverse(video) {
   const session = reverseSessions.get(video);
   if (!session) return;
   session.active = false;
@@ -56,7 +63,7 @@ export function stopReverse(video) {
   reverseSessions.delete(video);
 }
 
-export function playReverse(video, options = {}) {
+function playReverse(video, options = {}) {
   const startTime =
     typeof options.fromTime === 'number' ? options.fromTime : video.currentTime;
   const speed = typeof options.speed === 'number' ? options.speed : 1;
@@ -100,7 +107,7 @@ export function playReverse(video, options = {}) {
  * Apply an entry mode without reloading. Sets currentTime and playback direction.
  * Returns resolved runtime details for debugging and UI display.
  */
-export async function applyEntryMode(video, mode, options = {}) {
+async function applyEntryMode(video, mode, options = {}) {
   await ensureMetadata(video);
 
   const parsed = parseEntryMode(mode);
@@ -141,5 +148,14 @@ export async function applyEntryMode(video, mode, options = {}) {
     startTime,
     duration,
     reverseMethod: useManualReverse ? 'manual' : 'native',
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.__ARCHIVED_FRAME_ENTRY_ENTRY_MODE__ = {
+    ENTRY_MODES,
+    stopReverse,
+    playReverse,
+    applyEntryMode,
   };
 }

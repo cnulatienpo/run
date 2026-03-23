@@ -1,6 +1,13 @@
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
 const { WebSocketServer, WebSocket } = require('ws');
 const path = require('path');
-const { MediaGateway } = require('./mediaGateway');
+const MediaGateway = globalThis.__ARCHIVED_RUNNYVISION_MEDIA_GATEWAY__?.MediaGateway;
 
 function startSignaling(server, options = {}) {
   const wss = new WebSocketServer({ server });
@@ -73,4 +80,4 @@ function startSignaling(server, options = {}) {
   return { wss, gateway };
 }
 
-module.exports = { startSignaling };
+globalThis.__ARCHIVED_RUNNYVISION_SIGNALING__ = { startSignaling };

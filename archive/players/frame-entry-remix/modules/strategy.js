@@ -1,25 +1,33 @@
-import { ENTRY_MODES } from './entryMode.js';
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
+const ENTRY_MODES =
+  window.__ARCHIVED_FRAME_ENTRY_ENTRY_MODE__?.ENTRY_MODES || [];
 
 const cycleOrder = ENTRY_MODES.slice();
 let cycleIndex = 0;
 
-export function randomEntryMode() {
+function randomEntryMode() {
   const idx = Math.floor(Math.random() * ENTRY_MODES.length);
   return ENTRY_MODES[idx];
 }
 
-export function nextCycledMode() {
+function nextCycledMode() {
   const mode = cycleOrder[cycleIndex % cycleOrder.length];
   cycleIndex += 1;
   return mode;
 }
 
-export function chooseAutoMode(context) {
+function chooseAutoMode(context) {
   if (context.randomize) return randomEntryMode();
   return context.baseMode;
 }
 
-export function chooseSmartMode(context) {
+function chooseSmartMode(context) {
   const prev = context.previousClipState;
   if (!prev) return 'middle_forward';
 
@@ -38,7 +46,7 @@ export function chooseSmartMode(context) {
   return context.baseMode || 'start_forward';
 }
 
-export function resolveEntryMode({
+function resolveEntryMode({
   strategy = 'manual',
   baseMode = 'start_forward',
   randomize = false,
@@ -54,4 +62,14 @@ export function resolveEntryMode({
   }
   if (randomize) return randomEntryMode();
   return baseMode;
+}
+
+if (typeof window !== 'undefined') {
+  window.__ARCHIVED_FRAME_ENTRY_STRATEGY__ = {
+    randomEntryMode,
+    nextCycledMode,
+    chooseAutoMode,
+    chooseSmartMode,
+    resolveEntryMode,
+  };
 }

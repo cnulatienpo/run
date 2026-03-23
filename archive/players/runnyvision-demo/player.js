@@ -1,3 +1,10 @@
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
 // Minimal RunnyVision browser player.
 // All logic runs in-browser: fetch manifest, chain atom clips, preload next, and crossfade.
 
