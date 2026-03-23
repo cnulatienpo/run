@@ -976,41 +976,44 @@ function recoverPlaybackStall(reason) {
 }
 
 async function forceSwitchToNextClip(reason) {
-  if (!playbackStarted || !currentPlaybackState || forceSwitchInProgress) {
+  if (!playbackStarted || !currentPlaybackState || forceSwitchInProgress || isCrossfading) {
     return;
   }
 
   forceSwitchInProgress = true;
   try {
-    let forcedClip = nextPreparedClip;
-    if (!forcedClip) {
+    if (!nextPreparedClip) {
       prepareNextStandbyClip();
-      forcedClip = nextPreparedClip;
     }
 
-    if (!forcedClip) {
-      forcedClip = takeNextClipForWorld(currentWorld, currentPlaybackState.clip);
+    if (!nextPreparedClip) {
+      logEvent('clip_force_switch_skipped', {
+        reason,
+        fromClip: currentPlaybackState.clip.src,
+        elapsedMs: Date.now() - currentPlaybackState.startedAt,
+      }, 'warn');
+      return;
     }
 
-    if (!forcedClip) {
+    logEvent('clip_force_switch_requested', {
+      reason,
+      fromClip: currentPlaybackState.clip.src,
+      toClip: nextPreparedClip.src,
+      elapsedMs: Date.now() - currentPlaybackState.startedAt,
+      standbyReadyState: standbyVideo.readyState,
+    }, 'warn');
+
+    fadeScheduledAt = fadeScheduledAt || Date.now();
+    pendingFade = false;
+
+    if (!isStandbyReadyForCrossfade()) {
+      extendCurrentClip();
+      beginDelayedCrossfadePolling();
       return;
     }
 
     clearStandbyReadyPoll();
-    pendingFade = false;
-    isCrossfading = false;
-
-    logEvent('clip_force_switch', {
-      reason,
-      fromClip: currentPlaybackState.clip.src,
-      toClip: forcedClip.src,
-      elapsedMs: Date.now() - currentPlaybackState.startedAt,
-    }, 'warn');
-
-    await startPlaybackOnActiveVideo(forcedClip);
-    prepareNextStandbyClip();
-    updateWorldButtons();
-    updateStatusReadout();
+    await crossfadeToPreparedClip('force_switch');
   } finally {
     forceSwitchInProgress = false;
   }
