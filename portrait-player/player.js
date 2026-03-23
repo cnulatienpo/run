@@ -63,6 +63,33 @@ function updateFrameOrientation(video) {
     return;
   }
   playerContainer.classList.add(ratio > 1 ? 'frame-landscape' : 'frame-portrait');
+  
+  // Size the video element to actual content dimensions for edge fill to work
+  // Get container dimensions
+  const containerRect = playerContainer.getBoundingClientRect();
+  const containerW = containerRect.width;
+  const containerH = containerRect.height;
+  const containerRatio = containerW / containerH;
+  
+  // Calculate video element dimensions based on object-fit: contain
+  let videoW, videoH;
+  if (ratio > containerRatio) {
+    // Video wider than container → constrain by width
+    videoW = containerW;
+    videoH = containerW / ratio;
+  } else {
+    // Video taller than container → constrain by height
+    videoH = containerH;
+    videoW = containerH * ratio;
+  }
+  
+  // Apply dimensions to both video elements and center them
+  [fgA, fgB].forEach(el => {
+    el.style.width = videoW + 'px';
+    el.style.height = videoH + 'px';
+    el.style.left = ((containerW - videoW) / 2) + 'px';
+    el.style.top = ((containerH - videoH) / 2) + 'px';
+  });
 }
 
 /** Resolves when the video has enough data to start playing. */
@@ -215,6 +242,7 @@ async function loadClip(index) {
   activeFg  = incoming;
   standbyFg = outgoing;
   state.index = nextIndex;
+  updateFrameOrientation(incoming);
   state.transitioning = false;
 }
 
@@ -235,7 +263,6 @@ edgeFillBtn.addEventListener('click', () => setEdgeFill(!state.edgeFill));
 // ── Boot ─────────────────────────────────────────────────────────────────────
 setMode('cover');
 setEdgeFill(true);
-playerContainer?.classList.add('frame-portrait');
 
 // First clip: no zoom-quilt for initial load, just play directly into fgA.
 (async () => {
@@ -246,7 +273,9 @@ playerContainer?.classList.add('frame-portrait');
   activeFg.style.zIndex   = '1';
   activeFg.src            = src;
   bgVideo.src             = src;
-  activeFg.addEventListener('loadedmetadata', () => updateFrameOrientation(activeFg), { once: true });
+  activeFg.addEventListener('loadedmetadata', () => {
+    updateFrameOrientation(activeFg);
+  }, { once: true });
   activeFg.load();
   bgVideo.load();
   await Promise.race([waitCanPlay(activeFg), sleep(3000)]);
