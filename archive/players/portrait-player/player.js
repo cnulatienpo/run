@@ -1,3 +1,10 @@
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
 'use strict';
 
 // ── Clip list ────────────────────────────────────────────────────────────────

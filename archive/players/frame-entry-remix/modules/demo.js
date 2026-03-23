@@ -1,5 +1,13 @@
-import { applyEntryMode, stopReverse, ENTRY_MODES } from './entryMode.js';
-import { resolveEntryMode } from './strategy.js';
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
+const { applyEntryMode, stopReverse, ENTRY_MODES } =
+  window.__ARCHIVED_FRAME_ENTRY_ENTRY_MODE__ || {};
+const { resolveEntryMode } = window.__ARCHIVED_FRAME_ENTRY_STRATEGY__ || {};
 
 const clips = [
   { id: 'grey-a', src: '/grey/a.mp4', entryMode: 'start_forward' },
@@ -192,7 +200,11 @@ function bindControls() {
   });
 }
 
-export async function startDemo() {
+async function startDemo() {
   bindControls();
   await loadCurrentClip();
+}
+
+if (typeof window !== 'undefined') {
+  window.__ARCHIVED_FRAME_ENTRY_DEMO__ = { startDemo };
 }

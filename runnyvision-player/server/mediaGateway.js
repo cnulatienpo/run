@@ -1,3 +1,10 @@
+/*
+THIS IS ARCHIVED PLAYER CODE.
+DO NOT USE.
+DO NOT MODIFY.
+NOT PART OF ACTIVE SYSTEM.
+*/
+
 const path = require('path');
 const fs = require('fs');
 const wrtc = require('wrtc');
@@ -296,4 +303,4 @@ class MediaGateway {
   }
 }
 
-module.exports = { MediaGateway };
+globalThis.__ARCHIVED_RUNNYVISION_MEDIA_GATEWAY__ = { MediaGateway };
