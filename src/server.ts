@@ -20,7 +20,7 @@ import mediaRouter from "./passport/routes/media";
  *
  * This server does exactly three things:
  *
- * 1. Serve the RV UI at /rv
+ * 1. Reserve /rv as an archived route that must not serve a player
  * 2. Serve the Passport UI at /passport
  * 3. Serve RV API routes at /api/*
  *
@@ -90,20 +90,15 @@ app.use((_req, res, next) => {
  * Static UI Hosting
  * ------------------------------------------------------------ */
 
-// RV UI
-const rvUiPath = isProd
-  ? path.join(resourcesPath as string, "rv")
-  : path.resolve(__dirname, "..", "rv-app", "public");
+// Archived RV UI route is intentionally disabled.
 
 // Passport UI
 const passportUiPath = isProd
   ? path.join(resourcesPath as string, "passport")
   : path.resolve(__dirname, "..", "passport", "dist");
 
-// Serve RV UI
-app.use("/rv", express.static(rvUiPath));
-app.get("/rv/*", (_req, res) => {
-  res.sendFile(path.join(rvUiPath, "index.html"));
+app.all(["/rv", "/rv/*"], (_req, res) => {
+  res.status(410).type("text/plain").send("ARCHIVED: /rv is disabled. Use /simple-player/index.html.");
 });
 
 // Serve Passport UI

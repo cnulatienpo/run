@@ -68,13 +68,10 @@ app.use('/api', (req, res, next) => {
   ws: true,
 }));
 
-// Proxy /rv → backend
-app.use('/rv', createProxyMiddleware({
-  target: RV_BACKEND_TARGET,
-  changeOrigin: true,
-  ws: true,
-  logLevel: 'warn',
-}));
+// Archived route guard: /rv must never open another player.
+app.use('/rv', (_req, res) => {
+  res.status(410).type('text/plain').send('ARCHIVED: /rv is disabled. Use /simple-player/index.html.');
+});
 
 // All unmatched routes return the canonical player index — no fallback to other HTML
 app.get('*', (_req, res) => {
