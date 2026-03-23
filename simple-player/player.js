@@ -292,13 +292,33 @@ function getStretchFactors(video) {
 }
 
 function setVideoScale(video, scale, playbackState = null) {
-  const vp = applyTransformOrigin(video, playbackState);
+  if (!video) return;
+
+  // 🔹 1. Get VP ONCE (no confusion)
+  const vp = getVanishingPoint(video, playbackState);
+
+  // 🔹 2. Force transform origin HERE (only place)
+  const x = (vp?.x ?? 0.5) * 100;
+  const y = (vp?.y ?? 0.5) * 100;
+  video.style.transformOrigin = `${x}% ${y}%`;
+
+  // 🔹 3. Stretch logic (keep what you had)
   const stretch = getStretchFactors(video);
   const aspectMode = getAspectMode();
+
+  // 🔹 4. Save scale for debugging
   video.dataset.currentScale = String(scale);
-  video.style.transform = `translate(-50%, -50%) scale(${scale * stretch.x}, ${scale * stretch.y})`;
+
+  // 🔹 5. SINGLE transform source of truth
+  video.style.transform =
+    `translate(-50%, -50%) scale(${scale * stretch.x}, ${scale * stretch.y})`;
+
+  // 🔹 6. Aspect behavior
   video.style.objectFit = aspectMode === 'stretch' ? 'fill' : aspectMode;
-  video.style.objectPosition = `${vp.x * 100}% ${vp.y * 100}%`;
+
+  // 🔹 7. Keep object position aligned to VP
+  video.style.objectPosition = `${x}% ${y}%`;
+}
 }
 
 function setVideoBlur(video, blurPx) {
