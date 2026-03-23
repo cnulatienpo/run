@@ -848,28 +848,21 @@ function isStandbyReadyForCrossfade() {
   return Boolean(nextPreparedClip) && standbyVideo.readyState >= getStandbyRequiredReadyState();
 }
 
-function extendCurrentClip() {
-  if (!currentPlaybackState || !Number.isFinite(activeVideo.duration) || activeVideo.duration <= 0) {
+function delayTransitionUntilStandbyReady(reason = 'standby_not_ready') {
+  if (!currentPlaybackState) {
     return;
   }
 
-  currentPlaybackState.isExtended = true;
-
-  const journeyElapsed = getJourneyElapsed(activeVideo, currentPlaybackState);
-  const clipDuration = currentPlaybackState.plan.clipDurationSeconds || Number(activeVideo.duration || 0);
-  const wrappedElapsed = clipDuration > 0 ? journeyElapsed % clipDuration : journeyElapsed;
-  const nextOffsetSeconds = clipDuration > 0
-    ? (currentPlaybackState.plan.entryOffsetSeconds + wrappedElapsed) % clipDuration
-    : currentPlaybackState.plan.entryOffsetSeconds;
-
-  continuityState.set(currentPlaybackState.clip.src, { nextOffsetSeconds });
-
-  logEvent('clip_extended_duration', {
+  logEvent('transition_delayed_waiting_for_standby', {
+    reason,
     clip: currentPlaybackState.clip.src,
-    extendedByMs: Math.max(0, Date.now() - fadeScheduledAt),
-    journeyElapsedSeconds: journeyElapsed,
+    standbyClip: nextPreparedClip?.src || null,
+    delayedByMs: Math.max(0, Date.now() - fadeScheduledAt),
     currentTime: activeVideo.currentTime,
-    didWrap: currentPlaybackState.didWrap,
+    clipDuration: Number.isFinite(activeVideo.duration) ? activeVideo.duration : null,
+    standbyReadyState: standbyVideo.readyState,
+    standbyNetworkState: standbyVideo.networkState,
+    activeEnded: Boolean(activeVideo.ended),
   }, 'warn');
 }
 
@@ -988,7 +981,7 @@ async function forceSwitchToNextClip(reason) {
     pendingFade = false;
 
     if (!isStandbyReadyForCrossfade()) {
-      extendCurrentClip();
+      delayTransitionUntilStandbyReady('force_switch');
       beginDelayedCrossfadePolling();
       return;
     }
@@ -1273,7 +1266,6 @@ async function primeClipOnVideo(video, clip) {
     clip,
     plan: { ...plan, playbackRate: FIXED_PLAYBACK_RATE },
     didWrap: false,
-    isExtended: false,
     startedAt: Date.now(),
   };
   video.__playbackState = playbackState;
@@ -1365,7 +1357,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
 
   if (!isStandbyReadyForCrossfade()) {
     pendingFade = false;
-    extendCurrentClip();
+    delayTransitionUntilStandbyReady(trigger);
     beginDelayedCrossfadePolling();
     return;
   }
@@ -1381,7 +1373,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     isCrossfading = false;
     prepareNextStandbyClip();
     if (currentPlaybackState === previousPlaybackState) {
-      extendCurrentClip();
+      delayTransitionUntilStandbyReady('standby_prime_failed');
       beginDelayedCrossfadePolling();
     }
     return;
@@ -1390,7 +1382,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   if (standbyVideo.readyState < standbyRequiredState) {
     pendingFade = false;
     isCrossfading = false;
-    extendCurrentClip();
+    delayTransitionUntilStandbyReady('standby_ready_state_regressed');
     beginDelayedCrossfadePolling();
     return;
   }
@@ -1450,7 +1442,7 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     if (!Number.isFinite(standbyScaleNow) || standbyScaleNow < 0.985) {
       pendingFade = false;
       isCrossfading = false;
-      extendCurrentClip();
+      delayTransitionUntilStandbyReady('zoom_visual_not_ready');
       beginDelayedCrossfadePolling();
       return;
     }
@@ -1502,7 +1494,8 @@ function handleActiveVideoTimeUpdate(video) {
     Number.isFinite(video.duration)
     && video.duration > 0
     && video.currentTime >= video.duration - WRAP_SAFETY_SECONDS
-    && ((currentPlaybackState.plan.wraps && !currentPlaybackState.didWrap) || currentPlaybackState.isExtended)
+    && currentPlaybackState.plan.wraps
+    && !currentPlaybackState.didWrap
   ) {
     if (!currentPlaybackState.didWrap) {
       currentPlaybackState.didWrap = true;
@@ -1512,7 +1505,7 @@ function handleActiveVideoTimeUpdate(video) {
     logEvent('clip_wrapped', {
       clip: currentPlaybackState.clip.src,
       world: currentPlaybackState.clip.world,
-      extendedLoop: Boolean(currentPlaybackState.isExtended),
+      extendedLoop: false,
     });
     return;
   }
@@ -1528,7 +1521,7 @@ function handleActiveVideoEnded(video) {
     return;
   }
 
-  if ((currentPlaybackState?.plan.wraps && !currentPlaybackState.didWrap) || currentPlaybackState?.isExtended) {
+  if (currentPlaybackState?.plan.wraps && !currentPlaybackState.didWrap) {
     if (!currentPlaybackState.didWrap) {
       currentPlaybackState.didWrap = true;
     }
@@ -1537,7 +1530,7 @@ function handleActiveVideoEnded(video) {
     logEvent('clip_wrapped', {
       clip: currentPlaybackState?.clip?.src || null,
       world: currentPlaybackState?.clip?.world || null,
-      extendedLoop: Boolean(currentPlaybackState?.isExtended),
+      extendedLoop: false,
     });
     return;
   }
@@ -1546,7 +1539,7 @@ function handleActiveVideoEnded(video) {
     clip: currentPlaybackState?.clip?.src || null,
   }, 'warn');
   fadeScheduledAt = fadeScheduledAt || Date.now();
-  extendCurrentClip();
+  delayTransitionUntilStandbyReady('active_video_ended');
   beginDelayedCrossfadePolling();
 }
 
