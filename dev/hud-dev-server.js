@@ -2,7 +2,7 @@
 // ============================================================
 // DEV HALLWAY — ONE DOOR ONLY
 //
-// CANONICAL PLAYER: simple-player
+// CANONICAL PLAYER: simple-player/index.html
 // DO NOT change WEB_ROOT to any other directory.
 // DO NOT add fallback candidates.
 // All other players are archived under archive/players/.
@@ -83,7 +83,7 @@ app.get('*', (_req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log('=================================================');
-  console.log(`ACTIVE PLAYER: simple-player`);
+  console.log(`ACTIVE PLAYER: simple-player/index.html`);
   console.log(`URL:           http://localhost:${PORT}`);
   console.log(`Root:          ${WEB_ROOT}`);
   console.log('=================================================');
