@@ -1,8 +1,13 @@
 /*
-  THIS IS THE ONLY ACTIVE VIDEO PLAYER.
-  DO NOT CREATE ANOTHER PLAYER.
-  ALL FEATURE WORK MUST MODIFY THIS PLAYER IN PLACE.
+THIS IS THE ONLY VIDEO PLAYER.
+
+ALL FIXES MUST HAPPEN HERE.
+
+DO NOT CREATE NEW PLAYERS.
+DO NOT EDIT ARCHIVED PLAYERS.
 */
+
+console.log("ACTIVE PLAYER: simple-player");
 
 const TEST_MODE = (() => {
   const raw = new URLSearchParams(window.location.search).get('test');
@@ -1948,7 +1953,6 @@ initializePlayer();
   const disableSwitchInput = document.getElementById('uiDisableSwitch');
   const entryOffsetInput = document.getElementById('uiEntryOffset');
   const durationInput = document.getElementById('uiForcedDuration');
-  const transitionModeInput = document.getElementById('uiTransitionMode');
   const transitionSecondsInput = document.getElementById('uiTransitionSeconds');
   const aspectModeInput = document.getElementById('uiAspectMode');
   const stretchXInput = document.getElementById('uiStretchX');
@@ -2009,20 +2013,6 @@ initializePlayer();
     durationInput.value = DEV.forceDuration === null ? '' : String(DEV.forceDuration);
     durationInput.oninput = (event) => {
       DEV.forceDuration = event.target.value === '' ? null : Number(event.target.value);
-    };
-  }
-
-  if (transitionModeInput) {
-    transitionModeInput.value = DEV.transitionMode;
-    transitionModeInput.onchange = (event) => {
-      DEV.transitionMode = DEFAULT_TRANSITION_MODE;
-      event.target.value = DEFAULT_TRANSITION_MODE;
-      setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
-      DEV.transitionSeconds = transitionSeconds;
-      if (transitionSecondsInput) {
-        transitionSecondsInput.value = String(DEV.transitionSeconds);
-      }
-      updateStatusReadout();
     };
   }
 
