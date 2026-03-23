@@ -70,7 +70,6 @@ const WORLD_DEFINITIONS = {
 const SWITCH_INTERVAL_SECONDS = 30;
 const USE_SCRIPTED_TIMELINE = true;
 const SCRIPTED_DURATIONS_SECONDS = [60, 30, 10, 120, 75];
-const DEFAULT_TRANSITION_MODE = 'zoom-quilt';
 const DEFAULT_TRANSITION_SECONDS = 5;
 const FIXED_PLAYBACK_RATE = 1.0;
 const ACTIVE_SCALE_RANGE = 1.0;
@@ -121,7 +120,6 @@ let sessionRunning = false;
 let stopAfterCurrentClip = false;
 let pendingFade = false;
 let isCrossfading = false;
-let transitionMode = DEFAULT_TRANSITION_MODE;
 let transitionSeconds = DEFAULT_TRANSITION_SECONDS;
 let currentPlaybackState = null;
 let nextPreparedClip = null;
@@ -166,17 +164,14 @@ function getTransitionDurationSeconds() {
 function applyTransitionDuration(seconds) {
   const safe = Math.max(0, Number(seconds) || 0);
   const durationText = `${safe.toFixed(3)}s`;
-  const timingFunction = transitionMode === 'zoom-quilt'
-    ? 'cubic-bezier(0.2, 0.8, 0.2, 1)'
-    : 'linear';
+  const timingFunction = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
   videoA.style.transitionDuration = durationText;
   videoB.style.transitionDuration = durationText;
   videoA.style.transitionTimingFunction = timingFunction;
   videoB.style.transitionTimingFunction = timingFunction;
 }
 
-function setTransitionConfig(nextMode, nextSeconds) {
-  transitionMode = 'zoom-quilt';
+function setTransitionConfig(nextSeconds) {
   const requested = Math.max(0.35, Number(nextSeconds) || 0);
   transitionSeconds = Math.max(0.35, requested || DEFAULT_TRANSITION_SECONDS);
   applyTransitionDuration(getTransitionDurationSeconds());
@@ -184,7 +179,7 @@ function setTransitionConfig(nextMode, nextSeconds) {
 
 
 function getStandbyRequiredReadyState() {
-  return transitionMode === 'zoom-quilt' ? 3 : STANDBY_READY_STATE;
+  return 3;
 }
 
 function clamp01(value) {
@@ -362,7 +357,7 @@ function updateZoomState() {
 
 
 function startZoomEngine() {
-  if (transitionMode !== 'zoom-quilt' || zoomFrameId) {
+  if (zoomFrameId) {
     return;
   }
 
@@ -1031,7 +1026,7 @@ function updateStatusReadout() {
     `<strong>next clip path</strong> ${nextPreparedClip?.src || 'waiting'}`,
     `<strong>current world</strong> ${WORLD_DEFINITIONS[currentWorld]?.label || currentWorld}`,
     `<strong>next world</strong> ${pendingWorld ? WORLD_DEFINITIONS[pendingWorld]?.label || pendingWorld : '—'}`,
-    `<strong>transition</strong> ${transitionMode} (${getTransitionDurationSeconds().toFixed(2)}s)`,
+    `<strong>transition</strong> zoom-quilt (${getTransitionDurationSeconds().toFixed(2)}s)`,
     `<strong>aspect mode</strong> ${getAspectMode()}`,
     `<strong>stretch</strong> ${clampStretchFactor(window.__DEV__?.stretchX ?? 1).toFixed(2)}x / ${clampStretchFactor(window.__DEV__?.stretchY ?? 1).toFixed(2)}y`,
     `<strong>playback rate</strong> ${(currentPlaybackState?.plan?.playbackRate || nextPreparedClip?.previewPlaybackRate || 1).toFixed(2)}x`,
@@ -1136,13 +1131,10 @@ function setStandbySource(clip) {
 
   scheduleVideoLoad(standbyVideo, clip, 'standby_prepare');
 
-  // In zoom-quilt mode, prepare standby as a visible portal layer early
-  if (transitionMode === 'zoom-quilt') {
-    setVideoOpacity(standbyVideo, 0);
-    setVideoScale(standbyVideo, getStandbyEntryScale(standbyVideo, standbyVideo.__playbackState || null), standbyVideo.__playbackState || null);
-    setVideoBlur(standbyVideo, 0);
-    applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
-  }
+  setVideoOpacity(standbyVideo, 0);
+  setVideoScale(standbyVideo, getStandbyEntryScale(standbyVideo, standbyVideo.__playbackState || null), standbyVideo.__playbackState || null);
+  setVideoBlur(standbyVideo, 0);
+  applyTransformOrigin(standbyVideo, standbyVideo.__playbackState || null);
 }
 
 function prepareNextStandbyClip() {
@@ -1308,11 +1300,8 @@ async function startPlaybackOnActiveVideo(clip) {
   updateWorldButtons();
   updateStatusReadout();
 
-  // Start continuous zoom engine if using zoom-quilt
-  if (transitionMode === 'zoom-quilt') {
-    startZoomEngine();
-    updateZoomState();
-  }
+  startZoomEngine();
+  updateZoomState();
 }
 
 
@@ -1416,7 +1405,6 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
     transitionNumber: transitionCounter += 1,
     currentClip: previousPlaybackState.clip.src,
     nextClip: standbyPlaybackState.clip.src,
-    transitionMode,
     transitionSeconds: getTransitionDurationSeconds(),
     world: standbyPlaybackState.clip.world,
     playbackRate: standbyPlaybackState.plan.playbackRate,
@@ -1439,21 +1427,19 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   activeVideo.classList.add('is-active');
   standbyVideo.classList.add('is-active');
 
-  if (transitionMode === 'zoom-quilt') {
-    const visualReadyAt = Date.now() + transitionDurationMs;
-    while (Date.now() < visualReadyAt) {
-      updateZoomState();
-      await new Promise((resolve) => window.setTimeout(resolve, 16));
-    }
+  const visualReadyAt = Date.now() + transitionDurationMs;
+  while (Date.now() < visualReadyAt) {
     updateZoomState();
-    const standbyScaleNow = Number.parseFloat(standbyVideo.dataset.currentScale || '0');
-    if (!Number.isFinite(standbyScaleNow) || standbyScaleNow < 0.985) {
-      pendingFade = false;
-      isCrossfading = false;
-      delayTransitionUntilStandbyReady('zoom_visual_not_ready');
-      beginDelayedCrossfadePolling();
-      return;
-    }
+    await new Promise((resolve) => window.setTimeout(resolve, 16));
+  }
+  updateZoomState();
+  const standbyScaleNow = Number.parseFloat(standbyVideo.dataset.currentScale || '0');
+  if (!Number.isFinite(standbyScaleNow) || standbyScaleNow < 0.985) {
+    pendingFade = false;
+    isCrossfading = false;
+    delayTransitionUntilStandbyReady('zoom_visual_not_ready');
+    beginDelayedCrossfadePolling();
+    return;
   }
 
   const previousActive = activeVideo;
@@ -1483,11 +1469,8 @@ async function crossfadeToPreparedClip(trigger = 'timing') {
   fadeScheduledAt = 0;
   delayedFadeStartedAt = 0;
 
-  // Restart zoom engine for new active video
-  if (transitionMode === 'zoom-quilt') {
-    startZoomEngine();
-    updateZoomState();
-  }
+  startZoomEngine();
+  updateZoomState();
 }
 
 
@@ -1870,7 +1853,7 @@ async function startSession() {
 
 function initializePlayer() {
   scriptedScheduleStep = 0;
-  setTransitionConfig(DEFAULT_TRANSITION_MODE, DEFAULT_TRANSITION_SECONDS);
+  setTransitionConfig(DEFAULT_TRANSITION_SECONDS);
   initializeClipGroups();
   Object.keys(WORLD_DEFINITIONS).forEach((worldKey) => preloadAheadForWorld(worldKey, 2));
   attachVideoEvents(videoA);
@@ -1896,8 +1879,8 @@ function initializePlayer() {
     scheduleStressControls();
   }
 
-  // Ensure the selected transition mode/seconds are actually applied before first clip switch.
-  setTransitionConfig(transitionMode, transitionSeconds);
+  // Ensure the selected transition duration is actually applied before first clip switch.
+  setTransitionConfig(transitionSeconds);
 
   updateWorldButtons();
   updateStatusReadout();
@@ -1920,7 +1903,6 @@ initializePlayer();
 
     forceEntryOffset: null, // number (0–1) or null
     forceDuration: null, // seconds or null
-    transitionMode: DEFAULT_TRANSITION_MODE,
     transitionSeconds: DEFAULT_TRANSITION_SECONDS,
     aspectMode: 'cover',
     stretchX: 1,
@@ -2005,7 +1987,7 @@ initializePlayer();
     transitionSecondsInput.value = String(DEV.transitionSeconds);
     transitionSecondsInput.oninput = (event) => {
       DEV.transitionSeconds = Math.max(0, Number(event.target.value) || 0);
-      setTransitionConfig(DEV.transitionMode, DEV.transitionSeconds);
+      setTransitionConfig(DEV.transitionSeconds);
       DEV.transitionSeconds = transitionSeconds;
       updateStatusReadout();
     };
