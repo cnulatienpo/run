@@ -18,16 +18,20 @@ html, body {
   background: #0e0e0e;
 }
 
-/* ── Container – 9:16 portrait, fits either dimension ──────────────────── */
+/* ── Container – orientation follows current clip aspect ratio ─────────── */
 #playerContainer {
   position: relative;
   overflow: hidden;
   background: #000;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: var(--frame-ratio, 9 / 16);
   /* Fill available height, but never exceed viewport width */
-  width: min(100vw, calc(100vh * 9 / 16));
-  height: min(100vh, calc(100vw * 16 / 9));
+  width: min(100vw, calc(100vh * var(--frame-ratio, 9 / 16)));
+  height: min(100vh, calc(100vw / var(--frame-ratio, 9 / 16)));
 }
+
+#playerContainer.frame-portrait  { --frame-ratio: 9 / 16; }
+#playerContainer.frame-landscape { --frame-ratio: 16 / 9; }
+#playerContainer.frame-square    { --frame-ratio: 1 / 1; }
 
 /* ── Video layers ───────────────────────────────────────────────────────── */
 video {
