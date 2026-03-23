@@ -79,8 +79,6 @@ const STANDBY_REVEAL_START = 0.22;
 const MAX_STRETCH_FACTOR = 1.5;
 const MIN_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
 const MAX_VISIBLE_SECONDS = SWITCH_INTERVAL_SECONDS;
-const ENTRY_MIN_RATIO = 0.1;
-const ENTRY_MAX_RATIO = 0.8;
 const WRAP_SAFETY_SECONDS = 0.05;
 const TRANSITION_RETRY_LIMIT = 5;
 const STANDBY_READY_STATE = 2;
@@ -784,30 +782,13 @@ function chooseEntryOffset(video, clip) {
     return ratio * duration;
   }
 
-  const storedState = continuityState.get(clip.src);
-  if (storedState) {
-    const storedOffset = Math.min(storedState.nextOffsetSeconds, Math.max(0, duration - WRAP_SAFETY_SECONDS));
-    logEvent('entry_offset_reused', {
-      clip: clip.src,
-      entryOffset: storedOffset,
-      clipDuration: duration,
-      entryRatio: duration > 0 ? storedOffset / duration : 0,
-    });
-    return storedOffset;
-  }
-
-  const minOffset = duration * ENTRY_MIN_RATIO;
-  const maxOffset = duration * ENTRY_MAX_RATIO;
-  const offset = Math.min(Math.max(minOffset, randomBetween(minOffset, maxOffset)), Math.max(0, duration - WRAP_SAFETY_SECONDS));
-  logEvent('entry_offset_generated', {
+  logEvent('entry_offset_fixed', {
     clip: clip.src,
-    entryOffset: offset,
+    entryOffset: 0,
     clipDuration: duration,
-    entryRatio: duration > 0 ? offset / duration : 0,
-    minRatio: ENTRY_MIN_RATIO,
-    maxRatio: ENTRY_MAX_RATIO,
+    entryRatio: 0,
   });
-  return offset;
+  return 0;
 }
 
 if (typeof window.chooseEntryOffset !== 'function') {
