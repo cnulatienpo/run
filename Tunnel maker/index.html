@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080809">
+  <title>RUNNYVISION TUNNEL MAKER</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="splash" class="splash"><div class="splash-logo">RUNNYVISION</div><div class="splash-sub">loading tunnel maker</div></div>
+<div id="toast-wrap" class="toast-wrap" aria-live="polite"></div>
+
+<div id="app">
+  <header>
+    <div class="logo">RUNNYVISION <em>/ TUNNEL MAKER</em></div>
+    <div class="hdr-sep"></div>
+    <span class="hdr-tag" id="version-tag">V1.2.0</span>
+    <button class="btn" id="about-btn">ABOUT/HELP</button>
+    <button class="btn" id="load-json-btn">LOAD JSON</button>
+    <button class="btn" id="save-json-btn">SAVE JSON</button>
+    <button class="btn btn-accent" id="save-project-btn">SAVE PROJECT</button>
+  </header>
+
+  <div id="left-panel">
+    <div class="tab-bar">
+      <button class="tab active" data-tab="library">LIBRARY <span class="tab-badge" id="lib-badge">0</span></button>
+      <button class="tab" data-tab="layers">LAYERS <span class="tab-badge" id="layers-badge">0/6</span></button>
+    </div>
+
+    <div id="tab-library">
+      <div class="folder-tabs-row" id="folder-tabs-row"></div>
+      <div class="folder-toolbar">
+        <span class="folder-toolbar-name" id="folder-name">-</span>
+        <span class="folder-toolbar-count" id="folder-img-count">0 imgs</span>
+        <button class="tb-btn" id="upload-folder-btn">FOLDER</button>
+        <button class="tb-btn" id="rename-folder-btn">RN</button>
+        <button class="tb-btn del" id="delete-folder-btn">X</button>
+      </div>
+      <input type="file" id="lib-file-input" accept="image/*" multiple style="display:none">
+      <input type="file" id="lib-folder-input" accept="image/*" webkitdirectory directory multiple style="display:none">
+      <div class="lib-upload" id="lib-upload-zone">UPLOAD TO FOLDER - DROP HERE</div>
+      <div class="url-row">
+        <input id="lib-url-input" class="url-input" placeholder="paste image URL...">
+        <button class="btn" id="add-url-btn" style="padding:4px 8px;font-size:9px">ADD</button>
+      </div>
+      <div class="url-row">
+        <button class="toggle on" id="proxy-toggle">PROXY ON</button>
+        <button class="toggle" id="upload-only-toggle">UPLOAD ONLY OFF</button>
+      </div>
+      <div id="img-grid"></div>
+    </div>
+
+    <div id="tab-layers" style="display:none">
+      <div class="pnl-hdr">
+        <span>ACTIVE LAYERS</span>
+        <span style="font-size:8px">ctrl/cmd click for multi-select</span>
+      </div>
+      <div class="pnl-hdr" style="gap:4px">
+        <button class="tb-btn" id="dup-selected-btn">DUP</button>
+        <button class="tb-btn" id="del-selected-btn">DEL</button>
+        <button class="tb-btn" id="front-selected-btn">FRONT</button>
+        <button class="tb-btn" id="back-selected-btn">BACK</button>
+      </div>
+      <div id="layer-list"></div>
+      <button class="stagger-btn" id="auto-stagger-btn">AUTO-STAGGER ALL LAYERS</button>
+    </div>
+  </div>
+
+  <div id="canvas-area">
+    <canvas id="stage"></canvas>
+    <div id="canvas-overlay">
+      <div class="empty-state" id="empty-state">
+        <h3>RUNNYVISION</h3>
+        <p>Create folders - upload images<br>Click a thumbnail -> add as layer<br>Drag canvas -> move vanishing point</p>
+      </div>
+      <div class="export-overlay" id="export-overlay" style="display:none">
+        <div class="export-card">
+          <div class="export-title">EXPORTING</div>
+          <div class="export-progress"><div class="export-progress-fill" id="export-progress-fill"></div></div>
+          <div class="export-meta" id="export-meta">starting...</div>
+          <button class="btn" id="cancel-export-btn">CANCEL</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ctrl-panel">
+    <div class="cs">
+      <div class="cs-title">PROJECTS</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="btn" id="new-project-btn">NEW</button>
+        <button class="btn" id="refresh-projects-btn">REFRESH</button>
+      </div>
+      <div id="project-manager" class="project-list"></div>
+      <div style="height:8px"></div>
+      <div class="cs-title">RECENT</div>
+      <div id="recent-projects" class="recents"></div>
+    </div>
+
+    <div class="cs">
+      <div class="cs-title">VANISHING POINT</div>
+      <div class="vp-grid">
+        <div class="vp-card"><label>X</label><span id="vp-x">0.500</span></div>
+        <div class="vp-card"><label>Y</label><span id="vp-y">0.500</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">GUIDES</span>
+        <button class="toggle on" id="guides-btn">ON</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">CENTER VP</span>
+        <button class="toggle" id="center-vp-btn">RESET</button>
+      </div>
+    </div>
+
+    <div class="cs">
+      <div class="cs-title">ZOOM RANGE</div>
+      <div class="gr"><label>MIN SCALE</label><input id="min-scale" type="range" min="0.01" max="0.4" step="0.01" value="0.05"><span class="vd" id="mins-v">0.05</span></div>
+      <div class="gr"><label>MAX SCALE</label><input id="max-scale" type="range" min="2" max="12" step="0.1" value="5"><span class="vd" id="maxs-v">5.0</span></div>
+    </div>
+
+    <div class="cs">
+      <div class="cs-title">FADE THRESHOLDS</div>
+      <div class="gr"><label>FADE IN END</label><input id="fade-in" type="range" min="0.02" max="0.45" step="0.01" value="0.18"><span class="vd" id="fi-v">0.18</span></div>
+      <div class="gr"><label>FADE OUT START</label><input id="fade-out" type="range" min="0.5" max="0.98" step="0.01" value="0.72"><span class="vd" id="fo-v">0.72</span></div>
+    </div>
+
+    <div class="cs">
+      <div class="cs-title">GLOBAL LOOK</div>
+      <div class="gr"><label>VIGNETTE</label><input id="vignette" type="range" min="0" max="1" step="0.01" value="0.45"><span class="vd" id="vig-v">0.45</span></div>
+      <div class="gr"><label>FADE AMT</label><input id="fade-amt" type="range" min="0" max="1" step="0.01" value="0"><span class="vd" id="famt-v">0.00</span></div>
+      <select class="fade-select" id="fade-color">
+        <option value="">OVERLAY: NONE</option>
+        <option value="black">OVERLAY: BLACK</option>
+        <option value="white">OVERLAY: WHITE</option>
+      </select>
+    </div>
+
+    <div class="cs">
+      <div class="cs-title">EXPORT</div>
+      <div class="gr"><label>QUALITY</label>
+        <select id="quality-preset" class="fade-select" style="margin-bottom:0">
+          <option value="draft">DRAFT 720p / 24fps</option>
+          <option value="standard" selected>STANDARD 1080p / 30fps</option>
+          <option value="hq">HQ 1440p / 60fps</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn" id="export-mp4-btn">EXPORT MP4</button>
+        <button class="btn" id="export-webm-btn">EXPORT WEBM</button>
+        <button class="btn" id="export-seq-btn">EXPORT PNG SEQ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="transport">
+    <button class="play-btn" id="play-btn">▶</button>
+    <div class="t-grp">
+      <span class="t-lbl">SPEED</span>
+      <input type="range" class="speed-slider" id="speed-slider" min="0.01" max="0.8" step="0.01" value="0.18">
+      <span class="readout" id="spd-v">0.18</span>
+    </div>
+    <div class="t-sep"></div>
+    <div class="t-grp"><span class="t-lbl">TIME</span><span class="readout" id="time-out" style="color:var(--teal)">0.000</span></div>
+    <div class="t-grp"><span class="t-lbl">ZOOM</span><span class="readout" id="zoom-out">x1.00</span></div>
+    <button class="btn" id="reset-time-btn">RESET</button>
+  </div>
+</div>
+
+<div class="modal" id="help-modal" style="display:none">
+  <div class="modal-card">
+    <h3>Runnyvision Tunnel Maker Help</h3>
+    <p>Shortcuts: Space play/pause, Delete remove selected, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+D duplicate.</p>
+    <p>Projects autosave to local browser storage. Session JSON stores only references to local library images.</p>
+    <p>Version 1.2.0 - ready for Render deploy.</p>
+    <button class="btn btn-accent" id="close-help-btn">CLOSE</button>
+  </div>
+</div>
+
+<script src="/vendor/jszip/jszip.min.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
