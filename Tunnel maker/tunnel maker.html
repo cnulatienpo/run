@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VANTAGE — Zoom Quilt Composer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080809; --panel: #0f0f12; --surface: #17171c; --surface2: #1e1e25;
+  --border: #252530; --border2: #2e2e3c;
+  --accent: #e87c3f; --teal: #3fe8c0;
+  --text: #b8b8c8; --text-dim: #555568; --text-bright: #eeeef8; --red: #e84040;
+}
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Space Mono', monospace; }
+
+#app {
+  display: grid;
+  grid-template-rows: 42px 1fr 50px;
+  grid-template-columns: 310px 1fr 252px;
+  height: 100vh; min-height: 0;
+}
+
+/* HEADER */
+header {
+  grid-column: 1/-1; background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 12px;
+}
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: .25em; color: var(--accent); }
+.logo em { color: var(--text-dim); font-style: normal; font-weight: 400; font-size: 11px; letter-spacing: .12em; }
+.hdr-sep { flex: 1; }
+.hdr-tag { font-size: 9px; letter-spacing: .18em; color: var(--text-dim); }
+.btn { background: var(--surface); border: 1px solid var(--border2); color: var(--text); font-family: 'Space Mono', monospace; font-size: 10px; padding: 5px 11px; cursor: pointer; letter-spacing: .08em; transition: border-color .15s, color .15s; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-accent { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+.btn-accent:hover { background: #f59057; border-color: #f59057; color: #000; }
+
+/* LEFT PANEL */
+#left-panel { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+.tab-bar { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab { flex: 1; padding: 10px 6px; font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .18em; cursor: pointer; background: none; border: none; color: var(--text-dim); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-badge { display: inline-block; background: var(--surface2); color: var(--text-dim); border-radius: 3px; padding: 0 4px; font-size: 8px; margin-left: 4px; }
+.tab.active .tab-badge { background: rgba(232,124,63,.12); color: var(--accent); }
+
+/* LIBRARY TAB */
+#tab-library { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+
+.folder-tabs-row { flex-shrink: 0; display: flex; align-items: stretch; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.folder-tabs-row::-webkit-scrollbar { display: none; }
+.ftab { flex-shrink: 0; padding: 6px 10px; font-size: 9px; letter-spacing: .1em; color: var(--text-dim); background: none; border: none; border-right: 1px solid var(--border); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; transition: background .12s, color .12s; }
+.ftab:hover { background: var(--surface); color: var(--text); }
+.ftab.active { color: var(--accent); background: var(--surface); border-bottom: 2px solid var(--accent); margin-bottom: -1px; }
+.ftab-count { font-size: 8px; opacity: .6; }
+.ftab-new { flex-shrink: 0; padding: 6px 10px; font-size: 9px; color: var(--text-dim); background: none; border: none; cursor: pointer; white-space: nowrap; transition: color .12s; letter-spacing: .08em; }
+.ftab-new:hover { color: var(--teal); }
+
+.folder-toolbar { flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.folder-toolbar-name { flex: 1; font-size: 10px; color: var(--text-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-toolbar-count { font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
+.tb-btn { background: none; border: 1px solid var(--border2); color: var(--text-dim); font-family: 'Space Mono', monospace; font-size: 9px; padding: 3px 6px; cursor: pointer; white-space: nowrap; transition: border-color .12s, color .12s; flex-shrink: 0; }
+.tb-btn:hover { border-color: var(--teal); color: var(--teal); }
+.tb-btn.del:hover { border-color: var(--red); color: var(--red); }
+
+.lib-upload { flex-shrink: 0; margin: 5px 8px; border: 1px dashed var(--border2); padding: 7px 6px; text-align: center; cursor: pointer; font-size: 9px; letter-spacing: .1em; color: var(--text-dim); transition: border-color .2s, color .2s; }
+.lib-upload:hover, .lib-upload.drag-over { border-color: var(--accent); color: var(--accent); background: rgba(232,124,63,.04); }
+
+.url-row { display: flex; gap: 5px; padding: 0 8px 5px; flex-shrink: 0; }
+.url-input { flex: 1; background: var(--surface); border: 1px solid var(--border2); color: var(--text); font-family: 'Space Mono', monospace; font-size: 9px; padding: 4px 7px; outline: none; min-width: 0; }
+.url-input:focus { border-color: var(--accent); }
+.url-input::placeholder { color: var(--text-dim); }
+
+#img-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px 8px 8px; align-content: start; }
+#img-grid::-webkit-scrollbar { width: 3px; }
+#img-grid::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.igrid-thumb { position: relative; aspect-ratio: 1; background: var(--surface2); cursor: pointer; overflow: hidden; border: 1px solid var(--border); }
+.igrid-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.igrid-overlay { position: absolute; inset: 0; background: rgba(232,124,63,.82); display: none; align-items: center; justify-content: center; font-size: 24px; color: #000; font-weight: 700; z-index: 2; }
+.igrid-thumb:hover .igrid-overlay { display: flex; }
+.igrid-del { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; background: rgba(232,64,64,.9); color: #fff; font-size: 8px; display: none; align-items: center; justify-content: center; z-index: 3; cursor: pointer; border-radius: 2px; }
+.igrid-thumb:hover .igrid-del { display: flex; }
+.igrid-name { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,.65); font-size: 7px; color: var(--text); padding: 2px 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid-empty { grid-column: 1/-1; font-size: 9px; color: var(--text-dim); text-align: center; padding: 24px 0; letter-spacing: .1em; line-height: 2.2; }
+
+/* LAYERS TAB */
+#tab-layers { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.pnl-hdr { padding: 8px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: 9px; letter-spacing: .1em; color: var(--text-dim); }
+.pnl-hdr span:first-child { flex: 1; }
+#layer-list { flex: 1; overflow-y: auto; min-height: 0; }
+#layer-list::-webkit-scrollbar { width: 3px; }
+#layer-list::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.layer-item { border-bottom: 1px solid var(--border); }
+.layer-item.sel { border-left: 2px solid var(--accent); }
+.layer-item.sel .layer-hdr { background: var(--surface); }
+.layer-hdr { display: flex; align-items: center; padding: 6px 10px; gap: 7px; cursor: pointer; user-select: none; }
+.layer-thumb { width: 30px; height: 22px; object-fit: cover; background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0; }
+.layer-name { flex: 1; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-bright); }
+.layer-hdr-actions { display: flex; gap: 2px; }
+.hdr-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 2px 3px; line-height: 1; transition: color .12s; }
+.hdr-btn:hover { color: var(--text-bright); }
+.hdr-btn.del:hover { color: var(--red); }
+.hdr-btn.vis.off { color: #2a2a35; }
+.layer-ctrls { display: none; flex-direction: column; background: var(--bg); border-top: 1px solid var(--border); }
+.layer-item.sel .layer-ctrls { display: flex; }
+.cr { display: flex; align-items: center; gap: 7px; padding: 4px 10px; border-bottom: 1px solid var(--border); }
+.cr-lbl { width: 62px; font-size: 9px; letter-spacing: .1em; color: var(--text-dim); flex-shrink: 0; }
+.cr input[type=range] { flex: 1; height: 2px; -webkit-appearance: none; background: var(--border2); outline: none; cursor: pointer; min-width: 0; }
+.cr input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; background: var(--accent); border-radius: 50%; }
+.cr select { flex: 1; background: var(--surface); border: 1px solid var(--border2); color: var(--text); font-family: 'Space Mono', monospace; font-size: 9px; padding: 2px 4px; min-width: 0; }
+.vd { font-size: 9px; color: var(--text); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+.cr-btns { display: flex; gap: 3px; }
+.sm-btn { background: var(--surface); border: 1px solid var(--border2); color: var(--text-dim); font-size: 10px; width: 20px; height: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color .12s, color .12s; }
+.sm-btn:hover { border-color: var(--teal); color: var(--teal); }
+/* AUTO VP button */
+.btn-avp { background: none; border: 1px solid var(--border2); color: var(--text-dim); font-family: 'Space Mono', monospace; font-size: 8px; padding: 3px 7px; cursor: pointer; letter-spacing: .12em; transition: border-color .15s, color .15s; flex-shrink: 0; white-space: nowrap; }
+.btn-avp:hover { border-color: var(--teal); color: var(--teal); }
+.btn-avp.running { border-color: var(--teal); color: var(--teal); }
+.btn-avp.low { border-color: var(--red); color: var(--red); }
+.btn-avp.ok  { border-color: var(--teal); color: var(--teal); }
+/* confidence bar under VP row */
+.vp-conf-bar { height: 2px; background: var(--border2); margin: 0 10px 4px; border-radius: 1px; overflow: hidden; }
+.vp-conf-fill { height: 100%; background: var(--teal); transition: width .4s; }
+.stagger-btn { width: calc(100% - 16px); margin: 8px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); font-family: 'Space Mono', monospace; font-size: 9px; padding: 7px; cursor: pointer; letter-spacing: .1em; transition: border-color .12s, color .12s; flex-shrink: 0; }
+.stagger-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+/* CANVAS */
+#canvas-area { background: #030304; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; min-width: 0; min-height: 0; }
+#stage { display: block; cursor: crosshair; max-width: 100%; max-height: 100%; }
+#canvas-overlay { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.empty-state { text-align: center; line-height: 2; }
+.empty-state h3 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: .3em; color: var(--accent); margin-bottom: 6px; }
+.empty-state p { font-size: 10px; letter-spacing: .1em; color: var(--text-dim); }
+
+/* CTRL PANEL */
+#ctrl-panel { background: var(--panel); border-left: 1px solid var(--border); overflow-y: auto; min-height: 0; }
+#ctrl-panel::-webkit-scrollbar { width: 3px; }
+#ctrl-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+.cs { border-bottom: 1px solid var(--border); padding: 10px 12px; }
+.cs-title { font-size: 8px; letter-spacing: .22em; color: var(--text-dim); margin-bottom: 9px; }
+.vp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px; }
+.vp-card { background: var(--surface); border: 1px solid var(--border2); padding: 5px 8px; display: flex; justify-content: space-between; align-items: center; }
+.vp-card label { color: var(--text-dim); font-size: 9px; }
+.vp-card span { font-variant-numeric: tabular-nums; color: var(--accent); font-size: 10px; }
+.gr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.gr label { font-size: 9px; letter-spacing: .1em; color: var(--text-dim); width: 68px; flex-shrink: 0; }
+.gr input[type=range] { flex: 1; height: 2px; -webkit-appearance: none; background: var(--border2); outline: none; cursor: pointer; }
+.gr input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; background: var(--teal); border-radius: 50%; }
+.gr .vd { font-size: 9px; color: var(--text); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+.toggle { background: var(--surface); border: 1px solid var(--border2); color: var(--text-dim); font-family: 'Space Mono', monospace; font-size: 9px; padding: 4px 8px; cursor: pointer; letter-spacing: .08em; transition: all .12s; }
+.toggle.on { border-color: var(--teal); color: var(--teal); }
+.fade-select { width: 100%; background: var(--surface); border: 1px solid var(--border2); color: var(--text); font-family: 'Space Mono', monospace; font-size: 9px; padding: 4px 6px; margin-bottom: 6px; }
+
+/* TRANSPORT */
+#transport { grid-column: 1/-1; background: var(--panel); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 14px; }
+.play-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); border: none; color: #000; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .12s, transform .1s; }
+.play-btn:hover { background: #f59057; transform: scale(1.06); }
+.play-btn.playing { background: var(--teal); }
+.t-grp { display: flex; align-items: center; gap: 9px; }
+.t-lbl { font-size: 8px; letter-spacing: .18em; color: var(--text-dim); }
+.t-sep { flex: 1; }
+.speed-slider { -webkit-appearance: none; width: 130px; height: 2px; background: var(--border2); outline: none; cursor: pointer; }
+.speed-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
+.readout { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--accent); min-width: 48px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">VANTAGE <em>/ ZOOM QUILT COMPOSER</em></div>
+    <div class="hdr-sep"></div>
+    <span class="hdr-tag">V1.1</span>
+    <button class="btn" onclick="doLoad()">LOAD JSON</button>
+    <button class="btn btn-accent" onclick="doSave()">SAVE JSON</button>
+  </header>
+
+  <div id="left-panel">
+    <div class="tab-bar">
+      <button class="tab active" data-tab="library" onclick="switchTab('library')">LIBRARY <span class="tab-badge" id="lib-badge">0</span></button>
+      <button class="tab" data-tab="layers" onclick="switchTab('layers')">LAYERS <span class="tab-badge" id="layers-badge">0/6</span></button>
+    </div>
+
+    <!-- LIBRARY -->
+    <div id="tab-library">
+      <div class="folder-tabs-row" id="folder-tabs-row"></div>
+      <div class="folder-toolbar">
+        <span class="folder-toolbar-name" id="folder-name">—</span>
+        <span class="folder-toolbar-count" id="folder-img-count">0 imgs</span>
+        <button class="tb-btn" onclick="renameActiveFolder()">RN</button>
+        <button class="tb-btn del" onclick="deleteActiveFolder()">✕</button>
+      </div>
+      <input type="file" id="lib-file-input" accept="image/*" multiple style="display:none" onchange="handleLibFiles(event)">
+      <div class="lib-upload" id="lib-upload-zone" onclick="document.getElementById('lib-file-input').click()">
+        UPLOAD TO FOLDER · DROP HERE
+      </div>
+      <div class="url-row">
+        <input id="lib-url-input" class="url-input" placeholder="paste image URL…" onkeydown="if(event.key==='Enter')addLibFromURL()">
+        <button class="btn" style="padding:4px 8px;font-size:9px" onclick="addLibFromURL()">ADD</button>
+      </div>
+      <div id="img-grid"></div>
+    </div>
+
+    <!-- LAYERS -->
+    <div id="tab-layers">
+      <div class="pnl-hdr">
+        <span>ACTIVE LAYERS</span>
+        <span style="font-size:8px">← pick from library</span>
+      </div>
+      <div id="layer-list"></div>
+      <button class="stagger-btn" onclick="autoStagger()">AUTO-STAGGER ALL LAYERS</button>
+    </div>
+  </div>
+
+  <div id="canvas-area">
+    <canvas id="stage"></canvas>
+    <div id="canvas-overlay">
+      <div class="empty-state" id="empty-state">
+        <h3>VANTAGE</h3>
+        <p>Create folders · upload images<br>Click a thumbnail → add as layer<br>Drag canvas → move vanishing point</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="ctrl-panel">
+    <div class="cs">
+      <div class="cs-title">VANISHING POINT</div>
+      <div class="vp-grid">
+        <div class="vp-card"><label>X</label><span id="vp-x">0.500</span></div>
+        <div class="vp-card"><label>Y</label><span id="vp-y">0.500</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">GUIDES</span>
+        <button class="toggle on" id="guides-btn" onclick="toggleGuides()">ON</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">CENTER VP</span>
+        <button class="toggle" onclick="centerVP()">RESET</button>
+      </div>
+    </div>
+    <div class="cs">
+      <div class="cs-title">ZOOM RANGE</div>
+      <div class="gr"><label>MIN SCALE</label><input type="range" min="0.01" max="0.4" step="0.01" value="0.05" oninput="S.minScale=+this.value;gv(this,'mins-v')"><span class="vd" id="mins-v">0.05</span></div>
+      <div class="gr"><label>MAX SCALE</label><input type="range" min="2" max="12" step="0.1" value="5" oninput="S.maxScale=+this.value;gv(this,'maxs-v')"><span class="vd" id="maxs-v">5.0</span></div>
+    </div>
+    <div class="cs">
+      <div class="cs-title">FADE THRESHOLDS</div>
+      <div class="gr"><label>FADE IN END</label><input type="range" min="0.02" max="0.45" step="0.01" value="0.18" oninput="S.fadeInEnd=+this.value;gv(this,'fi-v')"><span class="vd" id="fi-v">0.18</span></div>
+      <div class="gr"><label>FADE OUT START</label><input type="range" min="0.5" max="0.98" step="0.01" value="0.72" oninput="S.fadeOutStart=+this.value;gv(this,'fo-v')"><span class="vd" id="fo-v">0.72</span></div>
+    </div>
+    <div class="cs">
+      <div class="cs-title">GLOBAL LOOK</div>
+      <div class="gr"><label>VIGNETTE</label><input type="range" min="0" max="1" step="0.01" value="0.45" oninput="S.vignette=+this.value;gv(this,'vig-v')"><span class="vd" id="vig-v">0.45</span></div>
+      <div class="gr"><label>FADE AMT</label><input type="range" min="0" max="1" step="0.01" value="0" oninput="S.fadeAmount=+this.value;gv(this,'famt-v')"><span class="vd" id="famt-v">0.00</span></div>
+      <select class="fade-select" onchange="S.fadeColor=this.value">
+        <option value="">OVERLAY: NONE</option>
+        <option value="black">OVERLAY: BLACK</option>
+        <option value="white">OVERLAY: WHITE</option>
+      </select>
+    </div>
+    <div class="cs">
+      <div class="cs-title">RAIL ENGINE</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">RAIL LOCK</span>
+        <button class="toggle on" id="rail-lock-btn" onclick="toggleLockRail()">ON</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">STRICT TUNNEL</span>
+        <button class="toggle" id="strict-rail-btn" onclick="toggleStrictRail()">OFF</button>
+      </div>
+      <div class="gr">
+        <label>DRIFT AMT</label>
+        <input type="range" min="0" max="0.4" step="0.01" value="0.05"
+          oninput="S.railDrift=+this.value;gv(this,'drift-v')">
+        <span class="vd" id="drift-v">0.05</span>
+      </div>
+      <p style="font-size:8px;color:var(--text-dim);line-height:1.7;margin-top:4px">
+        LOCK: layers stay on axis<br>
+        TUNNEL: zero drift, pure forward<br>
+        DRIFT: subtle xy bleed-through
+      </p>
+    </div>
+    <div class="cs">
+      <div class="cs-title">RADIAL BLEND</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">ENABLE</span>
+        <button class="toggle on" id="radial-btn" onclick="toggleRadialBlend()">ON</button>
+      </div>
+      <div class="gr">
+        <label>CTR RADIUS</label>
+        <input type="range" min="0.05" max="0.7" step="0.01" value="0.28"
+          oninput="S.centerRadius=+this.value;gv(this,'cr-v')">
+        <span class="vd" id="cr-v">0.28</span>
+      </div>
+      <div class="gr">
+        <label>BLEND WIDTH</label>
+        <input type="range" min="0.05" max="0.65" step="0.01" value="0.32"
+          oninput="S.blendWidth=+this.value;gv(this,'bw-v')">
+        <span class="vd" id="bw-v">0.32</span>
+      </div>
+      <div class="gr">
+        <label>EDGE HOLD</label>
+        <input type="range" min="0" max="1" step="0.01" value="0.80"
+          oninput="S.edgeHold=+this.value;gv(this,'eh-v')">
+        <span class="vd" id="eh-v">0.80</span>
+      </div>
+      <div class="gr">
+        <label>EDGE BLUR</label>
+        <input type="range" min="0" max="14" step="0.5" value="0"
+          oninput="S.edgeBlur=+this.value;gv(this,'eb-v')">
+        <span class="vd" id="eb-v">0.0</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+        <span style="font-size:9px;letter-spacing:.1em;color:var(--text-dim);flex:1">AUTO MATCH</span>
+        <button class="toggle" id="match-btn" onclick="toggleAutoMatch()">OFF</button>
+      </div>
+      <p style="font-size:8px;color:var(--text-dim);line-height:1.7;margin-top:6px">
+        Center → new world entering<br>
+        Edges → stable previous frame<br>
+        EDGE BLUR → peripheral softness<br>
+        AUTO MATCH → equalise brightness
+      </p>
+    </div>
+    <div class="cs">
+      <div class="cs-title">WORKFLOW</div>
+      <p style="font-size:9px;color:var(--text-dim);line-height:1.9">
+        LIBRARY → manage themed folders<br>
+        Click thumbnail → add as layer<br>
+        LAYERS → tune each layer<br>
+        Max 6 simultaneous layers<br>
+        PHASE → position in zoom cycle<br>
+        AUTO-STAGGER → even spread<br>
+        SAVE JSON → includes full library
+      </p>
+    </div>
+  </div>
+
+  <div id="transport">
+    <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+    <div class="t-grp">
+      <span class="t-lbl">SPEED</span>
+      <input type="range" class="speed-slider" min="0.01" max="0.8" step="0.01" value="0.18"
+        oninput="S.zoomSpeed=+this.value;document.getElementById('spd-v').textContent=parseFloat(this.value).toFixed(2)">
+      <span class="readout" id="spd-v">0.18</span>
+    </div>
+    <div class="t-sep"></div>
+    <div class="t-grp"><span class="t-lbl">TIME</span><span class="readout" id="time-out" style="color:var(--teal)">0.000</span></div>
+    <div class="t-grp"><span class="t-lbl">ZOOM</span><span class="readout" id="zoom-out">×1.00</span></div>
+    <button class="btn" onclick="resetTime()">RESET</button>
+  </div>
+
+</div>
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+const S = {
+  vp: { x: 0.5, y: 0.5 },
+  zoomSpeed: 0.18, playing: false, showGuides: true,
+  vignette: 0.45, fadeColor: '', fadeAmount: 0, globalTime: 0,
+  minScale: 0.05, maxScale: 5, fadeInEnd: 0.18, fadeOutStart: 0.72,
+  // ── RAIL ENGINE ──────────────────────────────
+  lockToRail: true,   // all layers snap to VP axis
+  strictRail: false,  // when true, x/y offsets fully ignored
+  railDrift: 0.05,    // how much x/y bleeds through in soft lock
+  // ── RADIAL BLEND ─────────────────────────────
+  radialBlend:  true,   // enable radial compositing
+  centerRadius: 0.28,   // inner fully-incoming circle (0–1 of half-diagonal)
+  blendWidth:   0.32,   // width of the crossfade ring
+  edgeHold:     0.80,   // opacity multiplier for background / edge layers
+  edgeBlur:     0,      // extra blur applied to background when compositing (px)
+  autoMatch:    false,  // auto brightness-match incoming layer to background
+  library: [], layers: []
+};
+let activeId = null, activeFolderId = null, activeTab = 'library';
+let rafId = null, lastTs = null, isDragging = false;
+let _seq = 0;
+const uid = () => 'u' + (++_seq) + '_' + (Date.now() % 1e6);
+
+// ═══════════════════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════════════════
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const a = document.getElementById('canvas-area');
+  const W = a.clientWidth, H = a.clientHeight, ratio = 16/9;
+  let cw, ch;
+  if (W/H > ratio) { ch = H; cw = ch*ratio; } else { cw = W; ch = cw/ratio; }
+  canvas.width = Math.round(cw); canvas.height = Math.round(ch);
+  canvas.style.width = cw+'px'; canvas.style.height = ch+'px';
+}
+window.addEventListener('resize', () => { resizeCanvas(); renderFrame(); });
+resizeCanvas();
+
+// ═══════════════════════════════════════════════════════════
+// LIBRARY — FOLDERS
+// ═══════════════════════════════════════════════════════════
+const mkFolder = name => ({ id: uid(), name: name.toUpperCase(), images: [] });
+const getActiveFolder = () => S.library.find(f => f.id === activeFolderId) || S.library[0] || null;
+
+function setActiveFolder(id) { activeFolderId = id; refreshLibrary(); }
+
+function newFolder() {
+  const name = prompt('New folder name:');
+  if (!name || !name.trim()) return;
+  const f = mkFolder(name.trim());
+  S.library.push(f);
+  activeFolderId = f.id;
+  refreshLibrary();
+}
+
+function renameActiveFolder() {
+  const f = getActiveFolder(); if (!f) return;
+  const name = prompt('Rename folder:', f.name);
+  if (name && name.trim()) { f.name = name.trim().toUpperCase(); refreshLibrary(); }
+}
+
+function deleteActiveFolder() {
+  const f = getActiveFolder(); if (!f) return;
+  if (S.library.length <= 1) { alert('Cannot delete the last folder.'); return; }
+  if (!confirm(`Delete "${f.name}" and its ${f.images.length} image(s)?`)) return;
+  S.library = S.library.filter(x => x.id !== f.id);
+  activeFolderId = S.library[0].id;
+  refreshLibrary();
+}
+
+// ═══════════════════════════════════════════════════════════
+// LIBRARY — IMAGES
+// ═══════════════════════════════════════════════════════════
+const fileToDataURL = file => new Promise(res => {
+  const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file);
+});
+
+function makeMiniThumb(img) {
+  try {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 48;
+    c.getContext('2d').drawImage(img, 0, 0, 64, 48);
+    return c.toDataURL('image/jpeg', 0.6);
+  } catch { return ''; }
+}
+
+function pushToFolder(folderId, src, thumb, name) {
+  const f = S.library.find(f => f.id === folderId); if (!f) return;
+  f.images.push({ id: uid(), src, thumb: thumb || src, name: (name || 'IMAGE').slice(0, 24) });
+  refreshLibrary();
+}
+
+async function handleLibFiles(e) {
+  const f = getActiveFolder(); if (!f) return;
+  for (const file of Array.from(e.target.files)) {
+    if (!file.type.startsWith('image/')) continue;
+    const src = await fileToDataURL(file);
+    const name = file.name.replace(/\.[^.]+$/, '').toUpperCase();
+    const img = new Image();
+    img.onload = () => { pushToFolder(f.id, src, makeMiniThumb(img), name); };
+    img.src = src;
+  }
+  e.target.value = '';
+}
+
+function addLibFromURL() {
+  const inp = document.getElementById('lib-url-input');
+  const url = inp.value.trim(); if (!url) return;
+  const f = getActiveFolder(); if (!f) return;
+  const name = (url.split('/').pop().split('?')[0] || 'IMAGE').toUpperCase();
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  img.onload = () => pushToFolder(f.id, url, makeMiniThumb(img) || url, name);
+  img.onerror = () => pushToFolder(f.id, url, url, name);
+  img.src = url;
+  inp.value = '';
+}
+
+function removeLibImage(folderId, imgId, e) {
+  e && e.stopPropagation();
+  const f = S.library.find(f => f.id === folderId); if (!f) return;
+  f.images = f.images.filter(i => i.id !== imgId);
+  refreshLibrary();
+}
+
+function addLibImageAsLayer(folderId, imgId) {
+  if (S.layers.length >= 6) { alert('Max 6 active layers — remove one first.'); return; }
+  const f = S.library.find(f => f.id === folderId);
+  const imgData = f?.images.find(i => i.id === imgId);
+  if (!imgData) return;
+  const img = new Image();
+  img.onload = () => { addLayer(mkLayer(img, imgData.src, imgData.thumb, imgData.name)); switchTab('layers'); };
+  img.onerror = () => alert('Could not load image.');
+  img.src = imgData.src;
+}
+
+// ═══════════════════════════════════════════════════════════
+// LIBRARY — RENDER
+// ═══════════════════════════════════════════════════════════
+function refreshLibrary() {
+  const totalImgs = S.library.reduce((a, f) => a + f.images.length, 0);
+  document.getElementById('lib-badge').textContent = totalImgs;
+
+  // Folder tab row
+  const row = document.getElementById('folder-tabs-row');
+  row.innerHTML = S.library.map(f =>
+    `<div class="ftab${f.id === activeFolderId ? ' active' : ''}" onclick="setActiveFolder('${f.id}')">
+      ${f.name} <span class="ftab-count">${f.images.length}</span>
+    </div>`
+  ).join('') + `<button class="ftab-new" onclick="newFolder()">＋ FOLDER</button>`;
+
+  // Toolbar
+  const folder = getActiveFolder();
+  document.getElementById('folder-name').textContent = folder?.name ?? '—';
+  document.getElementById('folder-img-count').textContent = (folder?.images.length ?? 0) + ' imgs';
+
+  // Image grid
+  const grid = document.getElementById('img-grid');
+  if (!folder || !folder.images.length) {
+    grid.innerHTML = '<div class="grid-empty">DROP OR UPLOAD IMAGES<br>TO THIS FOLDER</div>';
+    return;
+  }
+  const fid = folder.id;
+  grid.innerHTML = folder.images.map(img =>
+    `<div class="igrid-thumb" title="${img.name}">
+      <img src="${img.thumb || img.src}" onerror="this.style.display='none'">
+      <div class="igrid-name">${img.name}</div>
+      <div class="igrid-overlay" onclick="addLibImageAsLayer('${fid}','${img.id}')">＋</div>
+      <div class="igrid-del" onclick="removeLibImage('${fid}','${img.id}',event)">✕</div>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// DRAG DROP
+// ═══════════════════════════════════════════════════════════
+async function dropFiles(files) {
+  const folder = getActiveFolder(); if (!folder) return;
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const src = await fileToDataURL(file);
+    const name = file.name.replace(/\.[^.]+$/, '').toUpperCase();
+    const img = new Image();
+    img.onload = () => { pushToFolder(folder.id, src, makeMiniThumb(img), name); };
+    img.src = src;
+  }
+}
+
+const libUZ = document.getElementById('lib-upload-zone');
+libUZ.addEventListener('dragover',  e => { e.preventDefault(); libUZ.classList.add('drag-over'); });
+libUZ.addEventListener('dragleave', () => libUZ.classList.remove('drag-over'));
+libUZ.addEventListener('drop', async e => { e.preventDefault(); libUZ.classList.remove('drag-over'); await dropFiles(Array.from(e.dataTransfer.files)); });
+
+const ca = document.getElementById('canvas-area');
+ca.addEventListener('dragover', e => e.preventDefault());
+ca.addEventListener('drop', async e => { e.preventDefault(); await dropFiles(Array.from(e.dataTransfer.files)); switchTab('library'); });
+
+// ═══════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-library').style.display = tab === 'library' ? 'flex' : 'none';
+  document.getElementById('tab-layers').style.display  = tab === 'layers'  ? 'flex' : 'none';
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+}
+
+// ═══════════════════════════════════════════════════════════
+// LAYERS
+// ═══════════════════════════════════════════════════════════
+function mkLayer(img, src, thumb, name) {
+  const n = S.layers.length;
+  return { id: uid(), img, src, thumb: thumb || '', name: (name || 'LAYER').slice(0, 20),
+    visible: true,
+    x: 0.5, y: 0.5,   // always centred; drift controlled by railDrift
+    scale: 1.0,
+    phaseOffset: n / Math.max(n + 1, 1),  // will be overwritten by placeOnHorizon
+    opacity: 1, blur: 0, brightness: 1, contrast: 1, saturation: 1,
+    blendMode: 'source-over', zIndex: n };
+}
+
+function addLayer(layer) {
+  // Place new layer at the far end of the rail (smallest apparent scale = farthest away)
+  placeOnHorizon(layer);
+  S.layers.push(layer); activeId = layer.id;
+  // Ensure no two layers pile up at the same depth
+  guardClustering();
+  refreshPanel();
+  document.getElementById('empty-state').style.display = 'none';
+  if (!rafId) startLoop();
+}
+
+function removeLayer(id, e) {
+  e && e.stopPropagation();
+  S.layers = S.layers.filter(l => l.id !== id);
+  if (activeId === id) activeId = S.layers.length ? S.layers[0].id : null;
+  refreshPanel();
+  if (!S.layers.length) { document.getElementById('empty-state').style.display = ''; ctx.clearRect(0,0,canvas.width,canvas.height); }
+}
+
+const getL = id => S.layers.find(l => l.id === id);
+const setLP = (id, prop, val) => { const l = getL(id); if (l) l[prop] = val; };
+
+// ── RAIL ENGINE HELPERS ─────────────────────────────────────
+// Depth = where this layer sits along the rail right now (0=far, 1=arrived)
+function getDepth(layer) {
+  return ((S.globalTime * S.zoomSpeed + layer.phaseOffset) % 1 + 1) % 1;
+}
+
+// Place a new layer at the horizon (far distance), just behind the current farthest layer
+function placeOnHorizon(layer) {
+  layer.x = 0.5; layer.y = 0.5;
+  if (!S.layers.length) { layer.phaseOffset = 0; return; }
+  // Find the phase that currently maps to the smallest depth (most distant)
+  // We want to plant just a little behind the current camera-time position
+  const now = S.globalTime * S.zoomSpeed;
+  // "Horizon" in phase space = current position + 0 offset (wraps back to start of cycle)
+  // Stagger by 1/N increments from that point
+  const n = S.layers.length;
+  const step = 1 / (n + 1);
+  // Find max phaseOffset among existing layers and step forward
+  const maxPh = Math.max(...S.layers.map(l => l.phaseOffset));
+  layer.phaseOffset = (maxPh + step) % 1;
+}
+
+// If all layers cluster within a small phase window, spread them out
+function guardClustering() {
+  const n = S.layers.length; if (n < 2) return;
+  const phases = S.layers.map(l => l.phaseOffset).sort((a,b)=>a-b);
+  const maxGap = Math.max(...phases.map((p,i) => i===0 ? p+(1-phases[n-1]) : p-phases[i-1]));
+  // If biggest gap < 1/(n*2) something is badly clustered — auto spread
+  if (maxGap < 1 / (n * 2)) normalizeRailSpacing();
+}
+
+// Evenly distribute all layers along the rail
+function normalizeRailSpacing() {
+  const n = S.layers.length; if (!n) return;
+  // Sort by current depth so the visual order stays stable during redistribution
+  const byDepth = [...S.layers].sort((a,b) => getDepth(a)-getDepth(b));
+  byDepth.forEach((l, i) => l.phaseOffset = i / n);
+  refreshPanel();
+}
+
+// Kept as the button handler — calls normalizeRailSpacing
+function toggleVis(id, e) { e.stopPropagation(); const l = getL(id); if (l) { l.visible = !l.visible; refreshPanel(); } }
+function moveZ(id, dir, e) { e.stopPropagation(); const l = getL(id); if (l) { l.zIndex = Math.max(0, l.zIndex + dir); refreshPanel(); } }
+function autoStagger() { normalizeRailSpacing(); }
+
+// Toggle rail lock
+function toggleLockRail() {
+  S.lockToRail = !S.lockToRail;
+  const btn = document.getElementById('rail-lock-btn');
+  btn.textContent = S.lockToRail ? 'ON' : 'OFF';
+  btn.classList.toggle('on', S.lockToRail);
+  // Strict mode requires lock to be on
+  if (!S.lockToRail && S.strictRail) toggleStrictRail();
+  refreshPanel();
+}
+
+// Toggle strict rail (completely ignores x/y)
+function toggleStrictRail() {
+  S.strictRail = !S.strictRail;
+  const btn = document.getElementById('strict-rail-btn');
+  btn.textContent = S.strictRail ? 'ON' : 'OFF';
+  btn.classList.toggle('on', S.strictRail);
+  if (S.strictRail && !S.lockToRail) toggleLockRail();
+  refreshPanel(); // to grey out x/y sliders
+}
+
+// ═══════════════════════════════════════════════════════════
+// VP AUTO-DETECTION  (pure canvas, no libraries)
+// Pipeline: downsample → grayscale → Sobel → Hough-VP accumulator
+//           → Gaussian blur accumulator → find peak → normalize
+// ═══════════════════════════════════════════════════════════
+function detectVP(img) {
+  const FALLBACK = { x: 0.5, y: 0.5, confidence: 0 };
+
+  // 1. Downsample to 128 wide for speed
+  const IW = 128;
+  const IH = Math.max(2, Math.round(IW * img.naturalHeight / (img.naturalWidth || 1)));
+  const oc = document.createElement('canvas');
+  oc.width = IW; oc.height = IH;
+  const octx = oc.getContext('2d');
+  octx.drawImage(img, 0, 0, IW, IH);
+
+  let raw;
+  try { raw = octx.getImageData(0, 0, IW, IH).data; }
+  catch { return FALLBACK; }  // cross-origin taint — safe fallback
+
+  // 2. Grayscale  (luminance weights)
+  const gray = new Float32Array(IW * IH);
+  for (let i = 0; i < IW * IH; i++) {
+    gray[i] = 0.299 * raw[i*4] + 0.587 * raw[i*4+1] + 0.114 * raw[i*4+2];
+  }
+
+  // 3. Sobel edge filter  →  gradient magnitude + direction per pixel
+  const Gx = new Float32Array(IW * IH);
+  const Gy = new Float32Array(IW * IH);
+  let maxMag = 0;
+  for (let y = 1; y < IH - 1; y++) {
+    for (let x = 1; x < IW - 1; x++) {
+      const i = y * IW + x;
+      const tl=gray[i-IW-1], tc=gray[i-IW], tr=gray[i-IW+1];
+      const ml=gray[i-1],                    mr=gray[i+1];
+      const bl=gray[i+IW-1], bc=gray[i+IW], br=gray[i+IW+1];
+      Gx[i] = (tr + 2*mr + br) - (tl + 2*ml + bl);
+      Gy[i] = (bl + 2*bc + br) - (tl + 2*tc + tr);
+      const m = Math.sqrt(Gx[i]*Gx[i] + Gy[i]*Gy[i]);
+      if (m > maxMag) maxMag = m;
+    }
+  }
+  if (maxMag < 1) return FALLBACK;
+
+  // 4. Hough-VP accumulator
+  // For each strong edge pixel, the edge TANGENT direction (⊥ gradient) points
+  // along a converging line.  Cast rays both ways and vote in a 2D accumulator.
+  const AW = 48;
+  const AH = Math.max(2, Math.round(AW * IH / IW));
+  const acc = new Float32Array(AW * AH);
+
+  const threshold  = maxMag * 0.22;          // ignore weak edges
+  const HALF_STEPS = 36;                      // ray samples per direction
+  const STRIDE     = Math.max(IW, IH) / HALF_STEPS;
+
+  for (let y = 1; y < IH - 1; y++) {
+    for (let x = 1; x < IW - 1; x++) {
+      const i = y * IW + x;
+      const gxv = Gx[i], gyv = Gy[i];
+      const mag = Math.sqrt(gxv*gxv + gyv*gyv);
+      if (mag < threshold) continue;
+
+      // Edge tangent: rotate gradient 90°
+      const tx = -gyv / mag;
+      const ty =  gxv / mag;
+
+      // Cast ray in both tangent directions, deposit weighted votes
+      for (let s = -HALF_STEPS; s <= HALF_STEPS; s++) {
+        if (s === 0) continue;
+        const vx = x + tx * s * STRIDE;
+        const vy = y + ty * s * STRIDE;
+        const ax = Math.floor(vx * AW / IW);
+        const ay = Math.floor(vy * AH / IH);
+        if (ax >= 0 && ax < AW && ay >= 0 && ay < AH) {
+          // Weight falls off with distance so nearby intersections dominate
+          acc[ay * AW + ax] += mag / (Math.abs(s) + 1);
+        }
+      }
+    }
+  }
+
+  // 5. Smooth accumulator with 3×3 Gaussian (reduces salt-pepper noise)
+  const acc2 = new Float32Array(AW * AH);
+  for (let y = 1; y < AH - 1; y++) {
+    for (let x = 1; x < AW - 1; x++) {
+      const i = y * AW + x;
+      acc2[i] = (
+        acc[i-AW-1]   + acc[i-AW]*2   + acc[i-AW+1] +
+        acc[i-1]*2    + acc[i]*4       + acc[i+1]*2  +
+        acc[i+AW-1]   + acc[i+AW]*2   + acc[i+AW+1]
+      ) / 16;
+    }
+  }
+
+  // 6. Find accumulator peak  →  estimated VP
+  let peakVal = 0, peakIdx = 0, totalMass = 0;
+  for (let i = 0; i < AW * AH; i++) {
+    totalMass += acc2[i];
+    if (acc2[i] > peakVal) { peakVal = acc2[i]; peakIdx = i; }
+  }
+
+  const peakX = peakIdx % AW;
+  const peakY = Math.floor(peakIdx / AW);
+  const mean  = totalMass / (AW * AH);
+
+  // Confidence: how much does the peak stand out above the mean?
+  // A uniform (structureless) image gives confidence ≈ 0.
+  // Strong perspective gives confidence > 0.5.
+  const confidence = mean > 0 ? Math.min(1, (peakVal / mean - 1) / 9) : 0;
+
+  // Normalize to 0-1 image space
+  const nx = (peakX + 0.5) / AW;
+  const ny = (peakY + 0.5) / AH;
+
+  // Low-confidence: return center
+  if (confidence < 0.25) return { x: 0.5, y: 0.5, confidence };
+  return { x: nx, y: ny, confidence };
+}
+
+// Called by "AUTO VP" button on each layer card
+function autoVPForLayer(layerId) {
+  const l = getL(layerId);
+  if (!l || !l.img) return;
+
+  const btn = document.getElementById('avp-' + layerId);
+  const bar = document.getElementById('avp-bar-' + layerId);
+
+  if (btn) { btn.textContent = '…'; btn.className = 'btn-avp running'; }
+
+  // Defer one frame so the UI updates before the blocking compute
+  setTimeout(() => {
+    const r = detectVP(l.img);
+
+    S.vp.x = r.x;
+    S.vp.y = r.y;
+
+    const pct  = Math.round(r.confidence * 100);
+    const isLow = r.confidence < 0.25;
+
+    if (bar) bar.style.width = pct + '%';
+    if (btn) {
+      btn.textContent   = isLow ? 'LOW CONF' : `${pct}% CONF`;
+      btn.className     = 'btn-avp ' + (isLow ? 'low' : 'ok');
+      setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.textContent = 'AUTO VP';
+        btn.className   = 'btn-avp';
+        if (bar) bar.style.width = '0%';
+      }, 2500);
+    }
+  }, 16);
+}
+
+function refreshPanel() {
+  const list = document.getElementById('layer-list');
+  list.innerHTML = [...S.layers].sort((a,b) => b.zIndex-a.zIndex).map(l => layerHTML(l)).join('');
+  document.getElementById('layers-badge').textContent = S.layers.length + '/6';
+}
+
+function layerHTML(l) {
+  const sel = l.id === activeId;
+  const blends = [['source-over','NORMAL'],['lighter','ADDITIVE'],['multiply','MULTIPLY'],['screen','SCREEN'],['overlay','OVERLAY'],['color-dodge','DODGE'],['hard-light','HARD LIGHT']];
+  const bOpts = blends.map(([v,n]) => `<option value="${v}"${l.blendMode===v?' selected':''}>${n}</option>`).join('');
+  const f = v => parseFloat(v).toFixed(2);
+
+  return `<div class="layer-item${sel?' sel':''}" id="li-${l.id}">
+  <div class="layer-hdr" onclick="activeId='${l.id}';refreshPanel()">
+    <img class="layer-thumb" src="${l.thumb||''}" onerror="this.style.background='#2a2a35';this.removeAttribute('src')">
+    <span class="layer-name" title="${l.name}">${l.name}</span>
+    <div class="layer-hdr-actions">
+      <button class="hdr-btn vis${l.visible?'':' off'}" onclick="toggleVis('${l.id}',event)">${l.visible?'◉':'○'}</button>
+      <button class="hdr-btn del" onclick="removeLayer('${l.id}',event)">✕</button>
+    </div>
+  </div>
+  <div class="layer-ctrls">
+    <div class="cr" style="gap:6px">
+      <span class="cr-lbl">AUTO VP</span>
+      <button id="avp-${l.id}" class="btn-avp" onclick="autoVPForLayer('${l.id}')">AUTO VP</button>
+      <span style="font-size:8px;color:var(--text-dim);flex:1;text-align:right" id="avp-hint-${l.id}">sets global VP</span>
+    </div>
+    <div class="vp-conf-bar"><div class="vp-conf-fill" id="avp-bar-${l.id}" style="width:0%"></div></div>
+    <div class="cr"><span class="cr-lbl">Z-ORDER</span><div class="cr-btns"><button class="sm-btn" onclick="moveZ('${l.id}',1,event)">↑</button><button class="sm-btn" onclick="moveZ('${l.id}',-1,event)">↓</button></div><span class="vd" style="margin-left:4px">z=${l.zIndex}</span></div>
+    <div class="cr"><span class="cr-lbl">PHASE</span><input type="range" min="0" max="0.99" step="0.01" value="${f(l.phaseOffset)}" oninput="setLP('${l.id}','phaseOffset',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.phaseOffset)}</span></div>
+    <div class="cr"><span class="cr-lbl">OPACITY</span><input type="range" min="0" max="1" step="0.01" value="${f(l.opacity)}" oninput="setLP('${l.id}','opacity',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.opacity)}</span></div>
+    <div class="cr"><span class="cr-lbl">SCALE</span><input type="range" min="0.1" max="3" step="0.05" value="${f(l.scale)}" oninput="setLP('${l.id}','scale',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.scale)}</span></div>
+    <div class="cr"><span class="cr-lbl">POS X</span><input type="range" min="0" max="1" step="0.01" value="${f(l.x)}" ${S.strictRail?'disabled style="opacity:.3"':''} oninput="setLP('${l.id}','x',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.x)}</span></div>
+    <div class="cr"><span class="cr-lbl">POS Y</span><input type="range" min="0" max="1" step="0.01" value="${f(l.y)}" ${S.strictRail?'disabled style="opacity:.3"':''} oninput="setLP('${l.id}','y',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.y)}</span></div>
+    <div class="cr"><span class="cr-lbl">BLUR</span><input type="range" min="0" max="24" step="0.5" value="${l.blur}" oninput="setLP('${l.id}','blur',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(1)"><span class="vd">${l.blur.toFixed(1)}</span></div>
+    <div class="cr"><span class="cr-lbl">BRIGHTNESS</span><input type="range" min="0" max="3" step="0.05" value="${f(l.brightness)}" oninput="setLP('${l.id}','brightness',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.brightness)}</span></div>
+    <div class="cr"><span class="cr-lbl">CONTRAST</span><input type="range" min="0" max="3" step="0.05" value="${f(l.contrast)}" oninput="setLP('${l.id}','contrast',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.contrast)}</span></div>
+    <div class="cr"><span class="cr-lbl">SATURATE</span><input type="range" min="0" max="3" step="0.05" value="${f(l.saturation)}" oninput="setLP('${l.id}','saturation',+this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)"><span class="vd">${f(l.saturation)}</span></div>
+    <div class="cr" style="border-bottom:none"><span class="cr-lbl">BLEND</span><select onchange="setLP('${l.id}','blendMode',this.value)">${bOpts}</select></div>
+  </div>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RADIAL BLEND ENGINE
+// Compositing pipeline:
+//   Pass 1 → bg layers → _eBuf  (edge / stable content)
+//   Pass 2 → top layer → _rBuf  (incoming / center content)
+//   Pass 3 → apply radial gradient mask to _rBuf (destination-in)
+//   Pass 4 → _eBuf (optionally blurred) + _rBuf → main canvas
+// ═══════════════════════════════════════════════════════════
+
+// Persistent offscreen buffers — one allocation, reused every frame
+const _eBuf  = document.createElement('canvas');  // background / edges
+const _rBuf  = document.createElement('canvas');  // incoming / center
+const _eBctx = _eBuf.getContext('2d');
+const _rBctx = _rBuf.getContext('2d');
+
+function _ensureRadialBufs(W, H) {
+  if (_eBuf.width !== W || _eBuf.height !== H) {
+    _eBuf.width = W;  _eBuf.height = H;
+    _rBuf.width = W;  _rBuf.height = H;
+  }
+}
+
+// Compute draw geometry for a layer — shared by all rendering paths
+function _layerGeo(layer, ph, vpX, vpY, W, H) {
+  const effScale = phaseScale(ph);
+  const lx = layer.x * W, ly = layer.y * H;
+  let cx, cy;
+  if (S.strictRail)       { cx = vpX; cy = vpY; }
+  else if (S.lockToRail)  { cx = vpX + (lx-vpX)*S.railDrift; cy = vpY + (ly-vpY)*S.railDrift; }
+  else                    { cx = vpX + (lx-vpX)*effScale;     cy = vpY + (ly-vpY)*effScale; }
+  const baseW = W * layer.scale;
+  const ar    = layer.img.naturalHeight / (layer.img.naturalWidth || 1);
+  return { effScale, cx, cy, drawW: baseW*effScale, drawH: baseW*ar*effScale };
+}
+
+// Draw one layer to any 2D context (main or offscreen)
+function _drawOneLayer(tctx, layer, ph, vpX, vpY, W, H, alphaOverride, brightBoost) {
+  const alpha = alphaOverride !== undefined
+    ? alphaOverride
+    : layer.opacity * phaseOpacity(ph);
+  if (alpha < 0.002) return 1;
+
+  const { effScale, cx, cy, drawW, drawH } = _layerGeo(layer, ph, vpX, vpY, W, H);
+
+  tctx.save();
+  tctx.globalAlpha              = alpha;
+  tctx.globalCompositeOperation = layer.blendMode;
+
+  const fp = [];
+  if (layer.blur > 0.1)       fp.push(`blur(${layer.blur.toFixed(1)}px)`);
+  const br = (brightBoost ?? 1) * layer.brightness;
+  if (Math.abs(br - 1) > 0.001) fp.push(`brightness(${br.toFixed(3)})`);
+  if (layer.contrast   !== 1) fp.push(`contrast(${layer.contrast})`);
+  if (layer.saturation !== 1) fp.push(`saturate(${layer.saturation})`);
+  if (fp.length) tctx.filter = fp.join(' ');
+
+  tctx.drawImage(layer.img, cx - drawW/2, cy - drawH/2, drawW, drawH);
+  tctx.restore();
+  return effScale;
+}
+
+// Sample mean luminance of a small square centred on (cx, cy) from a canvas
+// Uses a tiny scratch canvas — cheap (only called when autoMatch is ON)
+const _sc  = document.createElement('canvas');
+_sc.width  = 20; _sc.height = 20;
+const _sctx = _sc.getContext('2d');
+function _sampleLuma(srcCanvas, cx, cy) {
+  _sctx.clearRect(0, 0, 20, 20);
+  _sctx.drawImage(srcCanvas, cx - 10, cy - 10, 20, 20, 0, 0, 20, 20);
+  try {
+    const d = _sctx.getImageData(0, 0, 20, 20).data;
+    let s = 0;
+    for (let i = 0; i < d.length; i += 4)
+      s += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    return s / (d.length / 4 * 255) || 0.5;
+  } catch { return 0.5; }
+}
+
+function renderFrameRadial(vpX, vpY, W, H) {
+  _ensureRadialBufs(W, H);
+
+  // Visible layers sorted by current depth (ascending: 0 = far, 1 = near / arrived)
+  const vis = S.layers
+    .filter(l => l.visible && l.img)
+    .sort((a, b) => {
+      const da = ((S.globalTime*S.zoomSpeed + a.phaseOffset) % 1 + 1) % 1;
+      const db = ((S.globalTime*S.zoomSpeed + b.phaseOffset) % 1 + 1) % 1;
+      return da - db;
+    });
+
+  if (!vis.length) return 1;
+
+  // Incoming = deepest (most arrived) layer; everything else = background
+  const inLayer  = vis[vis.length - 1];
+  const bgLayers = vis.slice(0, vis.length - 1);
+
+  // ── Pass 1: background layers → _eBuf ──────────────────────
+  _eBctx.clearRect(0, 0, W, H);
+  let currentZoom = 1;
+  bgLayers.forEach(l => {
+    const ph = ((S.globalTime * S.zoomSpeed + l.phaseOffset) % 1 + 1) % 1;
+    const es = _drawOneLayer(_eBctx, l, ph, vpX, vpY, W, H,
+                             l.opacity * phaseOpacity(ph) * S.edgeHold);
+    if (l.id === activeId) currentZoom = es;
+  });
+
+  const inPh    = ((S.globalTime * S.zoomSpeed + inLayer.phaseOffset) % 1 + 1) % 1;
+  const inAlpha = inLayer.opacity * phaseOpacity(inPh);
+  if (inLayer.id === activeId) currentZoom = phaseScale(inPh);
+
+  // ── Pass 2: incoming layer → _rBuf ─────────────────────────
+  _rBctx.clearRect(0, 0, W, H);
+  let brightBoost = 1;
+
+  if (S.autoMatch && inAlpha > 0.05) {
+    // Draw once to _rBuf just for brightness sampling, then clear + redraw with boost
+    _drawOneLayer(_rBctx, inLayer, inPh, vpX, vpY, W, H, 1, 1);
+    const bgLuma = _sampleLuma(_eBuf, vpX, vpY);
+    const inLuma = _sampleLuma(_rBuf, vpX, vpY);
+    brightBoost  = inLuma > 0.01 ? Math.min(2.2, Math.max(0.45, bgLuma / inLuma)) : 1;
+    _rBctx.clearRect(0, 0, W, H);
+  }
+
+  _drawOneLayer(_rBctx, inLayer, inPh, vpX, vpY, W, H, inAlpha, brightBoost);
+
+  // ── Pass 3: radial gradient mask → _rBuf (destination-in) ──
+  // Mask is centred on VP:
+  //   0..innerR  → fully incoming  (opaque)
+  //   innerR..outerR → crossfade ring
+  //   outerR+    → transparent (bg shows through)
+  const diag   = Math.sqrt(W*W + H*H) * 0.5;
+  const innerR = Math.max(0, S.centerRadius * diag);
+  const outerR = Math.max(innerR + 2, (S.centerRadius + S.blendWidth) * diag);
+
+  const mask = _rBctx.createRadialGradient(vpX, vpY, innerR, vpX, vpY, outerR);
+  mask.addColorStop(0, 'rgba(0,0,0,1)');
+  mask.addColorStop(1, 'rgba(0,0,0,0)');
+  _rBctx.save();
+  _rBctx.globalCompositeOperation = 'destination-in';
+  _rBctx.fillStyle = mask;
+  _rBctx.fillRect(0, 0, W, H);
+  _rBctx.restore();
+
+  // ── Pass 4: composite to main canvas ───────────────────────
+  // Background: optionally blurred (peripheral softness effect)
+  ctx.save();
+  if (S.edgeBlur > 0.1) ctx.filter = `blur(${S.edgeBlur.toFixed(1)}px)`;
+  ctx.drawImage(_eBuf, 0, 0);
+  ctx.restore();
+  // Incoming: sharp, radially masked, layered on top
+  ctx.drawImage(_rBuf, 0, 0);
+
+  return currentZoom;
+}
+
+// Toggle functions for radial blend controls
+function toggleRadialBlend() {
+  S.radialBlend = !S.radialBlend;
+  const btn = document.getElementById('radial-btn');
+  btn.textContent = S.radialBlend ? 'ON' : 'OFF';
+  btn.classList.toggle('on', S.radialBlend);
+}
+function toggleAutoMatch() {
+  S.autoMatch = !S.autoMatch;
+  const btn = document.getElementById('match-btn');
+  btn.textContent = S.autoMatch ? 'ON' : 'OFF';
+  btn.classList.toggle('on', S.autoMatch);
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════════
+function startLoop() {
+  lastTs = performance.now();
+  (function tick(ts) {
+    const dt = Math.min((ts - lastTs) / 1000, 0.05); lastTs = ts;
+    if (S.playing) { S.globalTime += dt; document.getElementById('time-out').textContent = S.globalTime.toFixed(3); }
+    renderFrame();
+    rafId = requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+function togglePlay() {
+  S.playing = !S.playing;
+  const btn = document.getElementById('play-btn');
+  btn.textContent = S.playing ? '⏸' : '▶';
+  btn.classList.toggle('playing', S.playing);
+  if (S.playing && !rafId) startLoop();
+}
+
+function resetTime() { S.globalTime = 0; }
+
+function phaseScale(p) {
+  const a = Math.log(S.minScale), b = Math.log(S.maxScale);
+  return Math.exp(a + p * (b - a));
+}
+
+function phaseOpacity(p) {
+  const fi = S.fadeInEnd, fo = S.fadeOutStart;
+  if (p < fi) return p / fi;
+  if (p > fo) return Math.max(0, 1 - (p - fo) / (1 - fo));
+  return 1;
+}
+
+function renderFrame() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const vpX = S.vp.x * W, vpY = S.vp.y * H;
+
+  if (S.showGuides) {
+    ctx.save(); ctx.strokeStyle = 'rgba(232,124,63,0.09)'; ctx.lineWidth = 1; ctx.setLineDash([3,7]);
+    [[0,0],[W,0],[0,H],[W,H],[W*.5,0],[W*.5,H],[0,H*.5],[W,H*.5]].forEach(([cx,cy]) => {
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(vpX,vpY); ctx.stroke();
+    });
+    ctx.setLineDash([]); ctx.restore();
+  }
+
+  const sorted = [...S.layers].sort((a,b) => a.zIndex - b.zIndex);
+  let currentZoom = 1;
+
+  if (S.radialBlend && S.layers.some(l => l.visible && l.img)) {
+    // ── Radial blend path: center shows incoming, edges stay stable ──
+    currentZoom = renderFrameRadial(vpX, vpY, W, H);
+  } else {
+    // ── Normal flat-composite path (unchanged) ───────────────────────
+    sorted.forEach(layer => {
+      if (!layer.visible || !layer.img) return;
+      const ph = ((S.globalTime * S.zoomSpeed + layer.phaseOffset) % 1 + 1) % 1;
+      const effScale = phaseScale(ph);
+      const alpha = layer.opacity * phaseOpacity(ph);
+      if (alpha < 0.002) return;
+      if (layer.id === activeId) currentZoom = effScale;
+
+      const lx = layer.x*W, ly = layer.y*H;
+      // ── RAIL LOCK ──────────────────────────────────────────
+      // strictRail: pin dead-center on VP (pure tunnel)
+      // lockToRail: allow tiny drift via railDrift factor
+      // off: original freeform behaviour
+      let drawCX, drawCY;
+      if (S.strictRail) {
+        drawCX = vpX;
+        drawCY = vpY;
+      } else if (S.lockToRail) {
+        const drift = S.railDrift;
+        drawCX = vpX + (lx - vpX) * drift;
+        drawCY = vpY + (ly - vpY) * drift;
+      } else {
+        drawCX = vpX + (lx - vpX) * effScale;
+        drawCY = vpY + (ly - vpY) * effScale;
+      }
+      const baseW = W*layer.scale;
+      const ar = layer.img.naturalHeight / (layer.img.naturalWidth || 1);
+      const drawW = baseW*effScale, drawH = baseW*ar*effScale;
+
+      ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = layer.blendMode;
+      const fp = [];
+      if (layer.blur > 0.1) fp.push(`blur(${layer.blur.toFixed(1)}px)`);
+      if (layer.brightness !== 1) fp.push(`brightness(${layer.brightness})`);
+      if (layer.contrast !== 1) fp.push(`contrast(${layer.contrast})`);
+      if (layer.saturation !== 1) fp.push(`saturate(${layer.saturation})`);
+      if (fp.length) ctx.filter = fp.join(' ');
+      ctx.drawImage(layer.img, drawCX-drawW/2, drawCY-drawH/2, drawW, drawH);
+      ctx.restore();
+    });
+  }
+
+  // VP dot
+  ctx.save();
+  ctx.beginPath(); ctx.arc(vpX,vpY,7,0,Math.PI*2); ctx.fillStyle='rgba(232,124,63,0.85)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(vpX,vpY,11,0,Math.PI*2); ctx.strokeStyle='rgba(232,124,63,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(vpX,vpY,17,0,Math.PI*2); ctx.strokeStyle='rgba(232,124,63,0.1)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.restore();
+
+  if (S.vignette > 0.01) {
+    const cx=W/2, cy=H/2, r=Math.sqrt(cx*cx+cy*cy);
+    const g = ctx.createRadialGradient(cx,cy,r*(1-S.vignette*.85),cx,cy,r);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(0,0,0,${(S.vignette*.9).toFixed(2)})`);
+    ctx.save(); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.restore();
+  }
+  if (S.fadeColor && S.fadeAmount > 0.001) {
+    ctx.save(); ctx.globalAlpha=S.fadeAmount; ctx.fillStyle=S.fadeColor; ctx.fillRect(0,0,W,H); ctx.restore();
+  }
+
+  document.getElementById('vp-x').textContent = S.vp.x.toFixed(3);
+  document.getElementById('vp-y').textContent = S.vp.y.toFixed(3);
+  document.getElementById('zoom-out').textContent = '×' + currentZoom.toFixed(2);
+}
+
+// ═══════════════════════════════════════════════════════════
+// VP INTERACTION
+// ═══════════════════════════════════════════════════════════
+function vpFromEvent(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), y: Math.max(0,Math.min(1,(e.clientY-r.top)/r.height)) };
+}
+canvas.addEventListener('mousedown',  e => { isDragging=true; const v=vpFromEvent(e); S.vp.x=v.x; S.vp.y=v.y; });
+canvas.addEventListener('mousemove',  e => { if(isDragging){const v=vpFromEvent(e); S.vp.x=v.x; S.vp.y=v.y;} });
+canvas.addEventListener('mouseup',    () => isDragging=false);
+canvas.addEventListener('mouseleave', () => isDragging=false);
+
+// ═══════════════════════════════════════════════════════════
+// GLOBAL CONTROLS
+// ═══════════════════════════════════════════════════════════
+function toggleGuides() {
+  S.showGuides = !S.showGuides;
+  const btn = document.getElementById('guides-btn');
+  btn.textContent = S.showGuides ? 'ON' : 'OFF';
+  btn.classList.toggle('on', S.showGuides);
+}
+function centerVP() { S.vp.x = 0.5; S.vp.y = 0.5; }
+function gv(el, id) { document.getElementById(id).textContent = parseFloat(el.value).toFixed(2); }
+
+// ═══════════════════════════════════════════════════════════
+// SAVE / LOAD
+// ═══════════════════════════════════════════════════════════
+function doSave() {
+  const data = {
+    vanishingPoint: {...S.vp}, zoomSpeed: S.zoomSpeed,
+    minScale: S.minScale, maxScale: S.maxScale,
+    fadeInEnd: S.fadeInEnd, fadeOutStart: S.fadeOutStart, vignette: S.vignette,
+    lockToRail: S.lockToRail, strictRail: S.strictRail, railDrift: S.railDrift,
+    radialBlend: S.radialBlend, centerRadius: S.centerRadius, blendWidth: S.blendWidth,
+    edgeHold: S.edgeHold, edgeBlur: S.edgeBlur, autoMatch: S.autoMatch,
+    library: S.library.map(f => ({ id:f.id, name:f.name, images: f.images.map(i=>({id:i.id,src:i.src,thumb:i.thumb,name:i.name})) })),
+    layers: S.layers.map(l => ({ src:l.src, thumb:l.thumb, name:l.name, x:l.x, y:l.y, scale:l.scale, phaseOffset:l.phaseOffset, opacity:l.opacity, blur:l.blur, brightness:l.brightness, contrast:l.contrast, saturation:l.saturation, blendMode:l.blendMode, zIndex:l.zIndex, visible:l.visible }))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:'vantage-session.json'});
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function doLoad() {
+  const inp = Object.assign(document.createElement('input'), {type:'file', accept:'.json'});
+  inp.onchange = async e => {
+    try { applyState(JSON.parse(await e.target.files[0].text())); }
+    catch { alert('Invalid or corrupt JSON file.'); }
+  };
+  inp.click();
+}
+
+function applyState(data) {
+  if (data.vanishingPoint) S.vp = {...data.vanishingPoint};
+  S.zoomSpeed    = data.zoomSpeed    ?? S.zoomSpeed;
+  S.minScale     = data.minScale     ?? S.minScale;
+  S.maxScale     = data.maxScale     ?? S.maxScale;
+  S.fadeInEnd    = data.fadeInEnd    ?? S.fadeInEnd;
+  S.fadeOutStart = data.fadeOutStart ?? S.fadeOutStart;
+  S.vignette     = data.vignette     ?? S.vignette;
+  S.lockToRail   = data.lockToRail   ?? S.lockToRail;
+  S.strictRail   = data.strictRail   ?? S.strictRail;
+  S.railDrift    = data.railDrift     ?? S.railDrift;
+  S.radialBlend  = data.radialBlend  ?? S.radialBlend;
+  S.centerRadius = data.centerRadius ?? S.centerRadius;
+  S.blendWidth   = data.blendWidth   ?? S.blendWidth;
+  S.edgeHold     = data.edgeHold     ?? S.edgeHold;
+  S.edgeBlur     = data.edgeBlur     ?? S.edgeBlur;
+  S.autoMatch    = data.autoMatch    ?? S.autoMatch;
+  if (data.library?.length) { S.library = data.library; activeFolderId = S.library[0].id; }
+  S.layers = [];
+  Promise.all((data.layers||[]).map(ld => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const l = mkLayer(img, ld.src, ld.thumb||'', ld.name);
+      Object.assign(l, { x:ld.x, y:ld.y, scale:ld.scale, phaseOffset:ld.phaseOffset, opacity:ld.opacity, blur:ld.blur, brightness:ld.brightness, contrast:ld.contrast, saturation:ld.saturation, blendMode:ld.blendMode, zIndex:ld.zIndex, visible:ld.visible!==false });
+      S.layers.push(l); res();
+    };
+    img.onerror = res; img.src = ld.src;
+  }))).then(() => {
+    activeId = S.layers.length ? S.layers[0].id : null;
+    refreshPanel(); refreshLibrary();
+    if (S.layers.length) document.getElementById('empty-state').style.display = 'none';
+    if (!rafId) startLoop();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+(function init() {
+  ['UNSORTED','NATURE','URBAN','ABSTRACT','TEXTURE','PORTRAITS'].forEach((name, i) => {
+    const f = mkFolder(name); S.library.push(f);
+    if (i === 0) activeFolderId = f.id;
+  });
+  refreshLibrary();
+  startLoop();
+})();
+</script>
+</body>
+</html>
