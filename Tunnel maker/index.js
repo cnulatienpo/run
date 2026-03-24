@@ -9,8 +9,7 @@ import ffmpegPath from 'ffmpeg-static';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..', '..');
-const publicDir = path.join(rootDir, 'public');
+const rootDir = __dirname;
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,8 +19,10 @@ const upload = multer({
 });
 
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(publicDir, { maxAge: '1h' }));
-app.use('/vendor/jszip', express.static(path.join(rootDir, 'node_modules', 'jszip', 'dist'), { maxAge: '1d' }));
+app.use(express.static(rootDir));
+app.use('/vendor/jszip', express.static(
+  path.join(__dirname, 'node_modules/jszip/dist')
+));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, app: 'runnyvision-tunnel-maker', version: '1.2.0', transcode: Boolean(ffmpegPath) });
@@ -144,7 +145,7 @@ app.post('/api/transcode/mp4', upload.single('video'), async (req, res) => {
 });
 
 app.get('*', (_req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
+  res.sendFile(path.join(rootDir, 'index.html'));
 });
 
 app.listen(port, () => {
