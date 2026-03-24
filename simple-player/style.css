@@ -251,6 +251,12 @@ h1 {
   cursor: pointer;
 }
 
+a.scribble-button {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+}
+
 .scribble-button:hover,
 .scribble-select:hover,
 .upload-label:hover {

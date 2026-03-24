@@ -50,6 +50,9 @@ app.use((req, res, next) => {
 // Serve canonical player (simple-player) — the ONLY player
 app.use(express.static(WEB_ROOT));
 
+// Serve Tunnel Maker app at /tunnel-maker
+app.use('/tunnel-maker', express.static(path.join(__dirname, '..', 'Tunnel maker')));
+
 // Serve video clip libraries required by simple-player
 app.use('/grey',  express.static(path.join(__dirname, '..', 'grey')));
 app.use('/clown', express.static(path.join(__dirname, '..', 'clown')));
