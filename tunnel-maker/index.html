@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tunnel Maker — Mask / Portal Editor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="editor-panel">
+        <h1>Mask / Portal Editor</h1>
+        <p class="subtle">Draw a mask over the media to define where the next tunnel layer appears.</p>
+
+        <div class="toolbar">
+          <label>
+            Tool
+            <select id="toolSelect">
+              <option value="rectangle">Rectangle</option>
+              <option value="square">Square</option>
+              <option value="circle">Circle</option>
+              <option value="freehand">Freehand</option>
+            </select>
+          </label>
+
+          <label>
+            Feather: <span id="featherValue">24</span>px
+            <input id="featherSlider" type="range" min="0" max="100" value="24" />
+          </label>
+
+          <label class="toggle">
+            <input id="invertToggle" type="checkbox" />
+            Invert mask
+          </label>
+
+          <div class="actions">
+            <button id="saveMaskBtn" type="button">Save Mask</button>
+            <button id="loadMaskBtn" type="button">Load Mask</button>
+          </div>
+        </div>
+
+        <label class="json-label" for="maskJson">Mask metadata (JSON)</label>
+        <textarea id="maskJson" rows="8" spellcheck="false"></textarea>
+      </section>
+
+      <section class="stage-wrap">
+        <div id="stage" class="stage">
+          <img
+            src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1600&q=80"
+            alt="Tunnel reference"
+            class="stage-media"
+          />
+          <canvas id="maskCanvas" aria-label="Mask editor overlay"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <script src="./mask-editor.js"></script>
+  </body>
+</html>

@@ -1,0 +1,132 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+.editor-panel {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.subtle {
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.toolbar {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.92rem;
+}
+
+select,
+input,
+button,
+textarea {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle input {
+  width: auto;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+button {
+  cursor: pointer;
+  background: #1d4ed8;
+  border-color: #1e40af;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+.json-label {
+  margin-top: 14px;
+}
+
+#maskJson {
+  margin-top: 6px;
+  min-height: 180px;
+  resize: vertical;
+}
+
+.stage-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #020617;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 32px);
+}
+
+.stage-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#maskCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+@media (max-width: 920px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .stage {
+    height: 60vh;
+  }
+}
