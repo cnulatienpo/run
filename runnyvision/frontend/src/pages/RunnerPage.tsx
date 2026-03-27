@@ -2,7 +2,8 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { RouteConfig, RunSession } from "../../../shared/types";
 import RouteSelector from "../components/Runner/RouteSelector";
 import Viewer from "../components/Runner/Viewer";
-import MusicPlayer from "../components/Runner/MusicPlayer";
+import LocalMusicInput from "../components/LocalMusicInput";
+import AudioControls from "../components/AudioControls";
 import PassportTable from "../components/Runner/PassportTable";
 import { createRun, fetchPassport } from "../api/runsApi";
 
@@ -61,7 +62,11 @@ export default function RunnerPage() {
         <RouteSelector onSelect={setSelectedRoute} />
         <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
           <Viewer route={selectedRoute} />
-          <MusicPlayer />
+          <div className="viewer-box">
+            <div className="badge">Local audio</div>
+            <LocalMusicInput />
+            <AudioControls />
+          </div>
         </div>
       </div>
 
