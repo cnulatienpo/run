@@ -1,0 +1,43 @@
+.simplePlayerRoot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.videoLayer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: 50% 50%;
+  opacity: 1;
+  clip-path: none;
+  filter: none;
+  will-change: transform, opacity, left, top, width, height, clip-path, filter;
+  pointer-events: none;
+}
+
+.videoLayer.is-current {
+  z-index: 2;
+}
+
+.videoEl {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.portalDebug {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(34, 211, 238, 0.95);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.18) inset;
+  pointer-events: none;
+  z-index: 50;
+  display: none;
+}
