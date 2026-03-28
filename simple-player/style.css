@@ -61,6 +61,14 @@ input[type="checkbox"] {
   pointer-events: none;
 }
 
+.video-layer.is-back {
+  z-index: 0;
+}
+
+.video-layer.is-front {
+  z-index: 1;
+}
+
 .loop-freeze-frame {
   position: absolute;
   inset: 0;
@@ -87,13 +95,22 @@ input[type="checkbox"] {
   opacity: 0;
   transform: translate(-50%, -50%) scale(1);
   transform-origin: 0% 0%;
-  transition: opacity 1.1s linear, transform 1.1s cubic-bezier(0.2, 0.8, 0.2, 1), filter 1.1s linear;
-  will-change: transform, opacity, filter;
+  transition: clip-path 0s linear, transform 1.1s cubic-bezier(0.2, 0.8, 0.2, 1), filter 1.1s linear;
+  will-change: transform, clip-path, filter;
   background: #000;
+  clip-path: none;
 }
 
 .player-video.is-active {
   opacity: 1;
+}
+
+.player-video.is-preloaded {
+  opacity: 1;
+}
+
+.player-video.is-masked {
+  pointer-events: none;
 }
 
 .player-panel {
