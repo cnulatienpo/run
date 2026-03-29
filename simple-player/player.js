@@ -25,39 +25,40 @@
     ]
   };
 
-  const TRANSITION_LOOKAHEAD_SECONDS = 0.65;
-  const MASK_START_RADIUS = 10;
+  const DEFAULT_PORTAL_SIZE = 0.3;
 
   const shell = document.getElementById('playerShell');
   const playButton = document.getElementById('playButton');
   const statusReadout = document.getElementById('statusReadout');
   const currentWorldLabel = document.getElementById('currentWorldLabel');
   const nextWorldLabel = document.getElementById('nextWorldLabel');
-  const transitionSecondsInput = document.getElementById('uiTransitionSeconds');
 
   const videos = [document.getElementById('videoA'), document.getElementById('videoB')];
   const layers = [document.getElementById('layerA'), document.getElementById('layerB')];
 
   const state = {
     started: false,
-    transitioning: false,
     activeLayerIndex: 0,
     currentWorld: 'grey',
     pendingWorld: null,
     clipIndexByWorld: {
       grey: 0,
       clown: 0
+    },
+    parentClip: null,
+    childClip: null,
+    childWorld: null,
+    childReady: false,
+    rafId: null,
+    camera: {
+      scale: 1,
+      translateX: 0,
+      translateY: 0
     }
   };
 
   function setStatus(message) {
     if (statusReadout) statusReadout.textContent = message;
-  }
-
-  function normalizedTransitionMs() {
-    const parsed = Number(transitionSecondsInput?.value ?? 0.8);
-    if (!Number.isFinite(parsed) || parsed <= 0) return 800;
-    return parsed * 1000;
   }
 
   function getActiveElements() {
@@ -92,17 +93,28 @@
     return list[index];
   }
 
-  function readPortalPosition(clip, videoEl) {
-    if (clip?.portal && Number.isFinite(clip.portal.x) && Number.isFinite(clip.portal.y)) {
-      return {
-        x: Math.min(1, Math.max(0, clip.portal.x)) * videoEl.clientWidth,
-        y: Math.min(1, Math.max(0, clip.portal.y)) * videoEl.clientHeight
-      };
-    }
+  function sanitizePortal(clip) {
+    const x = Number.isFinite(clip?.portal?.x) ? clip.portal.x : 0.5;
+    const y = Number.isFinite(clip?.portal?.y) ? clip.portal.y : 0.5;
+    const w = Number.isFinite(clip?.portal?.w) ? clip.portal.w : DEFAULT_PORTAL_SIZE;
+    const h = Number.isFinite(clip?.portal?.h) ? clip.portal.h : DEFAULT_PORTAL_SIZE;
 
     return {
-      x: videoEl.clientWidth * 0.5,
-      y: videoEl.clientHeight * 0.5
+      x: Math.min(0.95, Math.max(0.05, x)),
+      y: Math.min(0.95, Math.max(0.05, y)),
+      w: Math.min(0.9, Math.max(0.05, w)),
+      h: Math.min(0.9, Math.max(0.05, h))
+    };
+  }
+
+  function portalToRect(portal) {
+    const left = Math.min(1 - portal.w, Math.max(0, portal.x - portal.w * 0.5));
+    const top = Math.min(1 - portal.h, Math.max(0, portal.y - portal.h * 0.5));
+    return {
+      left,
+      top,
+      right: left + portal.w,
+      bottom: top + portal.h
     };
   }
 
@@ -155,46 +167,6 @@
     await video.play();
   }
 
-  function maxRevealRadius(video, x, y) {
-    const width = video.clientWidth;
-    const height = video.clientHeight;
-    const corners = [
-      Math.hypot(x, y),
-      Math.hypot(width - x, y),
-      Math.hypot(x, height - y),
-      Math.hypot(width - x, height - y)
-    ];
-    return Math.max(...corners) + 4;
-  }
-
-  function animatePortalReveal(video, clip) {
-    return new Promise((resolve) => {
-      const durationMs = normalizedTransitionMs();
-      const { x, y } = readPortalPosition(clip, video);
-      const endRadius = maxRevealRadius(video, x, y);
-      const startTs = performance.now();
-
-      video.classList.add('is-masked');
-      video.style.clipPath = `circle(${MASK_START_RADIUS}px at ${x}px ${y}px)`;
-
-      const step = (now) => {
-        const t = Math.min(1, (now - startTs) / durationMs);
-        const eased = 1 - Math.pow(1 - t, 3);
-        const radius = MASK_START_RADIUS + (endRadius - MASK_START_RADIUS) * eased;
-        video.style.clipPath = `circle(${radius}px at ${x}px ${y}px)`;
-
-        if (t < 1) {
-          requestAnimationFrame(step);
-          return;
-        }
-
-        resolve();
-      };
-
-      requestAnimationFrame(step);
-    });
-  }
-
   async function preloadIntoStandby(world) {
     const clip = nextClipFor(world);
     if (!clip) throw new Error(`No clips available for world: ${world}`);
@@ -208,63 +180,119 @@
     return clip;
   }
 
-  function scheduleTransitionWatch() {
-    const { activeVideo } = getActiveElements();
-    const onTimeUpdate = async () => {
-      if (state.transitioning || !Number.isFinite(activeVideo.duration) || activeVideo.duration <= 0) {
-        return;
-      }
-
-      const remaining = activeVideo.duration - activeVideo.currentTime;
-      if (remaining <= TRANSITION_LOOKAHEAD_SECONDS) {
-        activeVideo.removeEventListener('timeupdate', onTimeUpdate);
-        try {
-          await runTransition();
-        } catch (error) {
-          console.error(error);
-          setStatus(error.message);
-          state.transitioning = false;
-        }
-      }
-    };
-
-    activeVideo.addEventListener('timeupdate', onTimeUpdate);
+  function applyCamera(video, camera) {
+    video.style.transform = `translate(${camera.translateX}px, ${camera.translateY}px) scale(${camera.scale})`;
   }
 
-  async function runTransition() {
-    state.transitioning = true;
+  function renderChildMask(clip) {
+    const { standbyVideo } = getActiveElements();
+    const portal = sanitizePortal(clip);
+    const rect = portalToRect(portal);
+    const top = rect.top * 100;
+    const right = (1 - rect.right) * 100;
+    const bottom = (1 - rect.bottom) * 100;
+    const left = rect.left * 100;
+    standbyVideo.style.clipPath = `inset(${top}% ${right}% ${bottom}% ${left}%)`;
+  }
 
+  function clearVideoTransformsAndMasks() {
+    videos.forEach((video) => {
+      video.style.transform = 'translate(0px, 0px) scale(1)';
+      video.style.clipPath = 'none';
+    });
+  }
+
+  function cameraTargetForPortal(clip) {
+    const portal = sanitizePortal(clip);
+    const width = shell?.clientWidth || window.innerWidth;
+    const height = shell?.clientHeight || window.innerHeight;
+    const centerX = portal.x * width;
+    const centerY = portal.y * height;
+    const scale = Math.max(1 / portal.w, 1 / portal.h);
+
+    return {
+      scale,
+      translateX: width * 0.5 - centerX * scale,
+      translateY: height * 0.5 - centerY * scale
+    };
+  }
+
+  async function queueChildClip() {
     const worldForNextClip = state.pendingWorld || state.currentWorld;
     nextWorldLabel.textContent = worldForNextClip;
 
-    const clip = await preloadIntoStandby(worldForNextClip);
-    const { activeVideo, standbyVideo, standbyIndex } = getActiveElements();
+    const childClip = await preloadIntoStandby(worldForNextClip);
+    const { standbyVideo } = getActiveElements();
 
-    // Requirement: the next video must be playing BEFORE hole expands.
     await ensurePlaying(standbyVideo);
 
-    await animatePortalReveal(activeVideo, clip);
+    state.childWorld = worldForNextClip;
+    state.childClip = childClip;
+    state.childReady = true;
 
-    // Transition completion: remove old mask and swap active layer.
+    renderChildMask(state.parentClip);
+    setStatus(`Zooming into ${state.childWorld} portal`);
+  }
+
+  async function promoteChildToParent() {
+    if (!state.childReady || !state.childClip) return;
+
+    const { activeVideo, standbyVideo, standbyIndex } = getActiveElements();
+
     activeVideo.pause();
     activeVideo.currentTime = 0;
-    activeVideo.classList.remove('is-active', 'is-preloaded', 'is-masked');
+    activeVideo.classList.remove('is-active', 'is-preloaded');
     activeVideo.style.clipPath = 'none';
 
     standbyVideo.classList.remove('is-preloaded');
     standbyVideo.classList.add('is-active');
+    standbyVideo.style.clipPath = 'none';
 
     state.activeLayerIndex = standbyIndex;
-    state.currentWorld = worldForNextClip;
+    state.currentWorld = state.childWorld || state.currentWorld;
     state.pendingWorld = null;
+    state.parentClip = state.childClip;
+    state.childClip = null;
+    state.childWorld = null;
+    state.childReady = false;
+
+    state.camera.scale = 1;
+    state.camera.translateX = 0;
+    state.camera.translateY = 0;
 
     currentWorldLabel.textContent = state.currentWorld;
     nextWorldLabel.textContent = '—';
     setLayerRoles(state.activeLayerIndex);
-    setStatus(`Now playing ${state.currentWorld} clip`);
+    clearVideoTransformsAndMasks();
 
-    state.transitioning = false;
-    scheduleTransitionWatch();
+    await queueChildClip();
+  }
+
+  function tick() {
+    if (!state.started) return;
+
+    const { activeVideo, standbyVideo } = getActiveElements();
+
+    if (state.childReady && state.parentClip) {
+      const target = cameraTargetForPortal(state.parentClip);
+      const alpha = 0.045;
+
+      state.camera.scale += (target.scale - state.camera.scale) * alpha;
+      state.camera.translateX += (target.translateX - state.camera.translateX) * alpha;
+      state.camera.translateY += (target.translateY - state.camera.translateY) * alpha;
+
+      applyCamera(activeVideo, state.camera);
+      applyCamera(standbyVideo, state.camera);
+
+      if (state.camera.scale >= target.scale * 0.985) {
+        promoteChildToParent().catch((error) => {
+          console.error(error);
+          setStatus(error.message);
+        });
+      }
+    }
+
+    state.rafId = requestAnimationFrame(tick);
   }
 
   async function startSession() {
@@ -281,12 +309,15 @@
       return;
     }
 
+    state.parentClip = firstClip;
+
     await loadVideo(activeVideo, firstClip.src);
     activeVideo.classList.add('is-active');
     await ensurePlaying(activeVideo);
 
     setStatus(`Playing ${state.currentWorld} world`);
-    scheduleTransitionWatch();
+    await queueChildClip();
+    tick();
   }
 
   function bindUI() {
@@ -336,8 +367,10 @@
     videos.forEach((video) => {
       video.muted = true;
       video.playsInline = true;
-      video.classList.remove('is-masked', 'is-preloaded');
+      video.loop = true;
+      video.classList.remove('is-preloaded');
       video.style.clipPath = 'none';
+      video.style.transform = 'translate(0px, 0px) scale(1)';
     });
     setLayerRoles(state.activeLayerIndex);
     currentWorldLabel.textContent = state.currentWorld;
