@@ -60,6 +60,10 @@ const _eBuf = document.createElement('canvas');
 const _rBuf = document.createElement('canvas');
 const _eBctx = _eBuf.getContext('2d');
 const _rBctx = _rBuf.getContext('2d');
+const _mBuf = document.createElement('canvas');
+const _mBctx = _mBuf.getContext('2d');
+const _mfBuf = document.createElement('canvas');
+const _mfBctx = _mfBuf.getContext('2d');
 const _sc = document.createElement('canvas');
 _sc.width = 20;
 _sc.height = 20;
@@ -417,6 +421,9 @@ function mkLayer(img, imageId, thumb, name) {
     x: 0.5,
     y: 0.5,
     scale: 1.0,
+    featherRadius: 24,
+    vpX: 0.5,
+    vpY: 0.5,
     phaseOffset: n / Math.max(n + 1, 1),
     opacity: 1,
     blur: 0,
@@ -571,7 +578,10 @@ function layerHTML(l) {
     <div class="layer-ctrls">
       <div class="cr"><span class="cr-lbl">PHASE</span><input data-layer-id="${l.id}" data-prop="phaseOffset" type="range" min="0" max="0.99" step="0.01" value="${f(l.phaseOffset)}" ${l.locked ? 'disabled' : ''}><span class="vd">${f(l.phaseOffset)}</span></div>
       <div class="cr"><span class="cr-lbl">OPACITY</span><input data-layer-id="${l.id}" data-prop="opacity" type="range" min="0" max="1" step="0.01" value="${f(l.opacity)}" ${l.locked ? 'disabled' : ''}><span class="vd">${f(l.opacity)}</span></div>
-      <div class="cr"><span class="cr-lbl">SCALE</span><input data-layer-id="${l.id}" data-prop="scale" type="range" min="0.1" max="3" step="0.05" value="${f(l.scale)}" ${l.locked ? 'disabled' : ''}><span class="vd">${f(l.scale)}</span></div>
+      <div class="cr"><span class="cr-lbl">SCALE</span><input data-layer-id="${l.id}" data-prop="scale" type="range" min="0.01" max="0.2" step="0.01" value="${f(Math.max(0.01, Math.min(l.scale, 0.2)))}" ${l.locked ? 'disabled' : ''}><span class="vd">${f(l.scale)}</span></div>
+      <div class="cr"><span class="cr-lbl">FEATHER</span><input data-layer-id="${l.id}" data-prop="featherRadius" type="range" min="0" max="120" step="1" value="${Math.round(l.featherRadius ?? 24)}" ${l.locked ? 'disabled' : ''}><span class="vd">${Math.round(l.featherRadius ?? 24)}</span></div>
+      <div class="cr"><span class="cr-lbl">VP X</span><input data-layer-id="${l.id}" data-prop="vpX" type="range" min="0" max="1" step="0.01" value="${f(l.vpX ?? 0.5)}" ${l.locked ? 'disabled' : ''}><span class="vd">${f(l.vpX ?? 0.5)}</span></div>
+      <div class="cr"><span class="cr-lbl">VP Y</span><input data-layer-id="${l.id}" data-prop="vpY" type="range" min="0" max="1" step="0.01" value="${f(l.vpY ?? 0.5)}" ${l.locked ? 'disabled' : ''}><span class="vd">${f(l.vpY ?? 0.5)}</span></div>
       <div class="cr"><span class="cr-lbl">POS X</span><input data-layer-id="${l.id}" data-prop="x" type="range" min="0" max="1" step="0.01" value="${f(l.x)}" ${l.locked || S.strictRail ? 'disabled' : ''}><span class="vd">${f(l.x)}</span></div>
       <div class="cr"><span class="cr-lbl">POS Y</span><input data-layer-id="${l.id}" data-prop="y" type="range" min="0" max="1" step="0.01" value="${f(l.y)}" ${l.locked || S.strictRail ? 'disabled' : ''}><span class="vd">${f(l.y)}</span></div>
       <div class="cr"><span class="cr-lbl">BLUR</span><input data-layer-id="${l.id}" data-prop="blur" type="range" min="0" max="24" step="0.5" value="${l.blur}" ${l.locked ? 'disabled' : ''}><span class="vd">${Number(l.blur).toFixed(1)}</span></div>
@@ -780,6 +790,10 @@ function _ensureRadialBufs(W, H) {
     _eBuf.height = H;
     _rBuf.width = W;
     _rBuf.height = H;
+    _mBuf.width = W;
+    _mBuf.height = H;
+    _mfBuf.width = W;
+    _mfBuf.height = H;
   }
 }
 
@@ -836,6 +850,38 @@ function _sampleLuma(srcCanvas, cx, cy) {
   }
 }
 
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createFeatheredMask(maskCanvas, featherRadius) {
+  const W = maskCanvas.width;
+  const H = maskCanvas.height;
+  _mfBctx.clearRect(0, 0, W, H);
+  const radius = Math.max(0, Number(featherRadius) || 0);
+  if (radius <= 0.01) {
+    _mfBctx.drawImage(maskCanvas, 0, 0);
+    return _mfBuf;
+  }
+  _mfBctx.filter = `blur(${radius.toFixed(2)}px)`;
+  _mfBctx.drawImage(maskCanvas, 0, 0);
+  _mfBctx.filter = 'none';
+  return _mfBuf;
+}
+
+function getInnerLayerGeometry(layer, ph, W, H, vpX, vpY) {
+  const localVpX = clamp((layer.vpX ?? vpX), 0, 1) * W;
+  const localVpY = clamp((layer.vpY ?? vpY), 0, 1) * H;
+  const effScale = phaseScale(ph, S.minScale, S.maxScale);
+  const clampedScale = clamp(layer.scale, 0.01, 0.2);
+  const baseW = W * clampedScale;
+  const ar = layer.img.naturalHeight / (layer.img.naturalWidth || 1);
+  const drawW = baseW * effScale;
+  const drawH = baseW * ar * effScale;
+  return { cx: localVpX, cy: localVpY, drawW, drawH, clampedScale, effScale };
+}
+
 function renderFrameRadial(vpX, vpY, W, H) {
   _ensureRadialBufs(W, H);
   const vis = S.layers.filter((l) => l.visible && l.img).sort((a, b) => {
@@ -852,46 +898,80 @@ function renderFrameRadial(vpX, vpY, W, H) {
   let currentZoom = 1;
   bgLayers.forEach((l) => {
     const ph = ((S.globalTime * S.zoomSpeed + l.phaseOffset) % 1 + 1) % 1;
-    const es = _drawOneLayer(_eBctx, l, ph, vpX, vpY, W, H, l.opacity * phaseOpacity(ph, S.fadeInEnd, S.fadeOutStart) * S.edgeHold);
+    const es = _drawOneLayer(_eBctx, l, ph, vpX, vpY, W, H);
     if (l.id === selection.activeId) currentZoom = es;
   });
 
   const inPh = ((S.globalTime * S.zoomSpeed + inLayer.phaseOffset) % 1 + 1) % 1;
   const inAlpha = inLayer.opacity * phaseOpacity(inPh, S.fadeInEnd, S.fadeOutStart);
-  if (inLayer.id === selection.activeId) currentZoom = phaseScale(inPh, S.minScale, S.maxScale);
+  const geom = getInnerLayerGeometry(inLayer, inPh, W, H, S.vp.x, S.vp.y);
+  if (inLayer.id === selection.activeId) currentZoom = geom.effScale;
 
   _rBctx.clearRect(0, 0, W, H);
   let brightBoost = 1;
   if (S.autoMatch && inAlpha > 0.05) {
-    _drawOneLayer(_rBctx, inLayer, inPh, vpX, vpY, W, H, 1, 1);
-    const bgLuma = _sampleLuma(_eBuf, vpX, vpY);
-    const inLuma = _sampleLuma(_rBuf, vpX, vpY);
+    _rBctx.save();
+    _rBctx.globalAlpha = 1;
+    _rBctx.globalCompositeOperation = inLayer.blendMode;
+    _rBctx.drawImage(inLayer.img, geom.cx - geom.drawW / 2, geom.cy - geom.drawH / 2, geom.drawW, geom.drawH);
+    _rBctx.restore();
+    const bgLuma = _sampleLuma(_eBuf, geom.cx, geom.cy);
+    const inLuma = _sampleLuma(_rBuf, geom.cx, geom.cy);
     brightBoost = inLuma > 0.01 ? Math.min(2.2, Math.max(0.45, bgLuma / inLuma)) : 1;
     _rBctx.clearRect(0, 0, W, H);
   }
 
-  _drawOneLayer(_rBctx, inLayer, inPh, vpX, vpY, W, H, inAlpha, brightBoost);
-
-  const diag = Math.sqrt(W * W + H * H) * 0.5;
-  const innerR = Math.max(0, S.centerRadius * diag);
-  const outerR = Math.max(innerR + 2, (S.centerRadius + S.blendWidth) * diag);
-  const mask = _rBctx.createRadialGradient(vpX, vpY, innerR, vpX, vpY, outerR);
-  mask.addColorStop(0, 'rgba(0,0,0,1)');
-  mask.addColorStop(1, 'rgba(0,0,0,0)');
   _rBctx.save();
-  _rBctx.globalCompositeOperation = 'destination-in';
-  _rBctx.fillStyle = mask;
-  _rBctx.fillRect(0, 0, W, H);
+  _rBctx.globalAlpha = inAlpha;
+  _rBctx.globalCompositeOperation = inLayer.blendMode;
+  const fp = [];
+  if (inLayer.blur > 0.1) fp.push(`blur(${inLayer.blur.toFixed(1)}px)`);
+  const br = brightBoost * inLayer.brightness;
+  if (Math.abs(br - 1) > 0.001) fp.push(`brightness(${br.toFixed(3)})`);
+  if (inLayer.contrast !== 1) fp.push(`contrast(${inLayer.contrast})`);
+  if (inLayer.saturation !== 1) fp.push(`saturate(${inLayer.saturation})`);
+  if (fp.length) _rBctx.filter = fp.join(' ');
+  _rBctx.drawImage(inLayer.img, geom.cx - geom.drawW / 2, geom.cy - geom.drawH / 2, geom.drawW, geom.drawH);
   _rBctx.restore();
 
-  ctx.save();
-  if (S.edgeBlur > 0.1) ctx.filter = `blur(${S.edgeBlur.toFixed(1)}px)`;
+  _mBctx.clearRect(0, 0, W, H);
+  _mBctx.fillStyle = '#000';
+  _mBctx.fillRect(0, 0, W, H);
+  _mBctx.fillStyle = '#fff';
+  _mBctx.fillRect(geom.cx - geom.drawW / 2, geom.cy - geom.drawH / 2, geom.drawW, geom.drawH);
+
+  const featheredMask = createFeatheredMask(_mBuf, inLayer.featherRadius ?? 24);
+
+  _rBctx.save();
+  _rBctx.globalCompositeOperation = 'destination-in';
+  _rBctx.drawImage(featheredMask, 0, 0);
+  _rBctx.restore();
+
   ctx.drawImage(_eBuf, 0, 0);
-  ctx.restore();
   ctx.drawImage(_rBuf, 0, 0);
+
+  if (S.showGuides) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(63, 232, 197, 0.8)';
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(geom.cx - geom.drawW / 2, geom.cy - geom.drawH / 2, geom.drawW, geom.drawH);
+    ctx.setLineDash([]);
+    const grad = ctx.createLinearGradient(geom.cx - geom.drawW / 2, geom.cy, geom.cx + geom.drawW / 2, geom.cy);
+    grad.addColorStop(0, 'rgba(0,0,0,0.1)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(geom.cx - geom.drawW / 2, geom.cy - 1, geom.drawW, 2);
+    ctx.beginPath();
+    ctx.arc(geom.cx, geom.cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+    ctx.restore();
+  }
 
   return currentZoom;
 }
+
 
 function renderFrame() {
   const W = canvas.width;
@@ -1059,6 +1139,9 @@ function serializeSession(includeRuntime = false) {
       x: l.x,
       y: l.y,
       scale: l.scale,
+      featherRadius: l.featherRadius,
+      vpX: l.vpX,
+      vpY: l.vpY,
       phaseOffset: l.phaseOffset,
       opacity: l.opacity,
       blur: l.blur,
@@ -1095,7 +1178,10 @@ async function hydrateLayers(dataLayers) {
     Object.assign(l, {
       x: ld.x ?? 0.5,
       y: ld.y ?? 0.5,
-      scale: ld.scale ?? 1,
+      scale: clamp(ld.scale ?? 1, 0.01, 0.2),
+      featherRadius: Math.max(0, ld.featherRadius ?? 24),
+      vpX: clamp(ld.vpX ?? 0.5, 0, 1),
+      vpY: clamp(ld.vpY ?? 0.5, 0, 1),
       phaseOffset: ld.phaseOffset ?? 0,
       opacity: ld.opacity ?? 1,
       blur: ld.blur ?? 0,
@@ -1352,8 +1438,15 @@ function syncUiFromState() {
 function setLayerProp(id, prop, value) {
   const l = getLayer(id);
   if (!l || l.locked) return;
-  if (prop === 'blendMode') l[prop] = value;
-  else l[prop] = Number(value);
+  if (prop === 'blendMode') {
+    l[prop] = value;
+  } else {
+    const n = Number(value);
+    if (prop === 'scale') l[prop] = clamp(n, 0.01, 0.2);
+    else if (prop === 'vpX' || prop === 'vpY') l[prop] = clamp(n, 0, 1);
+    else if (prop === 'featherRadius') l[prop] = Math.max(0, n);
+    else l[prop] = n;
+  }
   markDirty();
 }
 
@@ -1567,7 +1660,12 @@ function bindEvents() {
     if (!el.dataset.layerId || !el.dataset.prop) return;
     setLayerProp(el.dataset.layerId, el.dataset.prop, el.value);
     const vd = el.nextElementSibling;
-    if (vd) vd.textContent = Number(el.value).toFixed(el.dataset.prop === 'blur' ? 1 : 2);
+    if (vd) {
+      const prop = el.dataset.prop;
+      if (prop === 'blur') vd.textContent = Number(el.value).toFixed(1);
+      else if (prop === 'featherRadius') vd.textContent = String(Math.round(Number(el.value)));
+      else vd.textContent = Number(el.value).toFixed(2);
+    }
   });
 
   $('layer-list').addEventListener('change', (e) => {
