@@ -86,18 +86,59 @@ input[type="checkbox"] {
 
 .player-video {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center center;
+  object-fit: fill;
+  object-position: 50% 50%;
   opacity: 0;
-  transform: translate(0px, 0px) scale(1);
+  transform: translate(0px, 0px) rotate(0deg) scale(1) translate(0px, 0px);
   transform-origin: 0 0;
   transition: opacity 0.2s linear;
   will-change: transform, clip-path;
   background: #000;
   clip-path: none;
+}
+
+.debug-hole-rect,
+.debug-video-rect-a,
+.debug-video-rect-b {
+  position: absolute;
+  border: 2px dashed;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.debug-hole-rect {
+  border-color: rgba(255, 96, 96, 0.9);
+}
+
+.debug-video-rect-a,
+.debug-video-rect-b {
+  border-color: rgba(111, 201, 255, 0.85);
+}
+
+.debug-hole-center,
+.debug-video-center-a,
+.debug-video-center-b {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.debug-hole-center {
+  background: rgba(255, 96, 96, 1);
+}
+
+.debug-video-center-a,
+.debug-video-center-b {
+  background: rgba(111, 201, 255, 1);
 }
 
 .player-video.is-active {
