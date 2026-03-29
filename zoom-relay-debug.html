@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Two-Layer Zoom Relay Debug</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #111;
+        font-family: Arial, sans-serif;
+      }
+
+      #stage {
+        position: relative;
+        width: min(90vw, 960px);
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border: 2px solid #444;
+        background: #000;
+      }
+
+      .layer {
+        position: absolute;
+        inset: 0;
+        transform-origin: center center;
+      }
+
+      .label {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        padding: 6px 10px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #fff;
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        background: rgba(0, 0, 0, 0.45);
+      }
+
+      .dot {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border: 2px solid rgba(0, 0, 0, 0.5);
+      }
+
+      .hole-box {
+        position: absolute;
+        width: 24%;
+        height: 24%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border: 3px dashed rgba(255, 255, 255, 0.95);
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <div id="backLayer" class="layer">
+        <div class="label">BACK</div>
+        <div class="dot" style="background: #00d816"></div>
+      </div>
+      <div id="frontLayer" class="layer">
+        <div class="label">FRONT</div>
+        <div class="dot" style="background: #ff2222"></div>
+      </div>
+      <div class="hole-box"></div>
+    </div>
+
+    <script>
+      const assets = [
+        "linear-gradient(135deg, #184e77 0%, #1e6091 100%)",
+        "linear-gradient(135deg, #6a040f 0%, #9d0208 100%)",
+        "linear-gradient(135deg, #3a0ca3 0%, #7209b7 100%)",
+        "linear-gradient(135deg, #386641 0%, #6a994e 100%)",
+        "linear-gradient(135deg, #9c6644 0%, #7f4f24 100%)"
+      ];
+
+      const maxScale = 6;
+      const scaleSpeed = 0.75;
+
+      let frontLayer;
+      let backLayer;
+      let assetIndex = 0;
+      let frontScale = 1;
+      let lastTime = 0;
+
+      function loadLayer(layer, asset) {
+        layer.style.background = asset;
+      }
+
+      function syncLabelsAndDots() {
+        frontLayer.querySelector(".label").textContent = "FRONT";
+        frontLayer.querySelector(".dot").style.background = "#ff2222";
+
+        backLayer.querySelector(".label").textContent = "BACK";
+        backLayer.querySelector(".dot").style.background = "#00d816";
+      }
+
+      function swapLayers() {
+        const oldFront = frontLayer;
+        frontLayer = backLayer;
+        backLayer = oldFront;
+
+        backLayer.style.zIndex = "1";
+        frontLayer.style.zIndex = "2";
+
+        frontScale = 1;
+        backLayer.style.transform = "scale(1)";
+        frontLayer.style.transform = "scale(1)";
+
+        assetIndex = (assetIndex + 1) % assets.length;
+        loadLayer(backLayer, assets[assetIndex]);
+
+        syncLabelsAndDots();
+      }
+
+      function animate(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const deltaSeconds = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+
+        frontScale += scaleSpeed * deltaSeconds;
+        frontLayer.style.transform = `scale(${frontScale})`;
+
+        if (frontScale >= maxScale) {
+          swapLayers();
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      function init() {
+        frontLayer = document.getElementById("frontLayer");
+        backLayer = document.getElementById("backLayer");
+
+        frontLayer.style.zIndex = "2";
+        backLayer.style.zIndex = "1";
+
+        loadLayer(frontLayer, assets[0]);
+        loadLayer(backLayer, assets[1]);
+        assetIndex = 1;
+
+        syncLabelsAndDots();
+        requestAnimationFrame(animate);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
