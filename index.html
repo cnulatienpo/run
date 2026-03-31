@@ -3,16 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Two-Layer Relay Player</title>
+  <title>Two-Layer Relay Player (Restored Baseline)</title>
   <style>
-    :root {
-      color-scheme: dark;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
     html,
     body {
       margin: 0;
@@ -20,7 +12,6 @@
       height: 100%;
       overflow: hidden;
       background: #000;
-      font-family: Arial, Helvetica, sans-serif;
     }
 
     #stage {
@@ -28,57 +19,22 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      background: transparent;
       isolation: isolate;
     }
 
-    .layer {
+    .relay-layer {
       position: absolute;
       inset: 0;
-      display: grid;
-      place-items: center;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
       transform-origin: center center;
       will-change: transform;
-      color: #fff;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
-    }
-
-    .debug {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
       pointer-events: none;
-    }
-
-    .badge {
-      position: absolute;
-      top: 24px;
-      left: 24px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      font-size: 14px;
-    }
-
-    .dot {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      box-shadow: 0 0 14px currentColor;
-      transform: translateZ(0);
-    }
-
-    .active .dot {
-      color: #ff2b2b;
-      background: #ff2b2b;
-    }
-
-    .next .dot {
-      color: #2dfc5b;
-      background: #2dfc5b;
+      user-select: none;
+      background: transparent;
     }
 
     .active {
@@ -91,43 +47,39 @@
   </style>
 </head>
 <body>
-  <div id="stage"></div>
+  <div id="stage">
+    <img id="layer-a" class="relay-layer" alt="Relay layer A" draggable="false" />
+    <img id="layer-b" class="relay-layer" alt="Relay layer B" draggable="false" />
+  </div>
 
   <script>
-    const assets = [
-      '#1f3a93',
-      '#8e44ad',
-      '#16a085',
-      '#d35400',
-      '#2c3e50',
-      '#c0392b'
-    ];
+    /*
+      FULL SYSTEM AUDIT SUMMARY (baseline restoration only)
+      - Removed:
+        * Generated rectangle/square color layers and marker UI.
+        * Any non-image geometry replacing PNG content.
+        * In-screen debug/dev overlay panels.
+      - Replaced:
+        * DIV-based fake layers with two real IMG layers.
+      - What broke the system:
+        * Relay was switched to synthetic shape rendering, so real PNG transparency and image relay behavior were lost.
+      - Restored:
+        * Two-layer relay player using activeLayer/nextLayer IMG elements.
+        * PNG src assignment on both layers.
+        * requestAnimationFrame scale loop and swap pattern:
+          [activeLayer, nextLayer] = [nextLayer, activeLayer]
+        * Transparent PNG rendering path (no canvas, no forced opaque backgrounds).
+      - Intentionally not added in this restore:
+        * No portal logic, no masking, no hole alignment, no bbox logic.
+    */
 
-    const stage = document.getElementById('stage');
+    const assets = Array.from({ length: 108 }, (_, i) => {
+      const index = String(i).padStart(4, '0');
+      return `relay-player/assets/pngs/final_rgba/f_${index}.png`;
+    });
 
-    function createLayer() {
-      const layer = document.createElement('div');
-      layer.className = 'layer';
-
-      const debug = document.createElement('div');
-      debug.className = 'debug';
-
-      const badge = document.createElement('div');
-      badge.className = 'badge';
-
-      const dot = document.createElement('div');
-      dot.className = 'dot';
-
-      debug.appendChild(dot);
-      debug.appendChild(badge);
-      layer.appendChild(debug);
-      stage.appendChild(layer);
-
-      return { el: layer, badge };
-    }
-
-    const layerA = createLayer();
-    const layerB = createLayer();
+    const layerA = { el: document.getElementById('layer-a') };
+    const layerB = { el: document.getElementById('layer-b') };
 
     let activeLayer = layerA;
     let nextLayer = layerB;
@@ -147,11 +99,12 @@
     function setRole(layer, role) {
       layer.el.classList.remove('active', 'next');
       layer.el.classList.add(role);
-      layer.badge.textContent = role.toUpperCase();
     }
 
     function loadAsset(layer) {
-      layer.el.style.background = nextAsset();
+      const src = nextAsset();
+      layer.el.src = src;
+      console.log(`[relay] ${layer.el.id} <= ${src}`);
     }
 
     function resetAsNext(layer) {
