@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relay Player – Two Layer System</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #181818; }
+    body { display: flex; align-items: center; justify-content: center; height: 100vh; }
+    #relay-root { position: relative; width: 80vw; height: 60vw; max-width: 900px; max-height: 675px; min-width: 320px; min-height: 240px; background: #222; overflow: hidden; border-radius: 18px; box-shadow: 0 4px 32px #000a; }
+    .layer {
+      position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      transition: none;
+      will-change: transform;
+      font-family: monospace; font-size: 2.2vw; font-weight: bold; letter-spacing: 0.1em;
+      user-select: none;
+    }
+    .active {
+      z-index: 2;
+      border: 4px solid #f44;
+      box-shadow: 0 0 0 6px #f441;
+    }
+    .next {
+      z-index: 1;
+      border: 4px solid #2e4;
+      box-shadow: 0 0 0 6px #2e41;
+    }
+    .dot {
+      width: 32px; height: 32px; border-radius: 50%; margin-right: 18px; display: inline-block;
+      vertical-align: middle;
+    }
+    .dot.red { background: #f44; border: 2px solid #fff; }
+    .dot.green { background: #2e4; border: 2px solid #fff; }
+    .label { font-size: 2.2vw; font-weight: bold; }
+    .swap-flash { animation: swapFlash 0.25s linear; }
+    @keyframes swapFlash {
+      0% { filter: brightness(2) contrast(2); }
+      100% { filter: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="relay-root">
+    <div id="layerA" class="layer active"></div>
+    <div id="layerB" class="layer next"></div>
+  </div>
+  <script>
+    // Minimal two-layer relay system with images
+    const assets = [
+      'url(../assets/al_gallery5.png)',
+      'url(../assets/al_fun14.png)'
+    ];
+    let assetIdx = 0;
+    const relayRoot = document.getElementById('relay-root');
+    const layers = [
+      document.getElementById('layerA'),
+      document.getElementById('layerB')
+    ];
+    let activeIdx = 0;
+    let scale = 1;
+    const SCALE_MAX = 6;
+    const SCALE_SPEED = 0.012;
+    function setLayerContent(layer, type) {
+      // No content: just show the image background
+      layer.innerHTML = '';
+    }
+    function setLayerBg(layer, bg) {
+      layer.style.background = `${bg} center/cover no-repeat`;
+    }
+    function swapLayers() {
+      // Swap references
+      activeIdx = 1 - activeIdx;
+      // Visually swap classes
+      layers[0].className = 'layer' + (activeIdx === 0 ? ' active' : ' next');
+      layers[1].className = 'layer' + (activeIdx === 1 ? ' active' : ' next');
+      // Flash effect
+      layers[activeIdx].classList.add('swap-flash');
+      setTimeout(() => layers[activeIdx].classList.remove('swap-flash'), 250);
+      // Reset scale
+      scale = 1;
+      // Load new asset into nextLayer
+      assetIdx = (assetIdx + 1) % assets.length;
+      setLayerBg(layers[1 - activeIdx], assets[assetIdx]);
+      setLayerContent(layers[activeIdx], 'active');
+      setLayerContent(layers[1 - activeIdx], 'next');
+    }
+    // Initial backgrounds
+    setLayerBg(layers[0], assets[0]);
+    setLayerBg(layers[1], assets[1]);
+    // Animation loop
+    function animate() {
+      layers[activeIdx].style.transform = `scale(${scale})`;
+      layers[1 - activeIdx].style.transform = 'scale(1)';
+      scale += SCALE_SPEED;
+      if (scale >= SCALE_MAX) {
+        swapLayers();
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>

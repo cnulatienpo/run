@@ -1,5 +1,0 @@
-{
-  "serverPort": 3000,
-  "roles": ["source", "viewer"],
-  "messageTypes": ["register", "offer", "answer", "candidate", "control", "status"]
-}
