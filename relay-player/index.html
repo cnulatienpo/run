@@ -181,7 +181,7 @@
     const NUM_FRAMES = 100;
     const backAssets = Array.from({ length: NUM_FRAMES }, (_, i) => {
       const index = String(i).padStart(4, "0");
-      return `relay-player/assets/final_rgba/f_${index}.png`;
+      return `assets/pngs/final_rgba/f_${index}.png`;
     });
     const portalMasks = backAssets.slice(); // If needed, use same paths
 
@@ -353,18 +353,114 @@
         `STATUS: ${imageDebugState.status}`;
     }
 
+
+    // --- SAFE DEV LOG OVERLAY (at end of script) ---
+    (() => {
+      const devLog = [];
+      function logDev(msg) {
+        const timestamp = new Date().toISOString().split('T')[1].replace('Z','');
+        devLog.push(`[${timestamp}] ${msg}`);
+        if (devLog.length > 200) devLog.shift();
+        updateDevLogOverlay();
+      }
+      window.logDev = logDev;
+      const devLogOverlay = document.createElement('div');
+      devLogOverlay.id = 'dev-log-overlay';
+      devLogOverlay.style.position = 'fixed';
+      devLogOverlay.style.top = '12px';
+      devLogOverlay.style.right = '12px';
+      devLogOverlay.style.zIndex = '10001';
+      devLogOverlay.style.width = '420px';
+      devLogOverlay.style.maxHeight = '60vh';
+      devLogOverlay.style.overflowY = 'auto';
+      devLogOverlay.style.background = '#181818ee';
+      devLogOverlay.style.color = '#fff';
+      devLogOverlay.style.fontSize = '12px';
+      devLogOverlay.style.fontFamily = 'monospace';
+      devLogOverlay.style.border = '1px solid #fff59a66';
+      devLogOverlay.style.borderRadius = '6px';
+      devLogOverlay.style.padding = '8px 10px 36px 10px';
+      devLogOverlay.style.whiteSpace = 'pre-wrap';
+      devLogOverlay.style.boxShadow = '0 2px 12px #000a';
+      devLogOverlay.style.pointerEvents = 'none';
+      document.body.appendChild(devLogOverlay);
+      // Copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'Copy Log';
+      copyBtn.style.position = 'absolute';
+      copyBtn.style.bottom = '8px';
+      copyBtn.style.right = '12px';
+      copyBtn.style.zIndex = '10002';
+      copyBtn.style.fontSize = '12px';
+      copyBtn.style.padding = '2px 10px';
+      copyBtn.style.background = '#fff59a';
+      copyBtn.style.color = '#222';
+      copyBtn.style.border = 'none';
+      copyBtn.style.borderRadius = '4px';
+      copyBtn.style.cursor = 'pointer';
+      copyBtn.style.pointerEvents = 'auto';
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(devLog.join('\n'));
+      };
+      devLogOverlay.appendChild(copyBtn);
+      function updateDevLogOverlay() {
+        devLogOverlay.textContent = devLog.slice(-40).join('\n');
+        devLogOverlay.appendChild(copyBtn);
+      }
+    })();
+
+    // --- Patch logging into key functions ---
+    const origUpdateBackTransform = updateBackTransform;
+    updateBackTransform = function() {
+      const holeBox = getHoleBoxInRoot();
+      const imageWidth = backLayer.naturalWidth || 1;
+      const imageHeight = backLayer.naturalHeight || 1;
+      const scaleX = holeBox.width / imageWidth;
+      const scaleY = holeBox.height / imageHeight;
+      const scale = Math.max(scaleX, scaleY) * BACK_OVERSCALE;
+      const transform = `translate(${holeBox.centerX}px, ${holeBox.centerY}px) scale(${scale}) translate(-50%, -50%)`;
+      logDev(`updateBackTransform: holeBox=(${holeBox.centerX.toFixed(1)},${holeBox.centerY.toFixed(1)}) size=(${holeBox.width.toFixed(1)}x${holeBox.height.toFixed(1)}) scale=${scale.toFixed(3)} imgSize=(${imageWidth}x${imageHeight}) transform=${transform}`);
+      // Call original
+      origUpdateBackTransform();
+    };
+
+    const origAnimate = animate;
+    animate = function() {
+      logDev(`animate: frontScale=${frontScale.toFixed(3)}`);
+      origAnimate();
+    };
+
+    const origSetImage = setImage;
+    setImage = function(img, path) {
+      logDev("LOADING: " + path);
+      origSetImage(img, path);
+    };
+
     window.addEventListener('resize', updateBackTransform);
 
-    function animate() {
-      frontLayer.style.transform = `scale(${frontScale})`;
-      updateBackTransform();
-
-      frontScale += FRONT_SCALE_SPEED;
-      if (frontScale >= FRONT_SCALE_MAX) {
-        advanceCycle();
+    function loadCycleAssets() {
+      const idx = cycle % backAssets.length;
+      if (idx < 0 || idx >= backAssets.length) {
+        console.error("INDEX OUT OF RANGE:", idx);
+        return;
       }
+      imageDebugState = {
+        src: backAssets[idx],
+        status: 'PENDING',
+        width: 0,
+        height: 0
+      };
+      updateImageDebugOverlay();
+      updateDebugPanel();
+      setImage(backLayer, backAssets[idx]);
+      relayRoot.style.setProperty('--portal-mask-url', `url('${portalMasks[idx % portalMasks.length]}')`);
+    }
 
-      requestAnimationFrame(animate);
+    function advanceCycle() {
+      cycle += 1;
+      if (cycle >= backAssets.length) cycle = 0;
+      loadCycleAssets();
+      frontScale = FRONT_SCALE_MIN;
     }
 
     loadCycleAssets();
