@@ -5,7 +5,16 @@ const path = require("path");
 const port = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
-  let filePath = path.join(__dirname, req.url === "/" ? "index.html" : req.url.slice(1));
+  let urlPath = req.url;
+  // Remove leading /relay-player/ if present
+  if (urlPath.startsWith('/relay-player/')) {
+    urlPath = urlPath.slice('/relay-player/'.length);
+  } else if (urlPath === "/") {
+    urlPath = "index.html";
+  } else if (urlPath.startsWith("/")) {
+    urlPath = urlPath.slice(1);
+  }
+  let filePath = path.join(__dirname, urlPath);
   if (!filePath.startsWith(__dirname)) {
     res.writeHead(403);
     res.end("Forbidden");

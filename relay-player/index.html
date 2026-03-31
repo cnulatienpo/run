@@ -3,100 +3,225 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relay Player – Two Layer System</title>
+  <title>Relay Player – Portal Masking</title>
   <style>
-    html, body { height: 100%; margin: 0; background: #181818; }
-    body { display: flex; align-items: center; justify-content: center; height: 100vh; }
-    #relay-root { position: relative; width: 80vw; height: 60vw; max-width: 900px; max-height: 675px; min-width: 320px; min-height: 240px; background: #222; overflow: hidden; border-radius: 18px; box-shadow: 0 4px 32px #000a; }
-    .layer {
-      position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-      transition: none;
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #161616;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      font-family: monospace;
+    }
+    #relay-root {
+      position: relative;
+      width: 80vw;
+      height: 60vw;
+      max-width: 900px;
+      max-height: 675px;
+      min-width: 320px;
+      min-height: 240px;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #111;
+      box-shadow: 0 10px 40px #000b;
+    }
+    /* BACK LAYER (full image, never clipped/reshaped) */
+    #back-layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: center center;
       will-change: transform;
-      font-family: monospace; font-size: 2.2vw; font-weight: bold; letter-spacing: 0.1em;
-      user-select: none;
-    }
-    .active {
-      z-index: 2;
-      border: 4px solid #f44;
-      box-shadow: 0 0 0 6px #f441;
-    }
-    .next {
+      outline: 2px dashed #2aff9a; /* debug: back layer bounds */
+      outline-offset: -2px;
       z-index: 1;
-      border: 4px solid #2e4;
-      box-shadow: 0 0 0 6px #2e41;
+      user-select: none;
+      pointer-events: none;
     }
-    .dot {
-      width: 32px; height: 32px; border-radius: 50%; margin-right: 18px; display: inline-block;
-      vertical-align: middle;
+    /* FRONT LAYER (portal owner) */
+    #front-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      transform-origin: center center;
+      will-change: transform;
+      pointer-events: none;
+      /* "wall" visual; portal visibility is controlled by the mask */
+      background: radial-gradient(circle at 50% 45%, #4e4e4e, #252525 65%, #191919 100%);
+      /* Critical rule: transparency in mask = portal (reveals back) */
+      -webkit-mask-image: var(--portal-mask-url);
+      -webkit-mask-size: 100% 100%;
+      -webkit-mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-image: var(--portal-mask-url);
+      mask-size: 100% 100%;
+      mask-position: center;
+      mask-repeat: no-repeat;
     }
-    .dot.red { background: #f44; border: 2px solid #fff; }
-    .dot.green { background: #2e4; border: 2px solid #fff; }
-    .label { font-size: 2.2vw; font-weight: bold; }
-    .swap-flash { animation: swapFlash 0.25s linear; }
-    @keyframes swapFlash {
-      0% { filter: brightness(2) contrast(2); }
-      100% { filter: none; }
+    #debug-hole-box {
+      position: absolute;
+      z-index: 4;
+      border: 2px solid #ffcc00;
+      box-sizing: border-box;
+      pointer-events: none;
+    }
+    #debug-crosshair {
+      position: absolute;
+      z-index: 4;
+      width: 24px;
+      height: 24px;
+      margin-left: -12px;
+      margin-top: -12px;
+      pointer-events: none;
+    }
+    #debug-crosshair::before,
+    #debug-crosshair::after {
+      content: "";
+      position: absolute;
+      background: #ff4dff;
+    }
+    #debug-crosshair::before {
+      left: 11px;
+      top: 0;
+      width: 2px;
+      height: 24px;
+    }
+    #debug-crosshair::after {
+      left: 0;
+      top: 11px;
+      width: 24px;
+      height: 2px;
+    }
+    #debug-label {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      z-index: 5;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #d6ffd7;
+      background: #000a;
+      border: 1px solid #2aff9a66;
+      border-radius: 6px;
+      padding: 8px 10px;
+      white-space: pre;
     }
   </style>
 </head>
 <body>
   <div id="relay-root">
-    <div id="layerA" class="layer active"></div>
-    <div id="layerB" class="layer next"></div>
+    <img id="back-layer" alt="Back content">
+    <div id="front-layer"></div>
+    <div id="debug-hole-box"></div>
+    <div id="debug-crosshair"></div>
+    <div id="debug-label"></div>
   </div>
   <script>
-    // Minimal two-layer relay system with images
-    const assets = [
-      'url(../assets/al_gallery5.png)',
-      'url(../assets/al_fun14.png)'
-    ];
-    let assetIdx = 0;
+    // Portal masking two-layer relay player
     const relayRoot = document.getElementById('relay-root');
-    const layers = [
-      document.getElementById('layerA'),
-      document.getElementById('layerB')
-    ];
-    let activeIdx = 0;
-    let scale = 1;
-    const SCALE_MAX = 6;
-    const SCALE_SPEED = 0.012;
-    function setLayerContent(layer, type) {
-      // No content: just show the image background
-      layer.innerHTML = '';
+    const backLayer = document.getElementById('back-layer');
+    const frontLayer = document.getElementById('front-layer');
+    const debugHoleBox = document.getElementById('debug-hole-box');
+    const debugCrosshair = document.getElementById('debug-crosshair');
+    const debugLabel = document.getElementById('debug-label');
+
+    // Use PNGs from assets/final_rgba for both back images and portal masks
+    // (Assume all f_*.png are both valid back images and masks for demo)
+    const NUM_FRAMES = 108; // f_0000.png to f_0107.png
+    const backAssets = Array.from({length: NUM_FRAMES}, (_, i) => `/relay-player/assets/final_rgba/f_${i.toString().padStart(4, '0')}.png`);
+    const portalMasks = backAssets;
+
+    // Manual portal bounding box in FRONT layer local space.
+    // This is the "window" area, not a clip path.
+    const hole = { x: 260, y: 165, width: 380, height: 250 };
+
+    const FRONT_SCALE_MIN = 1;
+    const FRONT_SCALE_MAX = 2.7;
+    const FRONT_SCALE_SPEED = 0.008;
+    const BACK_OVERSCALE = 1.2;
+
+    let frontScale = FRONT_SCALE_MIN;
+    let cycle = 0;
+
+    function getHoleBoxInRoot() {
+      const rootRect = relayRoot.getBoundingClientRect();
+      const centerX = hole.x + hole.width / 2;
+      const centerY = hole.y + hole.height / 2;
+
+      // FRONT layer scales around its center. We project hole into root space.
+      const rootCenterX = rootRect.width / 2;
+      const rootCenterY = rootRect.height / 2;
+      const projectedCenterX = rootCenterX + (centerX - rootCenterX) * frontScale;
+      const projectedCenterY = rootCenterY + (centerY - rootCenterY) * frontScale;
+
+      return {
+        centerX: projectedCenterX,
+        centerY: projectedCenterY,
+        width: hole.width * frontScale,
+        height: hole.height * frontScale
+      };
     }
-    function setLayerBg(layer, bg) {
-      layer.style.background = `${bg} center/cover no-repeat`;
+
+    function updateBackTransform() {
+      const holeBox = getHoleBoxInRoot();
+
+      const imageWidth = backLayer.naturalWidth || 1;
+      const imageHeight = backLayer.naturalHeight || 1;
+
+      // Keep BACK image larger than hole box.
+      const scaleX = holeBox.width / imageWidth;
+      const scaleY = holeBox.height / imageHeight;
+      const scale = Math.max(scaleX, scaleY) * BACK_OVERSCALE;
+
+      // Translate to hole center first, then center image via -50% / -50%.
+      backLayer.style.transform = `translate(${holeBox.centerX}px, ${holeBox.centerY}px) scale(${scale}) translate(-50%, -50%)`;
+
+      // Mandatory debug overlays.
+      debugHoleBox.style.left = `${holeBox.centerX - holeBox.width / 2}px`;
+      debugHoleBox.style.top = `${holeBox.centerY - holeBox.height / 2}px`;
+      debugHoleBox.style.width = `${holeBox.width}px`;
+      debugHoleBox.style.height = `${holeBox.height}px`;
+
+      debugCrosshair.style.left = `${holeBox.centerX}px`;
+      debugCrosshair.style.top = `${holeBox.centerY}px`;
+
+      debugLabel.textContent =
+        `hole center: (${holeBox.centerX.toFixed(1)}, ${holeBox.centerY.toFixed(1)})\n` +
+        `hole size: ${holeBox.width.toFixed(1)} x ${holeBox.height.toFixed(1)}\n` +
+        `back scale: ${scale.toFixed(3)} (overscale x${BACK_OVERSCALE})`;
     }
-    function swapLayers() {
-      // Swap references
-      activeIdx = 1 - activeIdx;
-      // Visually swap classes
-      layers[0].className = 'layer' + (activeIdx === 0 ? ' active' : ' next');
-      layers[1].className = 'layer' + (activeIdx === 1 ? ' active' : ' next');
-      // Flash effect
-      layers[activeIdx].classList.add('swap-flash');
-      setTimeout(() => layers[activeIdx].classList.remove('swap-flash'), 250);
-      // Reset scale
-      scale = 1;
-      // Load new asset into nextLayer
-      assetIdx = (assetIdx + 1) % assets.length;
-      setLayerBg(layers[1 - activeIdx], assets[assetIdx]);
-      setLayerContent(layers[activeIdx], 'active');
-      setLayerContent(layers[1 - activeIdx], 'next');
+
+    function loadCycleAssets() {
+      const idx = cycle % backAssets.length;
+      backLayer.src = backAssets[idx];
+      relayRoot.style.setProperty('--portal-mask-url', `url('${portalMasks[idx % portalMasks.length]}')`);
     }
-    // Initial backgrounds
-    setLayerBg(layers[0], assets[0]);
-    setLayerBg(layers[1], assets[1]);
-    // Animation loop
+
+    function advanceCycle() {
+      cycle += 1;
+      loadCycleAssets();
+      frontScale = FRONT_SCALE_MIN;
+    }
+
+    backLayer.addEventListener('load', updateBackTransform);
+    window.addEventListener('resize', updateBackTransform);
+
     function animate() {
-      layers[activeIdx].style.transform = `scale(${scale})`;
-      layers[1 - activeIdx].style.transform = 'scale(1)';
-      scale += SCALE_SPEED;
-      if (scale >= SCALE_MAX) {
-        swapLayers();
+      frontLayer.style.transform = `scale(${frontScale})`;
+      updateBackTransform();
+
+      frontScale += FRONT_SCALE_SPEED;
+      if (frontScale >= FRONT_SCALE_MAX) {
+        advanceCycle();
       }
       requestAnimationFrame(animate);
     }
+
+    loadCycleAssets();
     animate();
   </script>
 </body>
