@@ -122,6 +122,38 @@
       padding: 8px 10px;
       white-space: pre;
     }
+
+    #image-debug-overlay {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 9999;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #fff59a;
+      background: #090909e8;
+      border: 1px solid #fff59a66;
+      border-radius: 6px;
+      padding: 8px 10px;
+      white-space: pre;
+      pointer-events: none;
+    }
+
+    #load-failure-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #ff0000;
+      color: #ffff00;
+      font-weight: 700;
+      font-size: clamp(20px, 4vw, 44px);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 2px 3px #000;
+    }
   </style>
 </head>
 <body>
@@ -131,7 +163,9 @@
     <div id="debug-hole-box"></div>
     <div id="debug-crosshair"></div>
     <div id="debug-label"></div>
+    <div id="load-failure-overlay">FAILED TO LOAD</div>
   </div>
+  <div id="image-debug-overlay">IMAGE DEBUG</div>
 
   <script>
     const relayRoot = document.getElementById('relay-root');
@@ -140,11 +174,13 @@
     const debugHoleBox = document.getElementById('debug-hole-box');
     const debugCrosshair = document.getElementById('debug-crosshair');
     const debugLabel = document.getElementById('debug-label');
+    const imageDebugOverlay = document.getElementById('image-debug-overlay');
+    const loadFailureOverlay = document.getElementById('load-failure-overlay');
 
-    const backAssets = ['../assets/al_gallery5.png', '../assets/al_fun14.png'];
+    const backAssets = ['assets/al_gallery5.png', 'assets/al_fun14.png'];
     const portalMasks = [
-      '../assets/al_gallery5.png',
-      '../assets/al_fun14.png'
+      'assets/al_gallery5.png',
+      'assets/al_fun14.png'
     ];
 
     // Manual portal bounding box in FRONT layer local space.
@@ -158,6 +194,20 @@
 
     let frontScale = FRONT_SCALE_MIN;
     let cycle = 0;
+    let imageDebugState = {
+      src: '(not set)',
+      status: 'PENDING',
+      width: 0,
+      height: 0
+    };
+
+    function updateImageDebugOverlay() {
+      imageDebugOverlay.textContent =
+        `IMAGE DEBUG\n` +
+        `src: ${imageDebugState.src}\n` +
+        `status: ${imageDebugState.status}\n` +
+        `size: ${imageDebugState.width} x ${imageDebugState.height}`;
+    }
 
     function getHoleBoxInRoot() {
       const rootRect = relayRoot.getBoundingClientRect();
@@ -209,6 +259,13 @@
 
     function loadCycleAssets() {
       const idx = cycle % backAssets.length;
+      imageDebugState = {
+        src: backAssets[idx],
+        status: 'PENDING',
+        width: 0,
+        height: 0
+      };
+      updateImageDebugOverlay();
       backLayer.src = backAssets[idx];
       relayRoot.style.setProperty('--portal-mask-url', `url('${portalMasks[idx % portalMasks.length]}')`);
     }
@@ -219,7 +276,36 @@
       frontScale = FRONT_SCALE_MIN;
     }
 
-    backLayer.addEventListener('load', updateBackTransform);
+    backLayer.onload = () => {
+      imageDebugState = {
+        src: backLayer.currentSrc || backLayer.src,
+        status: 'LOADED',
+        width: backLayer.naturalWidth || 0,
+        height: backLayer.naturalHeight || 0
+      };
+      console.log('LOADED:', backLayer.src, backLayer.naturalWidth, backLayer.naturalHeight);
+      loadFailureOverlay.style.display = 'none';
+      backLayer.style.display = 'block';
+      backLayer.style.background = '';
+      relayRoot.style.background = '#111';
+      updateImageDebugOverlay();
+      updateBackTransform();
+    };
+
+    backLayer.onerror = () => {
+      imageDebugState = {
+        src: backLayer.currentSrc || backLayer.src,
+        status: 'FAILED',
+        width: 0,
+        height: 0
+      };
+      console.error('FAILED:', backLayer.src);
+      loadFailureOverlay.style.display = 'flex';
+      backLayer.style.display = 'none';
+      relayRoot.style.background = '#ffff00';
+      updateImageDebugOverlay();
+    };
+
     window.addEventListener('resize', updateBackTransform);
 
     function animate() {
@@ -235,6 +321,7 @@
     }
 
     loadCycleAssets();
+    updateImageDebugOverlay();
     animate();
   </script>
 </body>
