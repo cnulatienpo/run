@@ -1,472 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relay Player – Portal Masking</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relay Player Baseline Restore</title>
   <style>
     html, body {
-      height: 100%;
       margin: 0;
-      background: #161616;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
     }
 
     body {
       display: grid;
       place-items: center;
-      overflow: hidden;
       font-family: monospace;
     }
 
     #relay-root {
       position: relative;
-      width: 80vw;
-      height: 60vw;
-      max-width: 900px;
-      max-height: 675px;
-      min-width: 320px;
-      min-height: 240px;
+      width: min(100vw, 100vh * 4 / 3);
+      height: min(100vh, 100vw * 3 / 4);
       overflow: hidden;
-      border-radius: 18px;
-      background: #111;
-      box-shadow: 0 10px 40px #000b;
+      background: #000;
     }
 
-    /* BACK LAYER (full image, never clipped/reshaped) */
-    #back-layer {
+    .layer {
       position: absolute;
-      left: 0;
-      top: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center center;
       transform-origin: center center;
       will-change: transform;
-      outline: 2px dashed #2aff9a; /* debug: back layer bounds */
-      outline-offset: -2px;
-      z-index: 1;
       user-select: none;
       pointer-events: none;
+      image-rendering: auto;
+      background: transparent;
     }
 
-    /* FRONT LAYER (portal owner) */
-    #front-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      transform-origin: center center;
-      will-change: transform;
-      pointer-events: none;
-
-      /* "wall" visual; portal visibility is controlled by the mask */
-      background: radial-gradient(circle at 50% 45%, #4e4e4e, #252525 65%, #191919 100%);
-
-      /* Critical rule: transparency in mask = portal (reveals back) */
-      -webkit-mask-image: var(--portal-mask-url);
-      -webkit-mask-size: 100% 100%;
-      -webkit-mask-position: center;
-      -webkit-mask-repeat: no-repeat;
-      mask-image: var(--portal-mask-url);
-      mask-size: 100% 100%;
-      mask-position: center;
-      mask-repeat: no-repeat;
-    }
-
-    #debug-hole-box {
-      position: absolute;
-      z-index: 4;
-      border: 2px solid #ffcc00;
-      box-sizing: border-box;
-      pointer-events: none;
-    }
-
-    #debug-crosshair {
-      position: absolute;
-      z-index: 4;
-      width: 24px;
-      height: 24px;
-      margin-left: -12px;
-      margin-top: -12px;
-      pointer-events: none;
-    }
-
-    #debug-crosshair::before,
-    #debug-crosshair::after {
-      content: "";
-      position: absolute;
-      background: #ff4dff;
-    }
-
-    #debug-crosshair::before {
-      left: 11px;
-      top: 0;
-      width: 2px;
-      height: 24px;
-    }
-
-    #debug-crosshair::after {
-      left: 0;
-      top: 11px;
-      width: 24px;
-      height: 2px;
-    }
-
-    #debug-label {
-      position: absolute;
+    #status {
+      position: fixed;
       left: 12px;
       bottom: 12px;
-      z-index: 5;
+      color: #fff;
+      background: rgba(0,0,0,0.65);
+      padding: 8px 10px;
       font-size: 12px;
       line-height: 1.35;
-      color: #d6ffd7;
-      background: #000a;
-      border: 1px solid #2aff9a66;
-      border-radius: 6px;
-      padding: 8px 10px;
-      white-space: pre;
+      white-space: pre-line;
+      max-width: min(90vw, 560px);
     }
 
-    #image-debug-overlay {
-      position: fixed;
-      top: 12px;
-      left: 12px;
-      z-index: 9999;
-      font-size: 12px;
-      line-height: 1.35;
-      color: #fff59a;
-      background: #090909e8;
-      border: 1px solid #fff59a66;
-      border-radius: 6px;
-      padding: 8px 10px;
-      white-space: pre;
-      pointer-events: none;
-    }
-
-    #load-failure-overlay {
+    #fail {
       position: absolute;
       inset: 0;
-      z-index: 6;
       display: none;
-      align-items: center;
-      justify-content: center;
-      background: #ff0000;
-      color: #ffff00;
-      font-weight: 700;
-      font-size: clamp(20px, 4vw, 44px);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      text-shadow: 0 2px 3px #000;
+      place-items: center;
+      color: #fff;
+      background: #900;
+      font-size: 24px;
+      letter-spacing: 1px;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
   <div id="relay-root">
-    <img id="back-layer" alt="Back content">
-    <div id="front-layer"></div>
-    <div id="debug-hole-box"></div>
-    <div id="debug-crosshair"></div>
-    <div id="debug-label"></div>
-    <div id="load-failure-overlay">FAILED TO LOAD</div>
+    <img id="layer-a" class="layer" alt="Relay layer A" />
+    <img id="layer-b" class="layer" alt="Relay layer B" />
+    <div id="fail">FAILED TO LOAD IMAGE</div>
   </div>
-  <div id="image-debug-overlay">IMAGE DEBUG</div>
+  <div id="status">starting…</div>
 
   <script>
-    const relayRoot = document.getElementById('relay-root');
-    const backLayer = document.getElementById('back-layer');
-    const frontLayer = document.getElementById('front-layer');
-    const debugHoleBox = document.getElementById('debug-hole-box');
-    const debugCrosshair = document.getElementById('debug-crosshair');
-    const debugLabel = document.getElementById('debug-label');
-    const imageDebugOverlay = document.getElementById('image-debug-overlay');
-    const loadFailureOverlay = document.getElementById('load-failure-overlay');
+    /*
+      BASELINE RESTORE
+      ----------------
+      - two real <img> elements only
+      - no fake squares
+      - no canvas
+      - no CSS masking
+      - no giant dev panel
+      - simple relay motion
 
-    // --- PATH GENERATION: Use NUM_FRAMES and generate full PNG paths ---
+      If your files are in a different folder, change CANDIDATE_BASES below.
+    */
+
     const NUM_FRAMES = 100;
-    const backAssets = Array.from({ length: NUM_FRAMES }, (_, i) => {
-      const index = String(i).padStart(4, "0");
-      return `assets/pngs/final_rgba/f_${index}.png`;
-    });
-    const portalMasks = backAssets.slice(); // If needed, use same paths
-
-    // Manual portal bounding box in FRONT layer local space.
-    // This is the "window" area, not a clip path.
-    const hole = { x: 260, y: 165, width: 380, height: 250 };
-
+    const PAD = 4;
     const FRONT_SCALE_MIN = 1;
-    const FRONT_SCALE_MAX = 2.7;
-    const FRONT_SCALE_SPEED = 0.008;
-    const BACK_OVERSCALE = 1.2;
+    const FRONT_SCALE_MAX = 2.4;
+    const FRONT_SCALE_SPEED = 0.02;
 
+    const CANDIDATE_BASES = [
+      "assets/final_rgba",
+      "./assets/final_rgba",
+      "assets/pngs/final_rgba",
+      "./assets/pngs/final_rgba"
+    ];
+
+    const fail = document.getElementById("fail");
+    const statusEl = document.getElementById("status");
+
+    let frontLayer = document.getElementById("layer-a");
+    let backLayer = document.getElementById("layer-b");
+
+    frontLayer.style.zIndex = "2";
+    backLayer.style.zIndex = "1";
+
+    let resolvedBase = null;
+    let frontIndex = 0;
+    let backIndex = 1;
     let frontScale = FRONT_SCALE_MIN;
-    let cycle = 0;
-    let imageDebugState = {
-      src: '(not set)',
-      status: 'PENDING',
-      width: 0,
-      height: 0
-    };
+    let animating = false;
 
-    function updateImageDebugOverlay() {
-      imageDebugOverlay.textContent =
-        `IMAGE DEBUG\n` +
-        `src: ${imageDebugState.src}\n` +
-        `status: ${imageDebugState.status}\n` +
-        `size: ${imageDebugState.width} x ${imageDebugState.height}`;
+    function frameName(i) {
+      return `f_${String(i).padStart(PAD, "0")}.png`;
     }
 
-    function getHoleBoxInRoot() {
-      const rootRect = relayRoot.getBoundingClientRect();
-      const centerX = hole.x + hole.width / 2;
-      const centerY = hole.y + hole.height / 2;
-
-      // FRONT layer scales around its center. We project hole into root space.
-      const rootCenterX = rootRect.width / 2;
-      const rootCenterY = rootRect.height / 2;
-      const projectedCenterX = rootCenterX + (centerX - rootCenterX) * frontScale;
-      const projectedCenterY = rootCenterY + (centerY - rootCenterY) * frontScale;
-
-      return {
-        centerX: projectedCenterX,
-        centerY: projectedCenterY,
-        width: hole.width * frontScale,
-        height: hole.height * frontScale
-      };
+    function framePath(base, i) {
+      return `${base}/${frameName(i)}`;
     }
 
-    function updateBackTransform() {
-      const holeBox = getHoleBoxInRoot();
-
-      const imageWidth = backLayer.naturalWidth || 1;
-      const imageHeight = backLayer.naturalHeight || 1;
-
-      // Keep BACK image larger than hole box.
-      const scaleX = holeBox.width / imageWidth;
-      const scaleY = holeBox.height / imageHeight;
-      const scale = Math.max(scaleX, scaleY) * BACK_OVERSCALE;
-
-      // Translate to hole center first, then center image via -50% / -50%.
-      backLayer.style.transform = `translate(${holeBox.centerX}px, ${holeBox.centerY}px) scale(${scale}) translate(-50%, -50%)`;
-
-      // Mandatory debug overlays.
-      debugHoleBox.style.left = `${holeBox.centerX - holeBox.width / 2}px`;
-      debugHoleBox.style.top = `${holeBox.centerY - holeBox.height / 2}px`;
-      debugHoleBox.style.width = `${holeBox.width}px`;
-      debugHoleBox.style.height = `${holeBox.height}px`;
-
-      debugCrosshair.style.left = `${holeBox.centerX}px`;
-      debugCrosshair.style.top = `${holeBox.centerY}px`;
-
-      debugLabel.textContent =
-        `hole center: (${holeBox.centerX.toFixed(1)}, ${holeBox.centerY.toFixed(1)})\n` +
-        `hole size: ${holeBox.width.toFixed(1)} x ${holeBox.height.toFixed(1)}\n` +
-        `back scale: ${scale.toFixed(3)} (overscale x${BACK_OVERSCALE})`;
+    function setStatus(extra = "") {
+      statusEl.textContent =
+        `base: ${resolvedBase ?? "resolving..."}\n` +
+        `frontIndex: ${frontIndex}\n` +
+        `backIndex: ${backIndex}\n` +
+        `frontSrc: ${frontLayer.getAttribute("src") || "(none)"}\n` +
+        `backSrc: ${backLayer.getAttribute("src") || "(none)"}\n` +
+        extra;
     }
 
-    // --- SAFE ASSIGNMENT ---
-    function setImage(img, path) {
-      if (!path || !path.endsWith(".png")) {
-        console.error("INVALID PATH:", path);
-        return;
+    function probeImage(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ ok: true, url, width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve({ ok: false, url });
+        img.src = url;
+      });
+    }
+
+    async function resolveBasePath() {
+      const probes = [];
+      for (const base of CANDIDATE_BASES) {
+        probes.push(framePath(base, 0));
+        probes.push(framePath(base, 1));
       }
-      console.log("LOADING:", path);
-      img.src = path;
-      img.onload = () => {
-        imageDebugState = {
-          src: img.currentSrc || img.src,
-          status: 'LOADED',
-          width: img.naturalWidth || 0,
-          height: img.naturalHeight || 0
+
+      for (const url of probes) {
+        const result = await probeImage(url);
+        console.log("PROBE:", result.url, result.ok ? "OK" : "FAIL");
+        if (result.ok) {
+          const parts = result.url.split("/");
+          parts.pop();
+          return parts.join("/");
+        }
+      }
+      return null;
+    }
+
+    function loadInto(img, index) {
+      return new Promise((resolve, reject) => {
+        const path = framePath(resolvedBase, index);
+        console.log("LOADING:", path);
+        img.onload = () => {
+          console.log("LOADED:", path, img.naturalWidth, img.naturalHeight);
+          img.style.display = "block";
+          fail.style.display = "none";
+          resolve(path);
         };
-        updateImageDebugOverlay();
-        updateDebugPanel();
-        console.log("LOADED:", img.src, img.naturalWidth, img.naturalHeight);
-        loadFailureOverlay.style.display = 'none';
-        img.style.display = 'block';
-        img.style.background = '';
-        relayRoot.style.background = '#111';
-        updateBackTransform();
-      };
-      img.onerror = () => {
-        imageDebugState = {
-          src: img.currentSrc || img.src,
-          status: 'FAILED',
-          width: 0,
-          height: 0
+        img.onerror = () => {
+          console.error("FAILED:", path);
+          fail.style.display = "grid";
+          reject(new Error(`Failed to load ${path}`));
         };
-        updateImageDebugOverlay();
-        updateDebugPanel();
-        console.error("FAILED:", img.src);
-        loadFailureOverlay.style.display = 'flex';
-        img.style.display = 'none';
-        relayRoot.style.background = '#ffff00';
-      };
+        img.src = path;
+      });
     }
 
-    // --- FAIL FAST SYSTEM ---
-    function loadCycleAssets() {
-      const idx = cycle % backAssets.length;
-      if (idx < 0 || idx >= backAssets.length) {
-        console.error("INDEX OUT OF RANGE:", idx);
+    function resetTransforms() {
+      frontLayer.style.transform = `scale(${frontScale})`;
+      backLayer.style.transform = "scale(1)";
+    }
+
+    function swapLayers() {
+      [frontLayer, backLayer] = [backLayer, frontLayer];
+      frontLayer.style.zIndex = "2";
+      backLayer.style.zIndex = "1";
+    }
+
+    async function advance() {
+      if (animating) return;
+      animating = true;
+
+      backIndex = (frontIndex + 1) % NUM_FRAMES;
+
+      try {
+        await loadInto(backLayer, backIndex);
+      } catch (err) {
+        setStatus("error: " + err.message);
+        animating = false;
         return;
       }
-      imageDebugState = {
-        src: backAssets[idx],
-        status: 'PENDING',
-        width: 0,
-        height: 0
-      };
-      updateImageDebugOverlay();
-      updateDebugPanel();
-      setImage(backLayer, backAssets[idx]);
-      relayRoot.style.setProperty('--portal-mask-url', `url('${portalMasks[idx % portalMasks.length]}')`);
-    }
 
-    function advanceCycle() {
-      cycle += 1;
-      if (cycle >= backAssets.length) cycle = 0;
-      loadCycleAssets();
       frontScale = FRONT_SCALE_MIN;
+      resetTransforms();
+
+      function tick() {
+        frontScale += FRONT_SCALE_SPEED;
+        frontLayer.style.transform = `scale(${frontScale})`;
+
+        if (frontScale >= FRONT_SCALE_MAX) {
+          frontIndex = backIndex;
+          swapLayers();
+          resetTransforms();
+          setStatus("swap complete");
+          animating = false;
+          requestAnimationFrame(advance);
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
     }
 
-    // (Handled by setImage now)
-    // --- DEBUG PANEL (VISIBLE ON SCREEN) ---
-    // Add a fixed overlay showing: current index, src, load status
-    const debugPanel = document.createElement('div');
-    debugPanel.id = 'frame-debug-panel';
-    debugPanel.style.position = 'fixed';
-    debugPanel.style.bottom = '12px';
-    debugPanel.style.left = '12px';
-    debugPanel.style.zIndex = '10000';
-    debugPanel.style.fontSize = '14px';
-    debugPanel.style.lineHeight = '1.5';
-    debugPanel.style.color = '#fff';
-    debugPanel.style.background = '#222e';
-    debugPanel.style.border = '1px solid #fff59a66';
-    debugPanel.style.borderRadius = '6px';
-    debugPanel.style.padding = '8px 12px';
-    debugPanel.style.whiteSpace = 'pre';
-    debugPanel.style.pointerEvents = 'none';
-    document.body.appendChild(debugPanel);
+    async function start() {
+      resolvedBase = await resolveBasePath();
 
-    function updateDebugPanel() {
-      const idx = cycle % backAssets.length;
-      debugPanel.textContent =
-        `INDEX: ${idx}\n` +
-        `SRC: ${imageDebugState.src}\n` +
-        `STATUS: ${imageDebugState.status}`;
-    }
-
-
-    // --- SAFE DEV LOG OVERLAY (at end of script) ---
-    (() => {
-      const devLog = [];
-      function logDev(msg) {
-        const timestamp = new Date().toISOString().split('T')[1].replace('Z','');
-        devLog.push(`[${timestamp}] ${msg}`);
-        if (devLog.length > 200) devLog.shift();
-        updateDevLogOverlay();
-      }
-      window.logDev = logDev;
-      const devLogOverlay = document.createElement('div');
-      devLogOverlay.id = 'dev-log-overlay';
-      devLogOverlay.style.position = 'fixed';
-      devLogOverlay.style.top = '12px';
-      devLogOverlay.style.right = '12px';
-      devLogOverlay.style.zIndex = '10001';
-      devLogOverlay.style.width = '420px';
-      devLogOverlay.style.maxHeight = '60vh';
-      devLogOverlay.style.overflowY = 'auto';
-      devLogOverlay.style.background = '#181818ee';
-      devLogOverlay.style.color = '#fff';
-      devLogOverlay.style.fontSize = '12px';
-      devLogOverlay.style.fontFamily = 'monospace';
-      devLogOverlay.style.border = '1px solid #fff59a66';
-      devLogOverlay.style.borderRadius = '6px';
-      devLogOverlay.style.padding = '8px 10px 36px 10px';
-      devLogOverlay.style.whiteSpace = 'pre-wrap';
-      devLogOverlay.style.boxShadow = '0 2px 12px #000a';
-      devLogOverlay.style.pointerEvents = 'none';
-      document.body.appendChild(devLogOverlay);
-      // Copy button
-      const copyBtn = document.createElement('button');
-      copyBtn.textContent = 'Copy Log';
-      copyBtn.style.position = 'absolute';
-      copyBtn.style.bottom = '8px';
-      copyBtn.style.right = '12px';
-      copyBtn.style.zIndex = '10002';
-      copyBtn.style.fontSize = '12px';
-      copyBtn.style.padding = '2px 10px';
-      copyBtn.style.background = '#fff59a';
-      copyBtn.style.color = '#222';
-      copyBtn.style.border = 'none';
-      copyBtn.style.borderRadius = '4px';
-      copyBtn.style.cursor = 'pointer';
-      copyBtn.style.pointerEvents = 'auto';
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(devLog.join('\n'));
-      };
-      devLogOverlay.appendChild(copyBtn);
-      function updateDevLogOverlay() {
-        devLogOverlay.textContent = devLog.slice(-40).join('\n');
-        devLogOverlay.appendChild(copyBtn);
-      }
-    })();
-
-    // --- Patch logging into key functions ---
-    const origUpdateBackTransform = updateBackTransform;
-    updateBackTransform = function() {
-      const holeBox = getHoleBoxInRoot();
-      const imageWidth = backLayer.naturalWidth || 1;
-      const imageHeight = backLayer.naturalHeight || 1;
-      const scaleX = holeBox.width / imageWidth;
-      const scaleY = holeBox.height / imageHeight;
-      const scale = Math.max(scaleX, scaleY) * BACK_OVERSCALE;
-      const transform = `translate(${holeBox.centerX}px, ${holeBox.centerY}px) scale(${scale}) translate(-50%, -50%)`;
-      logDev(`updateBackTransform: holeBox=(${holeBox.centerX.toFixed(1)},${holeBox.centerY.toFixed(1)}) size=(${holeBox.width.toFixed(1)}x${holeBox.height.toFixed(1)}) scale=${scale.toFixed(3)} imgSize=(${imageWidth}x${imageHeight}) transform=${transform}`);
-      // Call original
-      origUpdateBackTransform();
-    };
-
-    const origAnimate = animate;
-    animate = function() {
-      logDev(`animate: frontScale=${frontScale.toFixed(3)}`);
-      origAnimate();
-    };
-
-    const origSetImage = setImage;
-    setImage = function(img, path) {
-      logDev("LOADING: " + path);
-      origSetImage(img, path);
-    };
-
-    window.addEventListener('resize', updateBackTransform);
-
-    function loadCycleAssets() {
-      const idx = cycle % backAssets.length;
-      if (idx < 0 || idx >= backAssets.length) {
-        console.error("INDEX OUT OF RANGE:", idx);
+      if (!resolvedBase) {
+        fail.style.display = "grid";
+        setStatus("Could not find image folder.\nCheck CANDIDATE_BASES in the script.");
         return;
       }
-      imageDebugState = {
-        src: backAssets[idx],
-        status: 'PENDING',
-        width: 0,
-        height: 0
-      };
-      updateImageDebugOverlay();
-      updateDebugPanel();
-      setImage(backLayer, backAssets[idx]);
-      relayRoot.style.setProperty('--portal-mask-url', `url('${portalMasks[idx % portalMasks.length]}')`);
+
+      try {
+        await loadInto(frontLayer, frontIndex);
+        await loadInto(backLayer, backIndex);
+      } catch (err) {
+        setStatus("startup error: " + err.message);
+        return;
+      }
+
+      setStatus("baseline relay running");
+      resetTransforms();
+      requestAnimationFrame(advance);
     }
 
-    function advanceCycle() {
-      cycle += 1;
-      if (cycle >= backAssets.length) cycle = 0;
-      loadCycleAssets();
-      frontScale = FRONT_SCALE_MIN;
-    }
-
-    loadCycleAssets();
-    updateImageDebugOverlay();
-    updateDebugPanel();
-    animate();
+    start();
   </script>
 </body>
 </html>
