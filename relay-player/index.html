@@ -1,228 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relay Player – Portal Masking</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #161616;
-    }
-    body {
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      font-family: monospace;
-    }
-    #relay-root {
-      position: relative;
-      width: 80vw;
-      height: 60vw;
-      max-width: 900px;
-      max-height: 675px;
-      min-width: 320px;
-      min-height: 240px;
-      overflow: hidden;
-      border-radius: 18px;
-      background: #111;
-      box-shadow: 0 10px 40px #000b;
-    }
-    /* BACK LAYER (full image, never clipped/reshaped) */
-    #back-layer {
-      position: absolute;
-      left: 0;
-      top: 0;
-      transform-origin: center center;
-      will-change: transform;
-      outline: 2px dashed #2aff9a; /* debug: back layer bounds */
-      outline-offset: -2px;
-      z-index: 1;
-      user-select: none;
-      pointer-events: none;
-    }
-    /* FRONT LAYER (portal owner) */
-    #front-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      transform-origin: center center;
-      will-change: transform;
-      pointer-events: none;
-      /* "wall" visual; portal visibility is controlled by the mask */
-      background: radial-gradient(circle at 50% 45%, #4e4e4e, #252525 65%, #191919 100%);
-      /* Critical rule: transparency in mask = portal (reveals back) */
-      -webkit-mask-image: var(--portal-mask-url);
-      -webkit-mask-size: 100% 100%;
-      -webkit-mask-position: center;
-      -webkit-mask-repeat: no-repeat;
-      mask-image: var(--portal-mask-url);
-      mask-size: 100% 100%;
-      mask-position: center;
-      mask-repeat: no-repeat;
-    }
-    #debug-hole-box {
-      position: absolute;
-      z-index: 4;
-      border: 2px solid #ffcc00;
-      box-sizing: border-box;
-      pointer-events: none;
-    }
-    #debug-crosshair {
-      position: absolute;
-      z-index: 4;
-      width: 24px;
-      height: 24px;
-      margin-left: -12px;
-      margin-top: -12px;
-      pointer-events: none;
-    }
-    #debug-crosshair::before,
-    #debug-crosshair::after {
-      content: "";
-      position: absolute;
-      background: #ff4dff;
-    }
-    #debug-crosshair::before {
-      left: 11px;
-      top: 0;
-      width: 2px;
-      height: 24px;
-    }
-    #debug-crosshair::after {
-      left: 0;
-      top: 11px;
-      width: 24px;
-      height: 2px;
-    }
-    #debug-label {
-      position: absolute;
-      left: 12px;
-      bottom: 12px;
-      z-index: 5;
-      font-size: 12px;
-      line-height: 1.35;
-      color: #d6ffd7;
-      background: #000a;
-      border: 1px solid #2aff9a66;
-      border-radius: 6px;
-      padding: 8px 10px;
-      white-space: pre;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Player – Camera Through Hole</title>
+
+<style>
+/* =========================
+   PAGE SETUP
+========================= */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #161616;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* =========================
+   MAIN VIEWPORT (THE SCREEN)
+========================= */
+#relay-root {
+  position: relative;
+  width: 80vw;
+  height: 60vw;
+  max-width: 900px;
+  max-height: 675px;
+  overflow: hidden;
+  background: #111;
+}
+
+/* =========================
+   BACK LAYER (NEXT WORLD)
+========================= */
+#back-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+
+  /* stays centered unless moved */
+  transform-origin: center center;
+
+  pointer-events: none;
+}
+
+/* =========================
+   FRONT LAYER (CURRENT WORLD)
+========================= */
+#front-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+
+  /* THIS WILL BE CONTROLLED BY CAMERA */
+  transform-origin: center center;
+
+  pointer-events: none;
+
+  /* temporary visual */
+  background: radial-gradient(circle at center, #444, #111);
+}
+</style>
 </head>
+
 <body>
-  <div id="relay-root">
-    <img id="back-layer" alt="Back content">
-    <div id="front-layer"></div>
-    <div id="debug-hole-box"></div>
-    <div id="debug-crosshair"></div>
-    <div id="debug-label"></div>
-  </div>
-  <script>
-    // Portal masking two-layer relay player
-    const relayRoot = document.getElementById('relay-root');
-    const backLayer = document.getElementById('back-layer');
-    const frontLayer = document.getElementById('front-layer');
-    const debugHoleBox = document.getElementById('debug-hole-box');
-    const debugCrosshair = document.getElementById('debug-crosshair');
-    const debugLabel = document.getElementById('debug-label');
 
-    // Use PNGs from assets/final_rgba for both back images and portal masks
-    // (Assume all f_*.png are both valid back images and masks for demo)
-    const NUM_FRAMES = 108; // f_0000.png to f_0107.png
-    const backAssets = Array.from({length: NUM_FRAMES}, (_, i) => `/relay-player/assets/final_rgba/f_${i.toString().padStart(4, '0')}.png`);
-    const portalMasks = backAssets;
+<div id="relay-root">
 
-    // Manual portal bounding box in FRONT layer local space.
-    // This is the "window" area, not a clip path.
-    const hole = { x: 260, y: 165, width: 380, height: 250 };
+  <!-- BACK IMAGE -->
+  <img id="back-layer">
 
-    const FRONT_SCALE_MIN = 1;
-    const FRONT_SCALE_MAX = 2.7;
-    const FRONT_SCALE_SPEED = 0.008;
-    const BACK_OVERSCALE = 1.2;
+  <!-- FRONT "WALL" WITH HOLE -->
+  <div id="front-layer"></div>
 
-    let frontScale = FRONT_SCALE_MIN;
-    let cycle = 0;
+</div>
 
-    function getHoleBoxInRoot() {
-      const rootRect = relayRoot.getBoundingClientRect();
-      const centerX = hole.x + hole.width / 2;
-      const centerY = hole.y + hole.height / 2;
+<script>
 
-      // FRONT layer scales around its center. We project hole into root space.
-      const rootCenterX = rootRect.width / 2;
-      const rootCenterY = rootRect.height / 2;
-      const projectedCenterX = rootCenterX + (centerX - rootCenterX) * frontScale;
-      const projectedCenterY = rootCenterY + (centerY - rootCenterY) * frontScale;
+/* =========================
+   ACTORS (YOUR STORY)
+========================= */
 
-      return {
-        centerX: projectedCenterX,
-        centerY: projectedCenterY,
-        width: hole.width * frontScale,
-        height: hole.height * frontScale
-      };
-    }
+// Cameraman (controls movement)
+const frontLayer = document.getElementById('front-layer')
 
-    function updateBackTransform() {
-      const holeBox = getHoleBoxInRoot();
+// Next world (behind)
+const backLayer = document.getElementById('back-layer')
 
-      const imageWidth = backLayer.naturalWidth || 1;
-      const imageHeight = backLayer.naturalHeight || 1;
+// Stage
+const relayRoot = document.getElementById('relay-root')
 
-      // Keep BACK image larger than hole box.
-      const scaleX = holeBox.width / imageWidth;
-      const scaleY = holeBox.height / imageHeight;
-      const scale = Math.max(scaleX, scaleY) * BACK_OVERSCALE;
 
-      // Translate to hole center first, then center image via -50% / -50%.
-      backLayer.style.transform = `translate(${holeBox.centerX}px, ${holeBox.centerY}px) scale(${scale}) translate(-50%, -50%)`;
+/* =========================
+   FOREMAN (LOADS FILES)
+========================= */
 
-      // Mandatory debug overlays.
-      debugHoleBox.style.left = `${holeBox.centerX - holeBox.width / 2}px`;
-      debugHoleBox.style.top = `${holeBox.centerY - holeBox.height / 2}px`;
-      debugHoleBox.style.width = `${holeBox.width}px`;
-      debugHoleBox.style.height = `${holeBox.height}px`;
+const NUM_FRAMES = 108
 
-      debugCrosshair.style.left = `${holeBox.centerX}px`;
-      debugCrosshair.style.top = `${holeBox.centerY}px`;
+// ⚠️ FIXED PATH (NO relay-player PREFIX)
+const assets = Array.from({ length: NUM_FRAMES }, (_, i) =>
+  `assets/final_rgba/f_${String(i).padStart(4, '0')}.png`
+)
 
-      debugLabel.textContent =
-        `hole center: (${holeBox.centerX.toFixed(1)}, ${holeBox.centerY.toFixed(1)})\n` +
-        `hole size: ${holeBox.width.toFixed(1)} x ${holeBox.height.toFixed(1)}\n` +
-        `back scale: ${scale.toFixed(3)} (overscale x${BACK_OVERSCALE})`;
-    }
 
-    function loadCycleAssets() {
-      const idx = cycle % backAssets.length;
-      backLayer.src = backAssets[idx];
-      relayRoot.style.setProperty('--portal-mask-url', `url('${portalMasks[idx % portalMasks.length]}')`);
-    }
+/* =========================
+   SURVEY GUY (FINDS HOLE)
+========================= */
 
-    function advanceCycle() {
-      cycle += 1;
-      loadCycleAssets();
-      frontScale = FRONT_SCALE_MIN;
-    }
+// hardcoded for now
+const hole = {
+  x: 260,
+  y: 165,
+  width: 380,
+  height: 250
+}
 
-    backLayer.addEventListener('load', updateBackTransform);
-    window.addEventListener('resize', updateBackTransform);
+// calculate center of hole
+function getHoleCenter() {
+  return {
+    x: hole.x + hole.width / 2,
+    y: hole.y + hole.height / 2
+  }
+}
 
-    function animate() {
-      frontLayer.style.transform = `scale(${frontScale})`;
-      updateBackTransform();
 
-      frontScale += FRONT_SCALE_SPEED;
-      if (frontScale >= FRONT_SCALE_MAX) {
-        advanceCycle();
-      }
-      requestAnimationFrame(animate);
-    }
+/* =========================
+   CAMERA SETTINGS
+========================= */
 
-    loadCycleAssets();
-    animate();
-  </script>
+let scale = 1
+const SPEED = 0.01
+const MAX_SCALE = 2.5
+
+let index = 0
+
+
+/* =========================
+   LOAD IMAGE
+========================= */
+
+function loadNextImage() {
+  const path = assets[index]
+
+  console.log("LOADING:", path)
+
+  backLayer.src = path
+
+  index++
+  if (index >= assets.length) index = 0
+}
+
+
+/* =========================
+   ALIGN BACK IMAGE TO HOLE
+========================= */
+
+function alignBackToHole() {
+
+  const center = getHoleCenter()
+
+  // move image so its center matches hole center
+  backLayer.style.transform = `
+    translate(${center.x}px, ${center.y}px)
+    translate(-50%, -50%)
+  `
+}
+
+
+/* =========================
+   CAMERA (THIS IS THE FIX)
+========================= */
+
+function updateCamera() {
+
+  const center = getHoleCenter()
+
+  // 🔥 CRITICAL: AIM CAMERA AT HOLE
+  frontLayer.style.transformOrigin =
+    `${center.x}px ${center.y}px`
+
+  // move forward
+  frontLayer.style.transform = `scale(${scale})`
+}
+
+
+/* =========================
+   MAIN LOOP
+========================= */
+
+function animate() {
+
+  // cameraman moves forward
+  updateCamera()
+
+  // keep back aligned
+  alignBackToHole()
+
+  // advance camera
+  scale += SPEED
+
+  // reset when passed through
+  if (scale >= MAX_SCALE) {
+
+    scale = 1
+
+    loadNextImage()
+  }
+
+  requestAnimationFrame(animate)
+}
+
+
+/* =========================
+   START
+========================= */
+
+loadNextImage()
+animate()
+
+</script>
+
 </body>
 </html>
