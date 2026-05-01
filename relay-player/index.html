@@ -1,258 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Relay Player Baseline Restore</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PNG Loader Test</title>
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
-
     body {
-      display: grid;
-      place-items: center;
+      margin: 0;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
       font-family: monospace;
     }
-
-    #relay-root {
-      position: relative;
-      width: min(100vw, 100vh * 4 / 3);
-      height: min(100vh, 100vw * 3 / 4);
-      overflow: hidden;
-      background: #000;
+    #img {
+      max-width: 80vw;
+      max-height: 80vh;
+      border: 4px solid lime;
+      margin-bottom: 2rem;
+      background: #222;
+      display: block;
     }
-
-    .layer {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      object-position: center center;
-      transform-origin: center center;
-      will-change: transform;
-      user-select: none;
-      pointer-events: none;
-      image-rendering: auto;
-      background: transparent;
-    }
-
     #status {
+      font-size: 1.5rem;
+      color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 0.5em 1em;
+      border-radius: 8px;
       position: fixed;
-      left: 12px;
-      bottom: 12px;
-      color: #fff;
-      background: rgba(0,0,0,0.65);
-      padding: 8px 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      white-space: pre-line;
-      max-width: min(90vw, 560px);
-    }
-
-    #fail {
-      position: absolute;
-      inset: 0;
-      display: none;
-      place-items: center;
-      color: #fff;
-      background: #900;
-      font-size: 24px;
-      letter-spacing: 1px;
-      z-index: 10;
+      bottom: 24px;
+      left: 24px;
     }
   </style>
 </head>
 <body>
-  <div id="relay-root">
-    <img id="layer-a" class="layer" alt="Relay layer A" />
-    <img id="layer-b" class="layer" alt="Relay layer B" />
-    <div id="fail">FAILED TO LOAD IMAGE</div>
-  </div>
-  <div id="status">starting…</div>
-
+  <div id="gallery"></div>
+  <div id="status">loading...</div>
   <script>
-    /*
-      BASELINE RESTORE
-      ----------------
-      - two real <img> elements only
-      - no fake squares
-      - no canvas
-      - no CSS masking
-      - no giant dev panel
-      - simple relay motion
+    const NUM_FRAMES = 108; // Adjust if you have more/less images
+    const gallery = document.getElementById("gallery");
+    const status = document.getElementById("status");
+    let loaded = 0, failed = 0;
 
-      If your files are in a different folder, change CANDIDATE_BASES below.
-    */
-
-    const NUM_FRAMES = 100;
-    const PAD = 4;
-    const FRONT_SCALE_MIN = 1;
-    const FRONT_SCALE_MAX = 2.4;
-    const FRONT_SCALE_SPEED = 0.01;
-
-    const CANDIDATE_BASES = [
-      "assets/final_rgba",
-      "./assets/final_rgba",
-      "assets/pngs/final_rgba",
-      "./assets/pngs/final_rgba"
-    ];
-
-    const fail = document.getElementById("fail");
-    const statusEl = document.getElementById("status");
-
-    let frontLayer = document.getElementById("layer-a");
-    let backLayer = document.getElementById("layer-b");
-
-    frontLayer.style.zIndex = "2";
-    backLayer.style.zIndex = "1";
-
-    let resolvedBase = null;
-    let frontIndex = 0;
-    let backIndex = 1;
-    let frontScale = FRONT_SCALE_MIN;
-    let animating = false;
-
-    function frameName(i) {
-      return `f_${String(i).padStart(PAD, "0")}.png`;
+    function pad(num, size) {
+      let s = String(num);
+      while (s.length < size) s = "0" + s;
+      return s;
     }
 
-    function framePath(base, i) {
-      return `${base}/${frameName(i)}`;
+    for (let i = 1; i <= NUM_FRAMES; i++) {
+      const img = document.createElement("img");
+      img.src = `/relay-player/assets/pngs/final_rgba/f_${pad(i, 4)}.png`;
+      img.alt = `f_${pad(i, 4)}.png`;
+      img.style.maxWidth = "20vw";
+      img.style.maxHeight = "20vh";
+      img.style.margin = "0.5em";
+      img.style.border = "4px solid gray";
+      img.onload = () => {
+        img.style.borderColor = "lime";
+        loaded++;
+        status.textContent = `LOADED: ${loaded} / ${NUM_FRAMES}, FAILED: ${failed}`;
+      };
+      img.onerror = () => {
+        img.style.borderColor = "red";
+        failed++;
+        status.textContent = `LOADED: ${loaded} / ${NUM_FRAMES}, FAILED: ${failed}`;
+      };
+      gallery.appendChild(img);
     }
-
-    function setStatus(extra = "") {
-      statusEl.textContent =
-        `base: ${resolvedBase ?? "resolving..."}\n` +
-        `frontIndex: ${frontIndex}\n` +
-        `backIndex: ${backIndex}\n` +
-        `frontSrc: ${frontLayer.getAttribute("src") || "(none)"}\n` +
-        `backSrc: ${backLayer.getAttribute("src") || "(none)"}\n` +
-        extra;
-    }
-
-    function probeImage(url) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ ok: true, url, width: img.naturalWidth, height: img.naturalHeight });
-        img.onerror = () => resolve({ ok: false, url });
-        img.src = url;
-      });
-    }
-
-    async function resolveBasePath() {
-      const probes = [];
-      for (const base of CANDIDATE_BASES) {
-        probes.push(framePath(base, 0));
-        probes.push(framePath(base, 1));
-      }
-
-      for (const url of probes) {
-        const result = await probeImage(url);
-        console.log("PROBE:", result.url, result.ok ? "OK" : "FAIL");
-        if (result.ok) {
-          const parts = result.url.split("/");
-          parts.pop();
-          return parts.join("/");
-        }
-      }
-      return null;
-    }
-
-    function loadInto(img, index) {
-      return new Promise((resolve, reject) => {
-        const path = framePath(resolvedBase, index);
-        console.log("LOADING:", path);
-        img.onload = () => {
-          console.log("LOADED:", path, img.naturalWidth, img.naturalHeight);
-          img.style.display = "block";
-          fail.style.display = "none";
-          resolve(path);
-        };
-        img.onerror = () => {
-          console.error("FAILED:", path);
-          fail.style.display = "grid";
-          reject(new Error(`Failed to load ${path}`));
-        };
-        img.src = path;
-      });
-    }
-
-    function resetTransforms() {
-      frontLayer.style.transform = `scale(${frontScale})`;
-      backLayer.style.transform = "scale(1)";
-    }
-
-    function swapLayers() {
-      [frontLayer, backLayer] = [backLayer, frontLayer];
-      frontLayer.style.zIndex = "2";
-      backLayer.style.zIndex = "1";
-    }
-
-    async function advance() {
-      if (animating) return;
-      animating = true;
-
-      backIndex = (frontIndex + 1) % NUM_FRAMES;
-
-      try {
-        await loadInto(backLayer, backIndex);
-      } catch (err) {
-        setStatus("error: " + err.message);
-        animating = false;
-        return;
-      }
-
-      frontScale = FRONT_SCALE_MIN;
-      resetTransforms();
-
-      function tick() {
-        frontScale += FRONT_SCALE_SPEED;
-        frontLayer.style.transform = `scale(${frontScale})`;
-
-        if (frontScale >= FRONT_SCALE_MAX) {
-          frontIndex = backIndex;
-          swapLayers();
-          resetTransforms();
-          setStatus("swap complete");
-          animating = false;
-          requestAnimationFrame(advance);
-          return;
-        }
-
-        requestAnimationFrame(tick);
-      }
-
-      requestAnimationFrame(tick);
-    }
-
-    async function start() {
-      resolvedBase = await resolveBasePath();
-
-      if (!resolvedBase) {
-        fail.style.display = "grid";
-        setStatus("Could not find image folder.\nCheck CANDIDATE_BASES in the script.");
-        return;
-      }
-
-      try {
-        await loadInto(frontLayer, frontIndex);
-        await loadInto(backLayer, backIndex);
-      } catch (err) {
-        setStatus("startup error: " + err.message);
-        return;
-      }
-
-      setStatus("baseline relay running");
-      resetTransforms();
-      requestAnimationFrame(advance);
-    }
-
-    start();
+    status.textContent = `LOADING...`;
   </script>
 </body>
 </html>

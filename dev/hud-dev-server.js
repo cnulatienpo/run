@@ -1,12 +1,5 @@
 // dev/hud-dev-server.js
-// ============================================================
-// DEV HALLWAY — ONE DOOR ONLY
-//
-// CANONICAL PLAYER: simple-player/index.html
-// DO NOT change WEB_ROOT to any other directory.
-// DO NOT add fallback candidates.
-// All other players are archived under archive/players/.
-// ============================================================
+// dev/hud-dev-server.js
 
 const express = require("express");
 const { createProxyMiddleware } = require("http-proxy-middleware");
@@ -14,74 +7,80 @@ const path = require("path");
 const fs = require("fs");
 
 const app = express();
-
 const PORT = 3000;
+
 const RV_BACKEND_TARGET = process.env.API_TARGET || 'http://localhost:3001';
 
-// HARD-CODED. No fallback, no auto-detection, no override.
-const WEB_ROOT = path.join(__dirname, '..', 'simple-player');
+// ROOT PLAYER
+const WEB_ROOT = path.join(__dirname, '..', 'relay-player');
 
+// 🔥 VERIFY PLAYER EXISTS
 if (!fs.existsSync(path.join(WEB_ROOT, 'index.html'))) {
-  throw new Error(
-    'FATAL: simple-player/index.html not found.\n' +
-    'The canonical player is missing. Do NOT create a new player.\n' +
-    'Restore simple-player/index.html from git history.'
-  );
+  throw new Error('relay-player/index.html missing');
 }
 
-// Disable all caching in development
+// ==========================
+// NO CACHE (DEV ONLY)
+// ==========================
 app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Surrogate-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
-// Disable all caching in development
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Surrogate-Control', 'no-store');
-  next();
-});
+// ==========================
+// 🔥 STATIC FILES FIRST (CRITICAL)
+// ==========================
 
-// Serve canonical player (simple-player) — the ONLY player
+// serve EVERYTHING inside relay-player
 app.use(express.static(WEB_ROOT));
 
-// Serve video clip libraries required by simple-player
-app.use('/grey',  express.static(path.join(__dirname, '..', 'grey')));
+// specifically expose assets folder (important)
+app.use('/relay-player/assets', express.static(path.join(WEB_ROOT, 'assets')));
+
+// also allow direct /assets if needed
+app.use('/assets', express.static(path.join(WEB_ROOT, 'assets')));
+
+// ==========================
+// OTHER STATIC FOLDERS
+// ==========================
+app.use('/grey', express.static(path.join(__dirname, '..', 'grey')));
 app.use('/clown', express.static(path.join(__dirname, '..', 'clown')));
 
-// Serve shared assets
-app.use('/assets',   express.static(path.join(__dirname, '..', 'assets')));
-app.use('/testsongs', express.static(path.join(__dirname, '..', 'testsongs')));
-
-// Proxy /api → RV API backend (port 3001)
-app.use('/api', (req, res, next) => {
-  req.url = '/api' + req.url;
-  next();
-}, createProxyMiddleware({
+// ==========================
+// API PROXY
+// ==========================
+app.use('/api', createProxyMiddleware({
   target: RV_BACKEND_TARGET,
-  changeOrigin: true,
-  ws: true,
+  changeOrigin: true
 }));
 
-// Archived route guard: /rv must never open another player.
-app.use('/rv', (_req, res) => {
-  res.status(410).type('text/plain').send('ARCHIVED: /rv is disabled. Use /simple-player/index.html.');
-});
+// ==========================
+// 🔥 SAFE CATCH-ALL (IMPORTANT)
+// ==========================
 
-// All unmatched routes return the canonical player index — no fallback to other HTML
-app.get('*', (_req, res) => {
+app.get('*', (req, res) => {
+
+  // 🛑 DO NOT hijack image requests
+  if (
+    req.path.endsWith('.png') ||
+    req.path.endsWith('.jpg') ||
+    req.path.endsWith('.jpeg') ||
+    req.path.endsWith('.webm') ||
+    req.path.endsWith('.mp4')
+  ) {
+    return res.status(404).send('Asset not found');
+  }
+
+  // everything else → index.html
   res.sendFile(path.join(WEB_ROOT, 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('=================================================');
-  console.log(`ACTIVE PLAYER: simple-player/index.html`);
-  console.log(`URL:           http://localhost:${PORT}`);
-  console.log(`Root:          ${WEB_ROOT}`);
-  console.log('=================================================');
+// ==========================
+// START SERVER
+// ==========================
+app.listen(PORT, () => {
+  console.log('==============================');
+  console.log('DEV SERVER RUNNING');
+  console.log(`http://localhost:${PORT}`);
+  console.log('==============================');
 });
