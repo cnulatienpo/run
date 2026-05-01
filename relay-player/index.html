@@ -19,6 +19,7 @@ body {
   display: grid;
   place-items: center;
   overflow: hidden;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
 /* =========================
@@ -31,39 +32,120 @@ body {
   max-width: 900px;
   max-height: 675px;
   overflow: hidden;
-  background: #111;
+  background: #c22828;
 }
 
 /* =========================
-   BACK LAYER (NEXT WORLD)
+   SHARED LAYERS
 ========================= */
-#back-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-
-  /* stays centered unless moved */
-  transform-origin: center center;
-
-  pointer-events: none;
-}
-
-/* =========================
-   FRONT LAYER (CURRENT WORLD)
-========================= */
+#deep-layer,
+#back-layer,
 #front-layer {
   position: absolute;
   inset: 0;
-  z-index: 2;
-
-  /* THIS WILL BE CONTROLLED BY CAMERA */
+  width: 100%;
+  height: 100%;
   transform-origin: center center;
-
   pointer-events: none;
+  object-fit: cover;
+}
 
-  /* temporary visual */
-  background: radial-gradient(circle at center, #444, #111);
+#deep-layer {
+  z-index: 0;
+}
+
+#back-layer {
+  z-index: 1;
+}
+
+#front-layer {
+  z-index: 2;
+  background: none;
+}
+
+#deep-layer {
+  z-index: 0;
+}
+
+#back-layer {
+  z-index: 1;
+}
+
+#front-layer {
+  z-index: 2;
+  background: none;
+}
+
+#deep-layer {
+  z-index: 0;
+}
+
+#back-layer {
+  z-index: 1;
+}
+
+#front-layer {
+  z-index: 2;
+  background: none;
+}
+
+/* =========================
+   DEBUG OVERLAY
+========================= */
+#debug-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* =========================
+   UI PANEL
+========================= */
+#control-panel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  width: 300px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(160, 240, 13, 0.72);
+  color: #eee;
+  backdrop-filter: blur(4px);
+}
+
+#control-panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#playBtn {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0;
+}
+
+.control input[type="range"] {
+  grid-column: 1 / span 2;
+  width: 100%;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  color: #9ad;
 }
 </style>
 </head>
@@ -71,110 +153,148 @@ body {
 <body>
 
 <div id="relay-root">
+  <img id="deep-layer" alt="Deep layer">
+  <img id="back-layer" alt="Back layer">
+  <img id="front-layer" alt="Front layer">
+  <canvas id="debug-canvas"></canvas>
+</div>
 
-  <!-- BACK IMAGE -->
-  <img id="back-layer">
-
-  <!-- FRONT "WALL" WITH HOLE -->
-  <div id="front-layer"></div>
-
+<div id="control-panel">
+  <h3>Relay Controls</h3>
+  <button id="playBtn">Pause</button>
+  <div id="controls"></div>
 </div>
 
 <script>
-
 /* =========================
-   ACTORS (YOUR STORY)
+   CONFIG
 ========================= */
-
-// Cameraman (controls movement)
-const frontLayer = document.getElementById('front-layer')
-
-// Next world (behind)
-const backLayer = document.getElementById('back-layer')
-
-// Stage
-const relayRoot = document.getElementById('relay-root')
-
-
-/* =========================
-   FOREMAN (LOADS FILES)
-========================= */
-
 const NUM_FRAMES = 108
+const FRONT_DIR = 'assets/final_rgba' // has alpha hole
+const DEPTH_DIR = 'assets/final_rgb'  // must be opaque (no hole)
 
-// ⚠️ FIXED PATH (NO relay-player PREFIX)
-const assets = Array.from({ length: NUM_FRAMES }, (_, i) =>
-  `assets/final_rgba/f_${String(i).padStart(4, '0')}.png`
+const frontAssets = Array.from({ length: NUM_FRAMES }, (_, i) =>
+  `${FRONT_DIR}/f_${String(i).padStart(4, '0')}.png`
 )
 
+const depthAssets = Array.from({ length: NUM_FRAMES }, (_, i) =>
+  `${DEPTH_DIR}/f_${String(i).padStart(4, '0')}.png`
+)
 
-/* =========================
-   SURVEY GUY (FINDS HOLE)
-========================= */
-
-// hardcoded for now
-const hole = {
-  x: 260,
-  y: 165,
-  width: 380,
-  height: 250
+const config = {
+  speed: 0.01,            // 0.001 → 0.05
+  pullStrength: 4.0,      // 0.5 → 10
+  startDistance: 0.8,     // 0 → 1 (kept live-configurable)
+  arrivalThreshold: 0.03, // 0.005 → 0.1
+  maxZoom: 2.5,           // 1 → 4
+  feather: 30,            // 0 → 100
+  holeWidth: 380,         // 50 → 800
+  holeHeight: 250         // 50 → 800
 }
 
-// calculate center of hole
-function getHoleCenter() {
-  return {
-    x: hole.x + hole.width / 2,
-    y: hole.y + hole.height / 2
+/* =========================
+   STATE
+========================= */
+const relayRoot = document.getElementById('relay-root')
+const deepLayer = document.getElementById('deep-layer')
+const backLayer = document.getElementById('back-layer')
+const frontLayer = document.getElementById('front-layer')
+const debugCanvas = document.getElementById('debug-canvas')
+const debugCtx = debugCanvas.getContext('2d')
+const controlsHost = document.getElementById('controls')
+const playBtn = document.getElementById('playBtn')
+
+let isPlaying = true
+let lastTime = performance.now()
+let currentFrameIndex = 0
+
+let hole = { x: 0, y: 0, width: config.holeWidth, height: config.holeHeight }
+let cameraPos = { x: 0, y: 0 }
+let zoom = 1
+let frameStartMaxDistance = 1
+
+let warnedDepthMissing = false
+
+backLayer.addEventListener('error', () => {
+  if (!warnedDepthMissing) {
+    console.warn('Depth frames failed to load. Check DEPTH_DIR path.')
+    warnedDepthMissing = true
+  }
+  backLayer.src = frontAssets[(currentFrameIndex + 1) % frontAssets.length]
+})
+
+deepLayer.addEventListener('error', () => {
+  deepLayer.src = frontAssets[(currentFrameIndex + 2) % frontAssets.length]
+})
+
+/* =========================
+   UI
+========================= */
+const controlDefs = [
+  { key: 'speed', label: 'speed', min: 0.001, max: 0.05, step: 0.001 },
+  { key: 'pullStrength', label: 'pullStrength', min: 0.5, max: 10, step: 0.1 },
+  { key: 'startDistance', label: 'startDistance', min: 0, max: 1, step: 0.01 },
+  { key: 'arrivalThreshold', label: 'arrivalThreshold', min: 0.005, max: 0.1, step: 0.001 },
+  { key: 'maxZoom', label: 'zoom', min: 1, max: 4, step: 0.01 },
+  { key: 'feather', label: 'feather', min: 0, max: 100, step: 1 },
+  { key: 'holeWidth', label: 'holeWidth', min: 50, max: 800, step: 1 },
+  { key: 'holeHeight', label: 'holeHeight', min: 50, max: 800, step: 1 }
+]
+
+function formatValue(v) {
+  return Number(v).toFixed(Number(v) < 1 ? 3 : 2).replace(/\.00$/, '')
+}
+
+function createControls() {
+  for (const def of controlDefs) {
+    const row = document.createElement('div')
+    row.className = 'control'
+
+    const label = document.createElement('label')
+    label.textContent = def.label
+
+    const value = document.createElement('span')
+    value.className = 'value'
+    value.textContent = formatValue(config[def.key])
+
+    const input = document.createElement('input')
+    input.type = 'range'
+    input.min = String(def.min)
+    input.max = String(def.max)
+    input.step = String(def.step)
+    input.value = String(config[def.key])
+
+    input.addEventListener('input', () => {
+      const prevCenter = getHoleCenter()
+      config[def.key] = Number(input.value)
+      value.textContent = formatValue(config[def.key])
+
+      if (def.key === 'holeWidth' || def.key === 'holeHeight') {
+        hole.width = config.holeWidth
+        hole.height = config.holeHeight
+        // keep same center while resizing
+        hole.x = prevCenter.x - hole.width / 2
+        hole.y = prevCenter.y - hole.height / 2
+      }
+    })
+
+    row.appendChild(label)
+    row.appendChild(value)
+    row.appendChild(input)
+    controlsHost.appendChild(row)
   }
 }
 
-
-/* =========================
-   CAMERA SETTINGS
-========================= */
-
-let scale = 1
-const SPEED = 0.01
-const MAX_SCALE = 2.5
-let startDistance = 0.8     // how close camera starts toward hole (0–1)
-let pullStrength = 4.0      // speed toward hole
-let arrivalThreshold = 0.03 // distance to trigger frame swap
-
-let cameraPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
-let lastTime = performance.now()
-
-let index = 0
-
-
-/* =========================
-   LOAD IMAGE
-========================= */
-
-function loadNextImage() {
-  const path = assets[index]
-
-  console.log("LOADING:", path)
-
-  backLayer.src = path
-
-  index++
-  if (index >= assets.length) index = 0
+playBtn.onclick = () => {
+  isPlaying = !isPlaying
+  playBtn.textContent = isPlaying ? 'Pause' : 'Play'
 }
 
-
 /* =========================
-   ALIGN BACK IMAGE TO HOLE
+   CAMERA
 ========================= */
-
-function alignBackToHole() {
-
-  const center = getHoleCenter()
-
-  // move image so its center matches hole center
-  backLayer.style.transform = `
-    translate(${center.x}px, ${center.y}px)
-    translate(-50%, -50%)
-  `
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v))
 }
 
 function lerp(a, b, t) {
@@ -185,86 +305,206 @@ function distance(a, b) {
   return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
-function resetCameraToFrameStart() {
-  const holeCenter = getHoleCenter()
-  const frameCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
-
-  // start closer to the hole instead of centered full-frame
-  cameraPos = {
-    x: lerp(frameCenter.x, holeCenter.x, startDistance),
-    y: lerp(frameCenter.y, holeCenter.y, startDistance)
+function getViewportSize() {
+  return {
+    width: relayRoot.clientWidth,
+    height: relayRoot.clientHeight
   }
 }
 
+function getViewportCenter() {
+  const v = getViewportSize()
+  return { x: v.width / 2, y: v.height / 2 }
+}
 
-/* =========================
-   CAMERA (THIS IS THE FIX)
-========================= */
+function getHoleCenter() {
+  return {
+    x: hole.x + hole.width / 2,
+    y: hole.y + hole.height / 2
+  }
+}
 
-function updateCamera(deltaTime) {
+function centerHoleInViewport() {
+  const c = getViewportCenter()
+  hole.width = config.holeWidth
+  hole.height = config.holeHeight
+  hole.x = c.x - hole.width / 2
+  hole.y = c.y - hole.height / 2
+}
 
+// STEP 5 requested reset
+function resetCameraToFrameStart() {
   const holeCenter = getHoleCenter()
 
-  // 🔥 CRITICAL: AIM CAMERA AT HOLE
-  frontLayer.style.transformOrigin =
-    `${holeCenter.x}px ${holeCenter.y}px`
+  cameraPos = {
+    x: holeCenter.x + (Math.random() - 0.5) * 200,
+    y: holeCenter.y + (Math.random() - 0.5) * 200
+  }
 
-  // OLD center-based zoom movement (kept for easy rollback)
-  // frontLayer.style.transform = `scale(${scale})`
+  frameStartMaxDistance = Math.max(1, distance(cameraPos, holeCenter))
+  zoom = 1
+}
 
-  // NEW pull-toward-hole movement using camera position interpolation
-  const t = Math.min(1, pullStrength * deltaTime)
+function updateCamera(deltaTime) {
+  const holeCenter = getHoleCenter()
+
+  // movement
+  const t = Math.min(1, config.pullStrength * deltaTime)
   cameraPos = {
     x: lerp(cameraPos.x, holeCenter.x, t),
     y: lerp(cameraPos.y, holeCenter.y, t)
   }
 
-  // translate opposite camera movement to preserve existing render pipeline
-  frontLayer.style.transform = `
-    translate(${(window.innerWidth / 2) - cameraPos.x}px, ${(window.innerHeight / 2) - cameraPos.y}px)
-  `
+  // zoom by proximity (STEP 4)
+  const dist = distance(cameraPos, holeCenter)
+  const proximity = clamp(1 - dist / frameStartMaxDistance, 0, 1)
+  const targetZoom = lerp(1, config.maxZoom, proximity)
+  const zoomLerpT = Math.min(1, config.speed * 60 * deltaTime)
+  zoom = lerp(zoom, targetZoom, zoomLerpT)
 }
 
+/* =========================
+   RENDER
+========================= */
+function syncLayers() {
+  // front keeps alpha cutout
+  frontLayer.src = frontAssets[currentFrameIndex]
+
+  // back/deep should be opaque frames
+  backLayer.src = depthAssets[(currentFrameIndex + 1) % depthAssets.length]
+  deepLayer.src = depthAssets[(currentFrameIndex + 2) % depthAssets.length]
+}
+
+function advanceImages() {
+  currentFrameIndex = (currentFrameIndex + 1) % frontAssets.length
+  syncLayers()
+}
+
+function applySharedTransform() {
+  const center = getViewportCenter()
+  const tx = center.x - cameraPos.x
+  const ty = center.y - cameraPos.y
+  const holeCenter = getHoleCenter()
+
+  const shared = `
+    translate(${tx}px, ${ty}px)
+    scale(${zoom})
+  `
+
+  deepLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`
+  backLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`
+  frontLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`
+
+  deepLayer.style.transform = shared
+  backLayer.style.transform = shared
+  frontLayer.style.transform = shared
+}
+
+function applyFeatherMask() {
+  frontLayer.style.maskImage = 'none'
+  frontLayer.style.webkitMaskImage = 'none'
+}
+
+function resizeDebugCanvas() {
+  const dpr = window.devicePixelRatio || 1
+  const w = relayRoot.clientWidth
+  const h = relayRoot.clientHeight
+  debugCanvas.width = Math.floor(w * dpr)
+  debugCanvas.height = Math.floor(h * dpr)
+  debugCanvas.style.width = `${w}px`
+  debugCanvas.style.height = `${h}px`
+  debugCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
+
+function renderDebug() {
+  const w = relayRoot.clientWidth
+  const h = relayRoot.clientHeight
+  debugCtx.clearRect(0, 0, w, h)
+
+  // hole rectangle
+  debugCtx.strokeStyle = '#00e5ff'
+  debugCtx.lineWidth = 1.5
+  debugCtx.strokeRect(hole.x, hole.y, hole.width, hole.height)
+
+  // hole center
+  const hc = getHoleCenter()
+  debugCtx.fillStyle = '#00e5ff'
+  debugCtx.beginPath()
+  debugCtx.arc(hc.x, hc.y, 4, 0, Math.PI * 2)
+  debugCtx.fill()
+
+  // camera position
+  debugCtx.fillStyle = '#ff4d4d'
+  debugCtx.beginPath()
+  debugCtx.arc(cameraPos.x, cameraPos.y, 4, 0, Math.PI * 2)
+  debugCtx.fill()
+
+  // line from camera to hole
+  debugCtx.strokeStyle = 'rgba(255,77,77,0.7)'
+  debugCtx.beginPath()
+  debugCtx.moveTo(cameraPos.x, cameraPos.y)
+  debugCtx.lineTo(hc.x, hc.y)
+  debugCtx.stroke()
+}
 
 /* =========================
-   MAIN LOOP
+   LOOP
 ========================= */
-
 function animate(now) {
-  const deltaTime = (now - lastTime) / 1000
+  const deltaTime = Math.max(0, (now - lastTime) / 1000)
   lastTime = now
 
-  // cameraman moves toward hole
-  updateCamera(deltaTime)
+  if (isPlaying) {
+    updateCamera(deltaTime)
+    applySharedTransform()
+    applyFeatherMask()
 
-  // keep back aligned
-  alignBackToHole()
+    // STEP 7 arrival detection
+    const holeCenter = getHoleCenter()
+    const dist = distance(cameraPos, holeCenter)
+    const viewport = getViewportSize()
+    const viewportSize = Math.min(viewport.width, viewport.height)
 
-  // OLD zoom progression (disabled, preserved for rollback)
-  // scale += SPEED
-
-  // NEW swap trigger based on arrival at hole
-  if (distance(cameraPos, getHoleCenter()) < arrivalThreshold * Math.min(window.innerWidth, window.innerHeight)) {
-
-    // OLD zoom reset (disabled, preserved for rollback)
-    // scale = 1
-
-    loadNextImage()
-    resetCameraToFrameStart()
+    if (dist < config.arrivalThreshold * viewportSize) {
+      advanceImages()
+      resetCameraToFrameStart()
+    }
+  } else {
+    // keep visuals in sync while paused if sliders move
+    applySharedTransform()
+    applyFeatherMask()
   }
 
+  renderDebug()
   requestAnimationFrame(animate)
 }
 
-
 /* =========================
-   START
+   INIT
 ========================= */
+function loadInitialImages() {
+  syncLayers()
+}
 
-loadNextImage()
-resetCameraToFrameStart()
-animate()
+function init() {
+  createControls()
+  centerHoleInViewport()
+  resizeDebugCanvas()
+  loadInitialImages()
+  resetCameraToFrameStart()
+  requestAnimationFrame(animate)
+}
 
+window.addEventListener('resize', () => {
+  const prevCenter = getHoleCenter()
+  resizeDebugCanvas()
+  // keep hole center ratio stable on resize
+  const v = getViewportSize()
+  hole.x = clamp(prevCenter.x, 0, v.width) - hole.width / 2
+  hole.y = clamp(prevCenter.y, 0, v.height) - hole.height / 2
+})
+
+init()
 </script>
 
 </body>
