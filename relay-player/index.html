@@ -12,7 +12,7 @@
 html, body {
   height: 100%;
   margin: 0;
-  background: #161616;
+  background: #16161600;
 }
 
 body {
@@ -31,7 +31,7 @@ body {
   height: min(72vw, 1200px);
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  background-color: #0d0d0d;
+  background-color: #0d0d0d00;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -68,32 +68,6 @@ body {
   background: none;
 }
 
-#deep-layer {
-  z-index: 0;
-}
-
-#back-layer {
-  z-index: 1;
-}
-
-#front-layer {
-  z-index: 2;
-  background: none;
-}
-
-#deep-layer {
-  z-index: 0;
-}
-
-#back-layer {
-  z-index: 1;
-}
-
-#front-layer {
-  z-index: 2;
-  background: none;
-}
-
 /* =========================
    DEBUG OVERLAY
 ========================= */
@@ -113,6 +87,8 @@ body {
   left: 12px;
   z-index: 50;
   width: 300px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
   padding: 10px;
   border-radius: 8px;
   background: rgba(160, 240, 13, 0.72);
@@ -127,6 +103,15 @@ body {
 }
 
 #playBtn {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#copyFrontBtn {
   width: 100%;
   margin-bottom: 8px;
   padding: 6px 10px;
@@ -152,6 +137,20 @@ body {
   font-variant-numeric: tabular-nums;
   color: #9ad;
 }
+
+.layer-group {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.layer-title {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 </style>
 </head>
 
@@ -167,6 +166,7 @@ body {
 <div id="control-panel">
   <h3>Relay Controls</h3>
   <button id="playBtn">Pause</button>
+  <button id="copyFrontBtn">Copy Front -> Back + Deep</button>
   <div id="controls"></div>
 </div>
 
@@ -213,6 +213,7 @@ const debugCanvas = document.getElementById('debug-canvas')
 const debugCtx = debugCanvas.getContext('2d')
 const controlsHost = document.getElementById('controls')
 const playBtn = document.getElementById('playBtn')
+const copyFrontBtn = document.getElementById('copyFrontBtn')
 
 let isPlaying = true
 let lastTime = performance.now()
@@ -226,11 +227,31 @@ let frameStartMaxDistance = 1
 const frameMetadata = new Map()
 let sourceImageSize = { width: 0, height: 0 }
 let backLayerIsPatch = false
+let deepLayerIsPatch = false
 let mappingViewportSize = null
 let lockedRelayRootSize = null
 
 let warnedDepthMissing = false
 let isFrameSwapInFlight = false
+
+const layerConfig = {
+  front: { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 },
+  back: { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 },
+  deep: { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 }
+}
+
+const layerControlDefs = [
+  { key: 'opacity', label: 'opacity', min: 0, max: 1, step: 0.01 },
+  { key: 'scale', label: 'scale', min: 0.5, max: 2, step: 0.01 },
+  { key: 'offsetX', label: 'offsetX', min: -300, max: 300, step: 1 },
+  { key: 'offsetY', label: 'offsetY', min: -300, max: 300, step: 1 }
+]
+
+const layerControlUI = {
+  front: {},
+  back: {},
+  deep: {}
+}
 
 backLayer.addEventListener('error', () => {
   if (!warnedDepthMissing) {
@@ -245,10 +266,14 @@ deepLayer.addEventListener('error', () => {
 })
 
 backLayer.addEventListener('load', () => {
-  updateBackLayerLayout()
+  updatePatchLayerLayouts()
   relayRoot.style.backgroundImage = USE_SECOND_FRAME_BACKGROUND
     ? `url(${backLayer.currentSrc || backLayer.src})`
     : 'none'
+})
+
+deepLayer.addEventListener('load', () => {
+  updatePatchLayerLayouts()
 })
 
 frontLayer.addEventListener('load', () => {
@@ -258,7 +283,7 @@ frontLayer.addEventListener('load', () => {
   applyHoleFromMetadata(currentFrameIndex)
 })
 
-function setLayerSource(layer, src, layerName) {
+function setLayerSource(layer, src, layerName, flatten = false) {
   const targetUrl = new URL(src, window.location.href).href
 
   return new Promise((resolve, reject) => {
@@ -352,34 +377,46 @@ function mapSourceRectToViewport(rect) {
 }
 
 function syncRelayRootToHoleSize(forceFromHole = false) {
+  const viewport = getViewportSize()
+  if (viewport.width <= 0 || viewport.height <= 0) {
+    return
+  }
+
   if (forceFromHole || !lockedRelayRootSize) {
     lockedRelayRootSize = {
-      width: Math.max(1, Math.round(hole.width)),
-      height: Math.max(1, Math.round(hole.height))
+      width: viewport.width,
+      height: viewport.height
     }
   }
 
-  const { width, height } = lockedRelayRootSize
-
-  relayRoot.style.width = `${width}px`
-  relayRoot.style.height = `${height}px`
-  relayRoot.style.aspectRatio = 'auto'
-
-  // Once relay-root is the hole container, the hole fills local space.
-  hole.x = 0
-  hole.y = 0
-  hole.width = width
-  hole.height = height
+  hole.width = clamp(hole.width, 1, viewport.width)
+  hole.height = clamp(hole.height, 1, viewport.height)
+  hole.x = clamp(hole.x, 0, viewport.width - hole.width)
+  hole.y = clamp(hole.y, 0, viewport.height - hole.height)
 }
 
-function updateBackLayerLayout() {
-  backLayerIsPatch = false
-  backLayer.style.inset = '0'
-  backLayer.style.left = ''
-  backLayer.style.top = ''
-  backLayer.style.width = '100%'
-  backLayer.style.height = '100%'
+function updatePatchLayerLayouts() {
+  backLayerIsPatch = true
+  deepLayerIsPatch = true
+
+  const left = `${Math.round(hole.x)}px`
+  const top = `${Math.round(hole.y)}px`
+  const width = `${Math.max(1, Math.round(hole.width))}px`
+  const height = `${Math.max(1, Math.round(hole.height))}px`
+
+  backLayer.style.inset = 'auto'
+  backLayer.style.left = left
+  backLayer.style.top = top
+  backLayer.style.width = width
+  backLayer.style.height = height
   backLayer.style.objectFit = 'cover'
+
+  deepLayer.style.inset = 'auto'
+  deepLayer.style.left = left
+  deepLayer.style.top = top
+  deepLayer.style.width = width
+  deepLayer.style.height = height
+  deepLayer.style.objectFit = 'cover'
 }
 
 function applyHoleFromMetadata(frameIndex) {
@@ -406,7 +443,7 @@ function applyHoleFromMetadata(frameIndex) {
   hole.height = mapped.height
   syncRelayRootToHoleSize(false)
   resizeDebugCanvas()
-  updateBackLayerLayout()
+  updatePatchLayerLayouts()
   return true
 }
 
@@ -487,7 +524,7 @@ function createControls() {
         hole.y = prevCenter.y - hole.height / 2
         syncRelayRootToHoleSize(true)
         resizeDebugCanvas()
-        updateBackLayerLayout()
+        updatePatchLayerLayouts()
       }
     })
 
@@ -496,11 +533,89 @@ function createControls() {
     row.appendChild(input)
     controlsHost.appendChild(row)
   }
+
+  createLayerControls('front', 'Front Layer')
+  createLayerControls('back', 'Back Layer')
+  createLayerControls('deep', 'Deep Layer')
+}
+
+function createLayerControls(layerKey, title) {
+  const group = document.createElement('div')
+  group.className = 'layer-group'
+
+  const heading = document.createElement('h4')
+  heading.className = 'layer-title'
+  heading.textContent = title
+  group.appendChild(heading)
+
+  for (const def of layerControlDefs) {
+    const row = document.createElement('div')
+    row.className = 'control'
+
+    const label = document.createElement('label')
+    label.textContent = def.label
+
+    const value = document.createElement('span')
+    value.className = 'value'
+    value.textContent = formatValue(layerConfig[layerKey][def.key])
+
+    const input = document.createElement('input')
+    input.type = 'range'
+    input.min = String(def.min)
+    input.max = String(def.max)
+    input.step = String(def.step)
+    input.value = String(layerConfig[layerKey][def.key])
+
+    input.addEventListener('input', () => {
+      layerConfig[layerKey][def.key] = Number(input.value)
+      value.textContent = formatValue(layerConfig[layerKey][def.key])
+      applyLayerVisualTweaks()
+    })
+
+    layerControlUI[layerKey][def.key] = { input, value }
+
+    row.appendChild(label)
+    row.appendChild(value)
+    row.appendChild(input)
+    group.appendChild(row)
+  }
+
+  controlsHost.appendChild(group)
+}
+
+function applyLayerVisualTweaks() {
+  frontLayer.style.opacity = String(layerConfig.front.opacity)
+  backLayer.style.opacity = String(layerConfig.back.opacity)
+  deepLayer.style.opacity = String(layerConfig.deep.opacity)
+}
+
+function syncLayerControlUI(layerKey, key) {
+  const ui = layerControlUI[layerKey][key]
+  if (!ui) {
+    return
+  }
+  ui.input.value = String(layerConfig[layerKey][key])
+  ui.value.textContent = formatValue(layerConfig[layerKey][key])
+}
+
+function copyFrontToOtherLayers() {
+  for (const targetKey of ['back', 'deep']) {
+    for (const def of layerControlDefs) {
+      layerConfig[targetKey][def.key] = layerConfig.front[def.key]
+      syncLayerControlUI(targetKey, def.key)
+    }
+  }
+
+  applyLayerVisualTweaks()
 }
 
 playBtn.onclick = () => {
   isPlaying = !isPlaying
   playBtn.textContent = isPlaying ? 'Pause' : 'Play'
+}
+
+copyFrontBtn.onclick = () => {
+  copyFrontToOtherLayers()
 }
 
 /* =========================
@@ -644,18 +759,18 @@ function applySharedTransform() {
   const { tx, ty } = getSharedTransform()
   const holeCenter = getHoleCenter()
 
-  const shared = `
-    translate(${tx}px, ${ty}px)
-    scale(${zoom})
-  `
+  const shared = `translate(${tx}px, ${ty}px) scale(${zoom})`
+  const frontTransform = `${shared} translate(${layerConfig.front.offsetX}px, ${layerConfig.front.offsetY}px) scale(${layerConfig.front.scale})`
+  const backTransform = `${shared} translate(${layerConfig.back.offsetX}px, ${layerConfig.back.offsetY}px) scale(${layerConfig.back.scale})`
+  const deepTransform = `${shared} translate(${layerConfig.deep.offsetX}px, ${layerConfig.deep.offsetY}px) scale(${layerConfig.deep.scale})`
 
-  deepLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`
+  deepLayer.style.transformOrigin = deepLayerIsPatch ? '50% 50%' : `${holeCenter.x}px ${holeCenter.y}px`
   backLayer.style.transformOrigin = backLayerIsPatch ? '50% 50%' : `${holeCenter.x}px ${holeCenter.y}px`
   frontLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`
 
-  deepLayer.style.transform = shared
-  backLayer.style.transform = shared
-  frontLayer.style.transform = shared
+  deepLayer.style.transform = deepTransform
+  backLayer.style.transform = backTransform
+  frontLayer.style.transform = frontTransform
 }
 
 function applyFeatherMask() {
@@ -753,6 +868,7 @@ async function loadInitialImages() {
 function init() {
   mappingViewportSize = getViewportSize()
   createControls()
+  applyLayerVisualTweaks()
   centerHoleInViewport()
   resizeDebugCanvas()
   debugCanvas.style.display = SHOW_DEBUG ? 'block' : 'none'
@@ -775,7 +891,7 @@ function init() {
 window.addEventListener('resize', () => {
   resizeDebugCanvas()
   syncRelayRootToHoleSize()
-  updateBackLayerLayout()
+  updatePatchLayerLayouts()
 })
 
 init()
