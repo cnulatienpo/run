@@ -39,13 +39,10 @@ body {
 ========================= */
 #back-layer {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 100px;
+  left: 200px;
   z-index: 1;
-
-  /* stays centered unless moved */
   transform-origin: center center;
-
   pointer-events: none;
 }
 
@@ -56,28 +53,56 @@ body {
   position: absolute;
   inset: 0;
   z-index: 2;
-
-  /* THIS WILL BE CONTROLLED BY CAMERA */
   transform-origin: center center;
-
   pointer-events: none;
-
   /* temporary visual */
   background: radial-gradient(circle at center, #444, #111);
+  opacity: 0.5; /* TEMP: see through front for debugging */
 }
 </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PNG Loader Test</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
+      font-family: monospace;
+    }
+    #img {
+      max-width: 80vw;
+      max-height: 80vh;
+      border: 4px solid lime;
+      margin-bottom: 2rem;
+      background: #222;
+      display: block;
+    }
+    #status {
+      font-size: 1.5rem;
+      color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 0.5em 1em;
+      border-radius: 8px;
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+    }
+  </style>
 </head>
 
 <body>
 
 <div id="relay-root">
-
   <!-- BACK IMAGE -->
   <img id="back-layer">
-
-  <!-- FRONT "WALL" WITH HOLE -->
-  <div id="front-layer"></div>
-
+  <!-- FRONT IMAGE -->
+  <img id="front-layer">
 </div>
 
 <script>
@@ -100,11 +125,11 @@ const relayRoot = document.getElementById('relay-root')
    FOREMAN (LOADS FILES)
 ========================= */
 
-const NUM_FRAMES = 108
+const NUM_FRAMES = 60
 
 // ⚠️ FIXED PATH (NO relay-player PREFIX)
 const assets = Array.from({ length: NUM_FRAMES }, (_, i) =>
-  `assets/final_rgba/f_${String(i).padStart(4, '0')}.png`
+  `assets/pngs/final_rgba/f_${String(i).padStart(4, '0')}.png`
 )
 
 
@@ -144,7 +169,21 @@ let cameraPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
 let lastTime = performance.now()
 
 let index = 0
+let frontIndex = 0;
+let backIndex = 1;
+const totalFrames = NUM_FRAMES;
 
+function loadInitialImages() {
+  frontLayer.src = assets[frontIndex];
+  backLayer.src = assets[backIndex];
+}
+
+function advanceImages() {
+  frontIndex = (frontIndex + 1) % totalFrames;
+  backIndex = (backIndex + 1) % totalFrames;
+  frontLayer.src = backLayer.src;
+  backLayer.src = assets[backIndex];
+}
 
 /* =========================
    LOAD IMAGE
@@ -152,77 +191,41 @@ let index = 0
 
 function loadNextImage() {
   const path = assets[index]
-
   console.log("LOADING:", path)
-
   backLayer.src = path
-
   index++
   if (index >= assets.length) index = 0
 }
 
-
-/* =========================
-   ALIGN BACK IMAGE TO HOLE
-========================= */
-
 function alignBackToHole() {
-
   const center = getHoleCenter()
-
-  // move image so its center matches hole center
   backLayer.style.transform = `
     translate(${center.x}px, ${center.y}px)
     translate(-50%, -50%)
   `
 }
 
-function lerp(a, b, t) {
-  return a + (b - a) * t
-}
-
-function distance(a, b) {
-  return Math.hypot(b.x - a.x, b.y - a.y)
-}
-
-function resetCameraToFrameStart() {
-  const holeCenter = getHoleCenter()
-  const frameCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
-
-  // start closer to the hole instead of centered full-frame
-  cameraPos = {
-    x: lerp(frameCenter.x, holeCenter.x, startDistance),
-    y: lerp(frameCenter.y, holeCenter.y, startDistance)
-  }
-}
-
-
 /* =========================
    CAMERA (THIS IS THE FIX)
 ========================= */
 
 function updateCamera(deltaTime) {
+  const holeCenter = getHoleCenter();
+  frontLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`;
+  backLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`;
 
-  const holeCenter = getHoleCenter()
-
-  // 🔥 CRITICAL: AIM CAMERA AT HOLE
-  frontLayer.style.transformOrigin =
-    `${holeCenter.x}px ${holeCenter.y}px`
-
-  // OLD center-based zoom movement (kept for easy rollback)
-  // frontLayer.style.transform = `scale(${scale})`
-
-  // NEW pull-toward-hole movement using camera position interpolation
-  const t = Math.min(1, pullStrength * deltaTime)
+  const t = Math.min(1, pullStrength * deltaTime);
   cameraPos = {
     x: lerp(cameraPos.x, holeCenter.x, t),
     y: lerp(cameraPos.y, holeCenter.y, t)
-  }
+  };
 
-  // translate opposite camera movement to preserve existing render pipeline
   frontLayer.style.transform = `
     translate(${(window.innerWidth / 2) - cameraPos.x}px, ${(window.innerHeight / 2) - cameraPos.y}px)
-  `
+  `;
+  backLayer.style.transform = `
+    translate(${(window.innerWidth / 2) - cameraPos.x}px, ${(window.innerHeight / 2) - cameraPos.y}px)
+  `;
 }
 
 
@@ -231,29 +234,15 @@ function updateCamera(deltaTime) {
 ========================= */
 
 function animate(now) {
-  const deltaTime = (now - lastTime) / 1000
-  lastTime = now
+  const deltaTime = (now - lastTime) / 1000;
+  lastTime = now;
+  updateCamera(deltaTime);
 
-  // cameraman moves toward hole
-  updateCamera(deltaTime)
-
-  // keep back aligned
-  alignBackToHole()
-
-  // OLD zoom progression (disabled, preserved for rollback)
-  // scale += SPEED
-
-  // NEW swap trigger based on arrival at hole
   if (distance(cameraPos, getHoleCenter()) < arrivalThreshold * Math.min(window.innerWidth, window.innerHeight)) {
-
-    // OLD zoom reset (disabled, preserved for rollback)
-    // scale = 1
-
-    loadNextImage()
-    resetCameraToFrameStart()
+    advanceImages();
+    resetCameraToFrameStart();
   }
-
-  requestAnimationFrame(animate)
+  requestAnimationFrame(animate);
 }
 
 
@@ -261,9 +250,9 @@ function animate(now) {
    START
 ========================= */
 
-loadNextImage()
-resetCameraToFrameStart()
-animate()
+loadInitialImages();
+resetCameraToFrameStart();
+animate();
 
 </script>
 
