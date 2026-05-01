@@ -1,6 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Player – Camera Through Hole</title>
+
+<style>
+/* =========================
+   PAGE SETUP
+========================= */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #161616;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* =========================
+   MAIN VIEWPORT (THE SCREEN)
+========================= */
+#relay-root {
+  position: relative;
+  width: 80vw;
+  height: 60vw;
+  max-width: 900px;
+  max-height: 675px;
+  overflow: hidden;
+  background: #111;
+}
+
+/* =========================
+   BACK LAYER (NEXT WORLD)
+========================= */
+#back-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+/* =========================
+   FRONT LAYER (CURRENT WORLD)
+========================= */
+#front-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  transform-origin: center center;
+  pointer-events: none;
+  /* temporary visual */
+  background: radial-gradient(circle at center, #444, #111);
+  opacity: 0.5; /* TEMP: see through front for debugging */
+}
+</style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PNG Loader Test</title>
@@ -36,42 +95,166 @@
     }
   </style>
 </head>
+
 <body>
-  <div id="gallery"></div>
-  <div id="status">loading...</div>
-  <script>
-    const NUM_FRAMES = 108; // Adjust if you have more/less images
-    const gallery = document.getElementById("gallery");
-    const status = document.getElementById("status");
-    let loaded = 0, failed = 0;
 
-    function pad(num, size) {
-      let s = String(num);
-      while (s.length < size) s = "0" + s;
-      return s;
-    }
+<div id="relay-root">
+  <!-- BACK IMAGE -->
+  <img id="back-layer">
+  <!-- FRONT IMAGE -->
+  <img id="front-layer">
+</div>
 
-    for (let i = 1; i <= NUM_FRAMES; i++) {
-      const img = document.createElement("img");
-      img.src = `/relay-player/assets/pngs/final_rgba/f_${pad(i, 4)}.png`;
-      img.alt = `f_${pad(i, 4)}.png`;
-      img.style.maxWidth = "20vw";
-      img.style.maxHeight = "20vh";
-      img.style.margin = "0.5em";
-      img.style.border = "4px solid gray";
-      img.onload = () => {
-        img.style.borderColor = "lime";
-        loaded++;
-        status.textContent = `LOADED: ${loaded} / ${NUM_FRAMES}, FAILED: ${failed}`;
-      };
-      img.onerror = () => {
-        img.style.borderColor = "red";
-        failed++;
-        status.textContent = `LOADED: ${loaded} / ${NUM_FRAMES}, FAILED: ${failed}`;
-      };
-      gallery.appendChild(img);
-    }
-    status.textContent = `LOADING...`;
-  </script>
+<script>
+
+/* =========================
+   ACTORS (YOUR STORY)
+========================= */
+
+// Cameraman (controls movement)
+const frontLayer = document.getElementById('front-layer')
+
+// Next world (behind)
+const backLayer = document.getElementById('back-layer')
+
+// Stage
+const relayRoot = document.getElementById('relay-root')
+
+
+/* =========================
+   FOREMAN (LOADS FILES)
+========================= */
+
+const NUM_FRAMES = 60
+
+// ⚠️ FIXED PATH (NO relay-player PREFIX)
+const assets = Array.from({ length: NUM_FRAMES }, (_, i) =>
+  `assets/pngs/final_rgba/f_${String(i).padStart(4, '0')}.png`
+)
+
+
+/* =========================
+   SURVEY GUY (FINDS HOLE)
+========================= */
+
+// hardcoded for now
+const hole = {
+  x: 260,
+  y: 165,
+  width: 380,
+  height: 250
+}
+
+// calculate center of hole
+function getHoleCenter() {
+  return {
+    x: hole.x + hole.width / 2,
+    y: hole.y + hole.height / 2
+  }
+}
+
+
+/* =========================
+   CAMERA SETTINGS
+========================= */
+
+let scale = 1
+const SPEED = 0.01
+const MAX_SCALE = 2.5
+let startDistance = 0.8     // how close camera starts toward hole (0–1)
+let pullStrength = 4.0      // speed toward hole
+let arrivalThreshold = 0.03 // distance to trigger frame swap
+
+let cameraPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+let lastTime = performance.now()
+
+let index = 0
+let frontIndex = 0;
+let backIndex = 1;
+const totalFrames = NUM_FRAMES;
+
+function loadInitialImages() {
+  frontLayer.src = assets[frontIndex];
+  backLayer.src = assets[backIndex];
+}
+
+function advanceImages() {
+  frontIndex = (frontIndex + 1) % totalFrames;
+  backIndex = (backIndex + 1) % totalFrames;
+  frontLayer.src = backLayer.src;
+  backLayer.src = assets[backIndex];
+}
+
+/* =========================
+   LOAD IMAGE
+========================= */
+
+function loadNextImage() {
+  const path = assets[index]
+  console.log("LOADING:", path)
+  backLayer.src = path
+  index++
+  if (index >= assets.length) index = 0
+}
+
+function alignBackToHole() {
+  const center = getHoleCenter()
+  backLayer.style.transform = `
+    translate(${center.x}px, ${center.y}px)
+    translate(-50%, -50%)
+  `
+}
+
+/* =========================
+   CAMERA (THIS IS THE FIX)
+========================= */
+
+function updateCamera(deltaTime) {
+  const holeCenter = getHoleCenter();
+  frontLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`;
+  backLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`;
+
+  const t = Math.min(1, pullStrength * deltaTime);
+  cameraPos = {
+    x: lerp(cameraPos.x, holeCenter.x, t),
+    y: lerp(cameraPos.y, holeCenter.y, t)
+  };
+
+  frontLayer.style.transform = `
+    translate(${(window.innerWidth / 2) - cameraPos.x}px, ${(window.innerHeight / 2) - cameraPos.y}px)
+  `;
+  backLayer.style.transform = `
+    translate(${(window.innerWidth / 2) - cameraPos.x}px, ${(window.innerHeight / 2) - cameraPos.y}px)
+  `;
+}
+
+
+/* =========================
+   MAIN LOOP
+========================= */
+
+function animate(now) {
+  const deltaTime = (now - lastTime) / 1000;
+  lastTime = now;
+  updateCamera(deltaTime);
+
+  if (distance(cameraPos, getHoleCenter()) < arrivalThreshold * Math.min(window.innerWidth, window.innerHeight)) {
+    advanceImages();
+    resetCameraToFrameStart();
+  }
+  requestAnimationFrame(animate);
+}
+
+
+/* =========================
+   START
+========================= */
+
+loadInitialImages();
+resetCameraToFrameStart();
+animate();
+
+</script>
+
 </body>
 </html>
