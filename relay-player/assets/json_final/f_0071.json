@@ -1,1 +1,1 @@
-{"frame_index": 142, "output_index": 71, "bbox": [171, 253, 259, 412], "has_mask": true}
+{"frame_index": 71, "output_index": 71, "bbox": [171, 253, 260, 413], "has_mask": true, "centroid": {"x": 218.70397864709318, "y": 329.47401784969554}, "area": 11989, "backend": "scipy"}
