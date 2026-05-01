@@ -41,6 +41,21 @@ server.listen(port, () => {
   console.log("Server running on port", port);
 });
 
+function getHoleCenter() {
+  if (relayRoot && typeof relayRoot.getBoundingClientRect === 'function') {
+    const rect = relayRoot.getBoundingClientRect();
+    return {
+      x: rect.left + (rect.width / 2),
+      y: rect.top + (rect.height / 2)
+    };
+  }
+
+  return {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2
+  };
+}
+
 const frontLayer = document.getElementById('front-layer');
 const backLayer = document.getElementById('back-layer');
 const relayRoot = document.getElementById('relay-root');
