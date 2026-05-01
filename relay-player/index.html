@@ -136,6 +136,12 @@ function getHoleCenter() {
 let scale = 1
 const SPEED = 0.01
 const MAX_SCALE = 2.5
+let startDistance = 0.8     // how close camera starts toward hole (0–1)
+let pullStrength = 4.0      // speed toward hole
+let arrivalThreshold = 0.03 // distance to trigger frame swap
+
+let cameraPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+let lastTime = performance.now()
 
 let index = 0
 
@@ -171,21 +177,52 @@ function alignBackToHole() {
   `
 }
 
+function lerp(a, b, t) {
+  return a + (b - a) * t
+}
+
+function distance(a, b) {
+  return Math.hypot(b.x - a.x, b.y - a.y)
+}
+
+function resetCameraToFrameStart() {
+  const holeCenter = getHoleCenter()
+  const frameCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+
+  // start closer to the hole instead of centered full-frame
+  cameraPos = {
+    x: lerp(frameCenter.x, holeCenter.x, startDistance),
+    y: lerp(frameCenter.y, holeCenter.y, startDistance)
+  }
+}
+
 
 /* =========================
    CAMERA (THIS IS THE FIX)
 ========================= */
 
-function updateCamera() {
+function updateCamera(deltaTime) {
 
-  const center = getHoleCenter()
+  const holeCenter = getHoleCenter()
 
   // 🔥 CRITICAL: AIM CAMERA AT HOLE
   frontLayer.style.transformOrigin =
-    `${center.x}px ${center.y}px`
+    `${holeCenter.x}px ${holeCenter.y}px`
 
-  // move forward
-  frontLayer.style.transform = `scale(${scale})`
+  // OLD center-based zoom movement (kept for easy rollback)
+  // frontLayer.style.transform = `scale(${scale})`
+
+  // NEW pull-toward-hole movement using camera position interpolation
+  const t = Math.min(1, pullStrength * deltaTime)
+  cameraPos = {
+    x: lerp(cameraPos.x, holeCenter.x, t),
+    y: lerp(cameraPos.y, holeCenter.y, t)
+  }
+
+  // translate opposite camera movement to preserve existing render pipeline
+  frontLayer.style.transform = `
+    translate(${(window.innerWidth / 2) - cameraPos.x}px, ${(window.innerHeight / 2) - cameraPos.y}px)
+  `
 }
 
 
@@ -193,23 +230,27 @@ function updateCamera() {
    MAIN LOOP
 ========================= */
 
-function animate() {
+function animate(now) {
+  const deltaTime = (now - lastTime) / 1000
+  lastTime = now
 
-  // cameraman moves forward
-  updateCamera()
+  // cameraman moves toward hole
+  updateCamera(deltaTime)
 
   // keep back aligned
   alignBackToHole()
 
-  // advance camera
-  scale += SPEED
+  // OLD zoom progression (disabled, preserved for rollback)
+  // scale += SPEED
 
-  // reset when passed through
-  if (scale >= MAX_SCALE) {
+  // NEW swap trigger based on arrival at hole
+  if (distance(cameraPos, getHoleCenter()) < arrivalThreshold * Math.min(window.innerWidth, window.innerHeight)) {
 
-    scale = 1
+    // OLD zoom reset (disabled, preserved for rollback)
+    // scale = 1
 
     loadNextImage()
+    resetCameraToFrameStart()
   }
 
   requestAnimationFrame(animate)
@@ -221,6 +262,7 @@ function animate() {
 ========================= */
 
 loadNextImage()
+resetCameraToFrameStart()
 animate()
 
 </script>
