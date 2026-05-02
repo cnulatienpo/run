@@ -1,107 +1,112 @@
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
+const http = require("http")
+const fs = require("fs")
+const path = require("path")
 
-const port = process.env.PORT || 3000;
-const RELAY_DIR = __dirname;
-const SHARED_ASSETS_DIR = path.resolve(__dirname, "..", "assets");
+const port = process.env.PORT || 3000
 
-function naturalSortKey(fileName) {
-  const base = fileName.replace(/\.[^.]+$/, "");
-  const numberMatches = base.match(/\d+/g);
-  const number = numberMatches ? Number(numberMatches[numberMatches.length - 1]) : Number.NaN;
+const RELAY_DIR = __dirname
+const ASSETS_DIR = path.resolve(__dirname, "..", "assets")
+
+// Sort files like: frame1, frame2, frame10 (not frame10 before frame2)
+function naturalSortKey(name) {
+  const base = name.replace(/\.[^.]+$/, "")
+  const match = base.match(/\d+/g)
+  const num = match ? Number(match[match.length - 1]) : NaN
+
   return {
-    hasNumber: Number.isFinite(number),
-    number,
-    name: fileName.toLowerCase(),
-  };
+    hasNumber: Number.isFinite(num),
+    number: num,
+    name: name.toLowerCase()
+  }
 }
 
-function listAssetPngs() {
-  const entries = fs.readdirSync(SHARED_ASSETS_DIR, { withFileTypes: true });
+// Return all PNG files in /assets
+function listPngs() {
+  const entries = fs.readdirSync(ASSETS_DIR, { withFileTypes: true })
+
   return entries
-    .filter((entry) => entry.isFile() && /\.png$/i.test(entry.name))
-    .map((entry) => entry.name)
+    .filter(e => e.isFile() && /\.png$/i.test(e.name))
+    .map(e => e.name)
     .sort((a, b) => {
-      const ka = naturalSortKey(a);
-      const kb = naturalSortKey(b);
+      const ka = naturalSortKey(a)
+      const kb = naturalSortKey(b)
+
       if (ka.hasNumber && kb.hasNumber && ka.number !== kb.number) {
-        return ka.number - kb.number;
+        return ka.number - kb.number
       }
+
       if (ka.hasNumber !== kb.hasNumber) {
-        return ka.hasNumber ? -1 : 1;
+        return ka.hasNumber ? -1 : 1
       }
-      return ka.name.localeCompare(kb.name);
-    });
+
+      return ka.name.localeCompare(kb.name)
+    })
 }
 
 const server = http.createServer((req, res) => {
-  let urlPath = req.url;
-  // Remove leading /relay-player/ if present
-  if (urlPath.startsWith('/relay-player/')) {
-    urlPath = urlPath.slice('/relay-player/'.length);
-  } else if (urlPath === "/") {
-    urlPath = "index.html";
+  let urlPath = req.url
+
+  // normalize path
+  if (urlPath === "/") {
+    urlPath = "index.html"
   } else if (urlPath.startsWith("/")) {
-    urlPath = urlPath.slice(1);
+    urlPath = urlPath.slice(1)
   }
 
+  // JSON index endpoint
   if (urlPath === "assets/__index__.json") {
     try {
-      const files = listAssetPngs();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ files }));
+      const files = listPngs()
+      res.writeHead(200, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ files }))
     } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Failed to list assets", detail: String(err && err.message ? err.message : err) }));
+      res.writeHead(500, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ error: "Failed to list assets" }))
     }
-    return;
+    return
   }
 
-  let filePath = null;
+  // resolve file path
+  let filePath
+
   if (urlPath.startsWith("assets/")) {
-    filePath = path.join(SHARED_ASSETS_DIR, urlPath.slice("assets/".length));
+    filePath = path.join(ASSETS_DIR, urlPath.slice("assets/".length))
   } else {
-    filePath = path.join(RELAY_DIR, urlPath);
+    filePath = path.join(RELAY_DIR, urlPath)
   }
 
-  if (!filePath.startsWith(RELAY_DIR) && !filePath.startsWith(SHARED_ASSETS_DIR)) {
-    res.writeHead(403);
-    res.end("Forbidden");
-    return;
+  // prevent escaping directories
+  if (!filePath.startsWith(RELAY_DIR) && !filePath.startsWith(ASSETS_DIR)) {
+    res.writeHead(403)
+    res.end("Forbidden")
+    return
   }
+
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      res.writeHead(404);
-      res.end("Not found");
-      return;
+      res.writeHead(404)
+      res.end("Not found")
+      return
     }
-    let ext = path.extname(filePath).toLowerCase();
-    let type = "text/plain";
-    if (ext === ".html") type = "text/html";
-    else if (ext === ".js") type = "application/javascript";
-    else if (ext === ".css") type = "text/css";
-    else if (ext === ".png") type = "image/png";
-    res.writeHead(200, { "Content-Type": type });
-    res.end(content);
-  });
-});
+
+    const ext = path.extname(filePath).toLowerCase()
+
+    const types = {
+      ".html": "text/html",
+      ".js": "application/javascript",
+      ".css": "text/css",
+      ".png": "image/png",
+      ".json": "application/json"
+    }
+
+    res.writeHead(200, {
+      "Content-Type": types[ext] || "text/plain"
+    })
+
+    res.end(content)
+  })
+})
 
 server.listen(port, () => {
-  console.log("Server running on port", port);
-});
-
-function getHoleCenter() {
-  if (relayRoot && typeof relayRoot.getBoundingClientRect === 'function') {
-    const rect = relayRoot.getBoundingClientRect();
-    return {
-      x: rect.left + (rect.width / 2),
-      y: rect.top + (rect.height / 2)
-    };
-  }
-
-  return {
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2
-  };
-}
+  console.log(`Server running at http://localhost:${port}`)
+})
