@@ -120,8 +120,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--frames-dir",
         type=Path,
-        default=Path(__file__).resolve().parent / "assets" / "final_rgba",
-        help="Directory containing input frame PNGs (default: relay-player/assets/final_rgba)",
+        default=Path(__file__).resolve().parent / "assets",
+        help="Directory containing input frame PNGs (default: relay-player/assets)",
     )
     parser.add_argument(
         "--output-dir",

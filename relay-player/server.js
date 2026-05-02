@@ -3,6 +3,37 @@ const fs = require("fs");
 const path = require("path");
 
 const port = process.env.PORT || 3000;
+const RELAY_DIR = __dirname;
+const SHARED_ASSETS_DIR = path.resolve(__dirname, "..", "assets");
+
+function naturalSortKey(fileName) {
+  const base = fileName.replace(/\.[^.]+$/, "");
+  const numberMatches = base.match(/\d+/g);
+  const number = numberMatches ? Number(numberMatches[numberMatches.length - 1]) : Number.NaN;
+  return {
+    hasNumber: Number.isFinite(number),
+    number,
+    name: fileName.toLowerCase(),
+  };
+}
+
+function listAssetPngs() {
+  const entries = fs.readdirSync(SHARED_ASSETS_DIR, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && /\.png$/i.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => {
+      const ka = naturalSortKey(a);
+      const kb = naturalSortKey(b);
+      if (ka.hasNumber && kb.hasNumber && ka.number !== kb.number) {
+        return ka.number - kb.number;
+      }
+      if (ka.hasNumber !== kb.hasNumber) {
+        return ka.hasNumber ? -1 : 1;
+      }
+      return ka.name.localeCompare(kb.name);
+    });
+}
 
 const server = http.createServer((req, res) => {
   let urlPath = req.url;
@@ -14,8 +45,27 @@ const server = http.createServer((req, res) => {
   } else if (urlPath.startsWith("/")) {
     urlPath = urlPath.slice(1);
   }
-  let filePath = path.join(__dirname, urlPath);
-  if (!filePath.startsWith(__dirname)) {
+
+  if (urlPath === "assets/__index__.json") {
+    try {
+      const files = listAssetPngs();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ files }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to list assets", detail: String(err && err.message ? err.message : err) }));
+    }
+    return;
+  }
+
+  let filePath = null;
+  if (urlPath.startsWith("assets/")) {
+    filePath = path.join(SHARED_ASSETS_DIR, urlPath.slice("assets/".length));
+  } else {
+    filePath = path.join(RELAY_DIR, urlPath);
+  }
+
+  if (!filePath.startsWith(RELAY_DIR) && !filePath.startsWith(SHARED_ASSETS_DIR)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
