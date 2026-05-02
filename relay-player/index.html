@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relay Player – Camera Through Hole</title>
 
+<link rel="icon" href="data:,">
+
 <style>
 /* =========================
    PAGE SETUP
@@ -209,8 +211,8 @@ const deepLayer = document.getElementById('deep-layer')
 const backLayer = document.getElementById('back-layer')
 const frontLayer = document.getElementById('front-layer')
    
-let isPlaying = true
-let isManualMode = true
+let isPlaying = false
+let isManualMode = false
 
 let lastTime = performance.now()
 let frameTimerMs = 0
@@ -578,23 +580,42 @@ function tick() {
   requestAnimationFrame(tick)
 }
 
-function startLoop() {
+function applyFrameTransforms() {
+  for (const f of frames) {
+    f.layer.style.transform = `translate(-50%, -50%) scale(${f.scale})`
+  }
+}
+
+async function startLoop() {
   if (frontAssets.length < 3) return
 
-  // assign first images
   frames[0].imgIndex = 0
   frames[1].imgIndex = 1
   frames[2].imgIndex = 2
 
-  // set starting sizes (depth illusion)
   frames[0].scale = 1
   frames[1].scale = 0.6
   frames[2].scale = 0.3
 
-  // load images
-  setLayerSource(frontLayer, frontAssets[0], 'front')
-  setLayerSource(backLayer, frontAssets[1], 'back')
-  setLayerSource(deepLayer, frontAssets[2], 'deep')
+  await Promise.all([
+    setLayerSource(frontLayer, frontAssets[0], 'front'),
+    setLayerSource(backLayer, frontAssets[1], 'back'),
+    setLayerSource(deepLayer, frontAssets[2], 'deep')
+  ])
 
+  applyFrameTransforms()
   tick()
 }
+
+async function init() {
+  applyLayerVisualTweaks()
+  updatePlaybackModeUI()
+  playBtn.textContent = 'Play'
+
+  await discoverFrameAssets()
+  await startLoop()
+}
+
+init().catch((err) => {
+  console.error('Relay player failed to initialize:', err)
+})

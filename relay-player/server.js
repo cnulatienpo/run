@@ -2,7 +2,7 @@ const http = require("http")
 const fs = require("fs")
 const path = require("path")
 
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3010
 
 const RELAY_DIR = __dirname
 const ASSETS_DIR = path.resolve(__dirname, "..", "assets")
@@ -63,6 +63,12 @@ const server = http.createServer((req, res) => {
       res.writeHead(500, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ error: "Failed to list assets" }))
     }
+    return
+  }
+
+  if (req.url === "/favicon.ico") {
+    res.writeHead(204)
+    res.end()
     return
   }
 
