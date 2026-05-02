@@ -35,39 +35,35 @@ body {
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  border: 6px solid #f3f3f3;
-  border-radius: 14px;
-  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.45);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-/* =========================
-   SHARED LAYERS
+/*/* =========================
+   SHARED LAYERS (ZOOM LOOP)
 ========================= */
+
 #deep-layer,
 #back-layer,
 #front-layer {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+
   width: 100%;
   height: 100%;
-  transform-origin: center center;
+
+  transform-origin: center center; /* will be overridden in JS to hole center */
+  transform: translate(-50%, -50%); /* anchor layers to center */
+
   pointer-events: none;
   object-fit: cover;
 }
 
-#deep-layer {
-  z-index: 0;
-}
-
-#back-layer {
-  z-index: 1;
-}
-
-#front-layer {
-  z-index: 2;
-  background: none;
-}
-
+#deep-layer { z-index: 0; }
+#back-layer { z-index: 1; }
+#front-layer { z-index: 2; background: none; }
 /* =========================
    DEBUG OVERLAY
 ========================= */
@@ -186,84 +182,59 @@ body {
 /* =========================
    CONFIG
 ========================= */
-const FRONT_DIR = 'assets' // PNG frames now live directly under assets/
-const DEPTH_DIR = 'assets' // using same source; back/deep are flattened to opaque at load time
-const METADATA_DIR = 'assets/json_final'
-const ENABLE_FRAME_METADATA = false
+const FRONT_DIR = 'assets'
+const DEPTH_DIR = 'assets'
+
 let frontAssets = []
 let depthAssets = []
 
 const config = {
-  playbackFps: 6,        // lower default to avoid rapid looping on tiny frame sets
-  speed: 0.35,            // zoom response (0.02 → 2)
-  pullStrength: 4.0,      // 0.5 → 10
-  startDistance: 0.8,     // 0 → 1 (kept live-configurable)
-  arrivalThreshold: 0.03, // 0.005 → 0.1
-  maxZoom: 8.0,           // minimum zoom ceiling; dynamic zoom can exceed this to pass through hole
-  feather: 30,            // 0 → 100
-  holeWidth: 380,         // 50 → 800
-  holeHeight: 250,        // 50 → 800
-  alphaThreshold1: 160,   // lower catches softer transparency
-  alphaThreshold2: 200,
-  alphaThreshold3: 230,
-  alphaThreshold4: 245,   // higher catches near-transparent pixels
-  holeMinArea: 16         // minimum connected transparent pixels
+  playbackFps: 2,     // how often frames update
+  zoomSpeed: 0.05,    // how fast frames scale up each tick
+  maxZoom: 8.0,       // when a frame is considered “done” and recycles
+
+  // temporary hole definition (replace later if you re-add detection)
+  holeWidth: 380,
+  holeHeight: 250
 }
 
 const SHOW_DEBUG = false
-const USE_SECOND_FRAME_BACKGROUND = true
-const HOLE_ALPHA_SCAN_MAX_DIMENSION = 640
-const HOLE_ALPHA_MIN_COMPONENT_AREA = 1
 
 /* =========================
    STATE
 ========================= */
 const relayRoot = document.getElementById('relay-root')
+
 const deepLayer = document.getElementById('deep-layer')
 const backLayer = document.getElementById('back-layer')
 const frontLayer = document.getElementById('front-layer')
-const debugCanvas = document.getElementById('debug-canvas')
-const debugCtx = debugCanvas.getContext('2d')
-const controlsHost = document.getElementById('controls')
-const playBtn = document.getElementById('playBtn')
-const manualModeBtn = document.getElementById('manualModeBtn')
-const nextFrameBtn = document.getElementById('nextFrameBtn')
-const copyFrontBtn = document.getElementById('copyFrontBtn')
-const alphaScanCanvas = document.createElement('canvas')
-const alphaScanCtx = alphaScanCanvas.getContext('2d', { willReadFrequently: true })
-
+   
 let isPlaying = true
-let isManualMode = false
+let isManualMode = true
+
 let lastTime = performance.now()
-let currentFrameIndex = 0
 let frameTimerMs = 0
 
-let hole = { x: 0, y: 0, width: config.holeWidth, height: config.holeHeight }
-let cameraPos = { x: 0, y: 0 }
-let zoom = 1
-let frameStartMaxDistance = 1
-const frameMetadata = new Map()
-const frameAlphaHoleCache = new Map()
-let sourceImageSize = { width: 0, height: 0 }
-let backLayerIsPatch = false
-let deepLayerIsPatch = false
-let mappingViewportSize = null
-let lockedRelayRootSize = null
+let currentFrameIndex = 0
 
 let warnedDepthMissing = false
 let isFrameSwapInFlight = false
 
+// 🎬 FRAME STATE (the real system now)
+const frames = [
+  { layer: frontLayer, scale: 1, imgIndex: 0 },
+  { layer: backLayer,  scale: 0.6, imgIndex: 1 },
+  { layer: deepLayer,  scale: 0.3, imgIndex: 2 }
+]
+
 const layerConfig = {
-  front: { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 },
-  back: { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 },
-  deep: { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 }
+  front: { opacity: 1 },
+  back:  { opacity: 1 },
+  deep:  { opacity: 1 }
 }
 
 const layerControlDefs = [
-  { key: 'opacity', label: 'opacity', min: 0, max: 1, step: 0.01 },
-  { key: 'scale', label: 'scale', min: 0.5, max: 2, step: 0.01 },
-  { key: 'offsetX', label: 'offsetX', min: -300, max: 300, step: 1 },
-  { key: 'offsetY', label: 'offsetY', min: -300, max: 300, step: 1 }
+  { key: 'opacity', label: 'opacity', min: 0, max: 1, step: 0.01 }
 ]
 
 const layerControlUI = {
@@ -271,12 +242,13 @@ const layerControlUI = {
   back: {},
   deep: {}
 }
-
+// Handle missing images gracefully
 backLayer.addEventListener('error', () => {
   if (!warnedDepthMissing) {
-    console.warn('Back-layer frame failed to load. Check DEPTH_DIR path.')
+    console.warn('Back-layer frame failed to load.')
     warnedDepthMissing = true
   }
+
   if (frontAssets.length > 0) {
     backLayer.src = frontAssets[(currentFrameIndex + 1) % frontAssets.length]
   }
@@ -288,39 +260,33 @@ deepLayer.addEventListener('error', () => {
   }
 })
 
-backLayer.addEventListener('load', () => {
-  updatePatchLayerLayouts()
-  relayRoot.style.backgroundImage = USE_SECOND_FRAME_BACKGROUND
-    ? `url(${backLayer.currentSrc || backLayer.src})`
-    : 'none'
-})
-
-deepLayer.addEventListener('load', () => {
-  updatePatchLayerLayouts()
-})
-
-frontLayer.addEventListener('load', () => {
-  if (!updateSourceImageSize()) {
-    return
-  }
-  if (!applyHoleFromMetadata(currentFrameIndex)) {
-    applyHoleFromImageAlpha(currentFrameIndex)
-  }
-})
-
-function setLayerSource(layer, src, layerName, flatten = false) {
+// Simple load confirmation (no transforms, no hole logic)
+frontLayer.addEventListener('load', () => {})
+backLayer.addEventListener('load', () => {})
+deepLayer.addEventListener('load', () => {})
+   
+function setLayerSource(layer, src, layerName) {
   const targetUrl = new URL(src, window.location.href).href
 
   return new Promise((resolve, reject) => {
     const current = layer.currentSrc || layer.src
     const currentUrl = current ? new URL(current, window.location.href).href : ''
 
+    // If already loaded, do nothing
     if (currentUrl === targetUrl && layer.complete && layer.naturalWidth > 0) {
       resolve()
       return
     }
 
     let timeoutId = null
+
+    const cleanup = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      layer.removeEventListener('load', onLoad)
+      layer.removeEventListener('error', onError)
+    }
 
     const onLoad = () => {
       cleanup()
@@ -332,44 +298,19 @@ function setLayerSource(layer, src, layerName, flatten = false) {
       reject(new Error(`${layerName} failed to load: ${targetUrl}`))
     }
 
-    const cleanup = () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId)
-      }
-      layer.removeEventListener('load', onLoad)
-      layer.removeEventListener('error', onError)
-    }
-
     layer.addEventListener('load', onLoad, { once: true })
     layer.addEventListener('error', onError, { once: true })
+
     timeoutId = window.setTimeout(() => {
       cleanup()
       reject(new Error(`${layerName} load timed out: ${targetUrl}`))
     }, 4000)
 
-    // Avoid reassigning the exact same resolved URL, which may not emit load again.
-    if (currentUrl !== targetUrl) {
-      layer.src = src
-      return
-    }
-
-    if (layer.complete && layer.naturalWidth > 0) {
-      cleanup()
-      resolve()
-      return
-    }
-
     layer.src = src
   })
 }
 
-function metadataPathForAsset(assetPath) {
-  const fileName = assetPath.split('/').pop() || ''
-  const stem = fileName.replace(/\.[^.]+$/, '')
-  return `${METADATA_DIR}/${stem}.json`
-}
-
-async function discoverFrameAssets() {
+   async function discoverFrameAssets() {
   const response = await fetch(`${FRONT_DIR}/__index__.json`)
   if (!response.ok) {
     throw new Error(`Failed to load asset index (${response.status})`)
@@ -377,339 +318,36 @@ async function discoverFrameAssets() {
 
   const payload = await response.json()
   const files = Array.isArray(payload?.files) ? payload.files : []
-  const pngFiles = files.filter((name) => typeof name === 'string' && /\.png$/i.test(name))
+
+  const pngFiles = files.filter(
+    (name) => typeof name === 'string' && /\.png$/i.test(name)
+  )
 
   if (pngFiles.length === 0) {
     throw new Error('No PNG files found in assets folder.')
   }
 
   frontAssets = pngFiles.map((name) => `${FRONT_DIR}/${name}`)
-  depthAssets = pngFiles.map((name) => `${DEPTH_DIR}/${name}`)
-  currentFrameIndex = clamp(currentFrameIndex, 0, frontAssets.length - 1)
-  frameMetadata.clear()
-  frameAlphaHoleCache.clear()
-}
+  depthAssets = frontAssets // same list for all frames
 
-function getHoleAlphaThresholds() {
-  return Array.from(new Set([
-    config.alphaThreshold1,
-    config.alphaThreshold2,
-    config.alphaThreshold3,
-    config.alphaThreshold4
-  ].map((value) => clamp(Math.round(Number(value) || 1), 1, 255)))).sort((a, b) => a - b)
-}
-
-function chooseScanSize(sourceWidth, sourceHeight) {
-  const longest = Math.max(sourceWidth, sourceHeight)
-  if (longest <= HOLE_ALPHA_SCAN_MAX_DIMENSION) {
-    return {
-      width: sourceWidth,
-      height: sourceHeight
-    }
-  }
-
-  const scale = HOLE_ALPHA_SCAN_MAX_DIMENSION / longest
-  return {
-    width: Math.max(1, Math.round(sourceWidth * scale)),
-    height: Math.max(1, Math.round(sourceHeight * scale))
-  }
-}
-
-function findHoleBBoxInAlpha(data, width, height, alphaThreshold, minArea) {
-  const visited = new Uint8Array(width * height)
-  const centerX = width / 2
-  const centerY = height / 2
-  let best = null
-
-  const stack = []
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const seed = y * width + x
-      if (visited[seed]) {
-        continue
-      }
-
-      visited[seed] = 1
-      if (data[seed * 4 + 3] > alphaThreshold) {
-        continue
-      }
-
-      let area = 0
-      let minX = x
-      let maxX = x
-      let minY = y
-      let maxY = y
-      let sumX = 0
-      let sumY = 0
-      let touchesBorder = x === 0 || y === 0 || x === width - 1 || y === height - 1
-
-      stack.push(seed)
-      while (stack.length > 0) {
-        const idx = stack.pop()
-        const cx = idx % width
-        const cy = (idx - cx) / width
-
-        area += 1
-        sumX += cx
-        sumY += cy
-        if (cx < minX) minX = cx
-        if (cx > maxX) maxX = cx
-        if (cy < minY) minY = cy
-        if (cy > maxY) maxY = cy
-        if (cx === 0 || cy === 0 || cx === width - 1 || cy === height - 1) {
-          touchesBorder = true
-        }
-
-        const neighbors = [idx - 1, idx + 1, idx - width, idx + width]
-        for (const n of neighbors) {
-          if (n < 0 || n >= width * height || visited[n]) {
-            continue
-          }
-
-          const nx = n % width
-          const ny = (n - nx) / width
-          if (Math.abs(nx - cx) + Math.abs(ny - cy) !== 1) {
-            continue
-          }
-
-          visited[n] = 1
-          if (data[n * 4 + 3] <= alphaThreshold) {
-            stack.push(n)
-          }
-        }
-      }
-
-      if (touchesBorder || area < minArea) {
-        continue
-      }
-
-      const centroidX = sumX / area
-      const centroidY = sumY / area
-      const distToCenterSq = ((centroidX - centerX) ** 2) + ((centroidY - centerY) ** 2)
-      const score = area - distToCenterSq * 0.01
-
-      if (!best || score > best.score) {
-        best = {
-          x1: minX,
-          y1: minY,
-          x2: maxX + 1,
-          y2: maxY + 1,
-          score
-        }
-      }
-    }
-  }
-
-  return best
-}
-
-function applyHoleFromSourceBBox(sourceBox) {
-  const mapped = mapSourceRectToViewport({
-    x: sourceBox.x,
-    y: sourceBox.y,
-    width: sourceBox.width,
-    height: sourceBox.height
-  })
-
-  hole.x = mapped.x
-  hole.y = mapped.y
-  hole.width = mapped.width
-  hole.height = mapped.height
-  syncRelayRootToHoleSize(false)
-  resizeDebugCanvas()
-  updatePatchLayerLayouts()
-}
-
-function applyHoleFromImageAlpha(frameIndex) {
-  const cached = frameAlphaHoleCache.get(frameIndex)
-  if (cached) {
-    applyHoleFromSourceBBox(cached)
-    return true
-  }
-
-  if (!alphaScanCtx || !frontLayer.complete || frontLayer.naturalWidth <= 0 || frontLayer.naturalHeight <= 0) {
-    return false
-  }
-
-  const sourceWidth = frontLayer.naturalWidth
-  const sourceHeight = frontLayer.naturalHeight
-  const scanSize = chooseScanSize(sourceWidth, sourceHeight)
-  alphaScanCanvas.width = scanSize.width
-  alphaScanCanvas.height = scanSize.height
-  alphaScanCtx.clearRect(0, 0, scanSize.width, scanSize.height)
-  alphaScanCtx.drawImage(frontLayer, 0, 0, scanSize.width, scanSize.height)
-
-  const imageData = alphaScanCtx.getImageData(0, 0, scanSize.width, scanSize.height)
-  const scanArea = scanSize.width * scanSize.height
-  const minArea = Math.max(
-    HOLE_ALPHA_MIN_COMPONENT_AREA,
-    Math.round(config.holeMinArea),
-    Math.floor(scanArea * 0.0002)
+  currentFrameIndex = Math.max(
+    0,
+    Math.min(currentFrameIndex, frontAssets.length - 1)
   )
-
-  let bestScanBox = null
-  for (const threshold of getHoleAlphaThresholds()) {
-    const found = findHoleBBoxInAlpha(imageData.data, scanSize.width, scanSize.height, threshold, minArea)
-    if (found) {
-      bestScanBox = found
-      break
-    }
-  }
-
-  if (!bestScanBox) {
-    return false
-  }
-
-  const scaleX = sourceWidth / scanSize.width
-  const scaleY = sourceHeight / scanSize.height
-  const sourceBox = {
-    x: Math.max(0, Math.floor(bestScanBox.x1 * scaleX)),
-    y: Math.max(0, Math.floor(bestScanBox.y1 * scaleY)),
-    width: Math.max(1, Math.ceil((bestScanBox.x2 - bestScanBox.x1) * scaleX)),
-    height: Math.max(1, Math.ceil((bestScanBox.y2 - bestScanBox.y1) * scaleY))
-  }
-
-  frameAlphaHoleCache.set(frameIndex, sourceBox)
-  applyHoleFromSourceBBox(sourceBox)
-  return true
 }
 
-function applyHoleFromAlphaCache(frameIndex) {
-  const cached = frameAlphaHoleCache.get(frameIndex)
-  if (!cached) {
-    return false
-  }
-  applyHoleFromSourceBBox(cached)
-  return true
-}
 
-function updateSourceImageSize() {
-  const w = frontLayer.naturalWidth
-  const h = frontLayer.naturalHeight
-  if (w > 0 && h > 0) {
-    sourceImageSize = { width: w, height: h }
-    return true
-  }
-  return false
-}
 
-function mapSourceRectToViewport(rect) {
-  const viewport = mappingViewportSize || getViewportSize()
-  const srcW = sourceImageSize.width
-  const srcH = sourceImageSize.height
+     
 
-  if (srcW <= 0 || srcH <= 0) {
-    return rect
-  }
 
-  // Match <img object-fit: cover> mapping from source image pixels to viewport pixels.
-  const scale = Math.max(viewport.width / srcW, viewport.height / srcH)
-  const renderedW = srcW * scale
-  const renderedH = srcH * scale
-  const offsetX = (viewport.width - renderedW) / 2
-  const offsetY = (viewport.height - renderedH) / 2
 
-  return {
-    x: rect.x * scale + offsetX,
-    y: rect.y * scale + offsetY,
-    width: rect.width * scale,
-    height: rect.height * scale
-  }
-}
 
-function syncRelayRootToHoleSize(forceFromHole = false) {
-  const viewport = getViewportSize()
-  if (viewport.width <= 0 || viewport.height <= 0) {
-    return
-  }
+  
 
-  if (forceFromHole || !lockedRelayRootSize) {
-    lockedRelayRootSize = {
-      width: viewport.width,
-      height: viewport.height
-    }
-  }
 
-  hole.width = clamp(hole.width, 1, viewport.width)
-  hole.height = clamp(hole.height, 1, viewport.height)
-  hole.x = clamp(hole.x, 0, viewport.width - hole.width)
-  hole.y = clamp(hole.y, 0, viewport.height - hole.height)
-}
 
-function updatePatchLayerLayouts() {
-  backLayerIsPatch = true
-  deepLayerIsPatch = true
 
-  const left = `${Math.round(hole.x)}px`
-  const top = `${Math.round(hole.y)}px`
-  const width = `${Math.max(1, Math.round(hole.width))}px`
-  const height = `${Math.max(1, Math.round(hole.height))}px`
-
-  backLayer.style.inset = 'auto'
-  backLayer.style.left = left
-  backLayer.style.top = top
-  backLayer.style.width = width
-  backLayer.style.height = height
-  backLayer.style.objectFit = 'cover'
-
-  deepLayer.style.inset = 'auto'
-  deepLayer.style.left = left
-  deepLayer.style.top = top
-  deepLayer.style.width = width
-  deepLayer.style.height = height
-  deepLayer.style.objectFit = 'cover'
-}
-
-function applyHoleFromMetadata(frameIndex) {
-  const meta = frameMetadata.get(frameIndex)
-  if (!meta || !meta.has_mask || !Array.isArray(meta.bbox) || meta.bbox.length !== 4) {
-    return false
-  }
-
-  const [x1, y1, x2, y2] = meta.bbox.map(Number)
-  if ([x1, y1, x2, y2].some((v) => Number.isNaN(v))) {
-    return false
-  }
-
-  applyHoleFromSourceBBox({
-    x: x1,
-    y: y1,
-    width: Math.max(1, x2 - x1),
-    height: Math.max(1, y2 - y1)
-  })
-  return true
-}
-
-async function loadFrameMetadata() {
-  if (!ENABLE_FRAME_METADATA || frontAssets.length === 0) {
-    return
-  }
-
-  const requests = frontAssets.map(async (assetPath, i) => {
-    const response = await fetch(metadataPathForAsset(assetPath))
-    if (!response.ok) {
-      return null
-    }
-    const payload = await response.json()
-    return [i, payload]
-  })
-
-  const entries = await Promise.allSettled(requests)
-  for (const entry of entries) {
-    if (entry.status !== 'fulfilled' || !entry.value) {
-      continue
-    }
-    const [idx, payload] = entry.value
-    frameMetadata.set(idx, payload)
-  }
-
-  if (frameMetadata.size > 0) {
-    applyHoleFromMetadata(currentFrameIndex)
-    return
-  }
-
-  console.warn('Frame metadata not found. Falling back to hole detection from PNG alpha.')
-}
 
 /* =========================
    UI
@@ -888,18 +526,15 @@ copyFrontBtn.onclick = () => {
 }
 
 /* =========================
-   CAMERA
+   CORE UTILS (ZOOM LOOP)
 ========================= */
+
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))
 }
 
 function lerp(a, b, t) {
   return a + (b - a) * t
-}
-
-function distance(a, b) {
-  return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
 function getViewportSize() {
@@ -909,92 +544,9 @@ function getViewportSize() {
   }
 }
 
-function getViewportCenter() {
-  const v = getViewportSize()
-  return { x: v.width / 2, y: v.height / 2 }
-}
 
-function getHoleCenter() {
-  return {
-    x: hole.x + hole.width / 2,
-    y: hole.y + hole.height / 2
-  }
-}
 
-function getSharedTransform() {
-  const center = getViewportCenter()
-  return {
-    tx: center.x - cameraPos.x,
-    ty: center.y - cameraPos.y
-  }
-}
 
-function toScreenPoint(point) {
-  const holeCenter = getHoleCenter()
-  const { tx, ty } = getSharedTransform()
-  return {
-    x: (point.x - holeCenter.x) * zoom + holeCenter.x + tx,
-    y: (point.y - holeCenter.y) * zoom + holeCenter.y + ty
-  }
-}
-
-function getScreenHoleRect() {
-  const topLeft = toScreenPoint({ x: hole.x, y: hole.y })
-  return {
-    x: topLeft.x,
-    y: topLeft.y,
-    width: hole.width * zoom,
-    height: hole.height * zoom
-  }
-}
-
-function centerHoleInViewport() {
-  hole.width = config.holeWidth
-  hole.height = config.holeHeight
-  hole.x = 0
-  hole.y = 0
-  syncRelayRootToHoleSize(true)
-}
-
-// STEP 5 requested reset
-function resetCameraToFrameStart() {
-  const holeCenter = getHoleCenter()
-  const viewportCenter = getViewportCenter()
-
-  cameraPos = {
-    x: viewportCenter.x,
-    y: viewportCenter.y
-  }
-
-  const startDistance = distance(cameraPos, holeCenter)
-  frameStartMaxDistance = Math.max(1, startDistance)
-  zoom = 1
-}
-
-function updateCamera(deltaTime) {
-  const holeCenter = getHoleCenter()
-
-  // movement
-  const t = Math.min(1, config.pullStrength * deltaTime)
-  cameraPos = {
-    x: lerp(cameraPos.x, holeCenter.x, t),
-    y: lerp(cameraPos.y, holeCenter.y, t)
-  }
-
-  // zoom by proximity (STEP 4)
-  const dist = distance(cameraPos, holeCenter)
-  const proximity = clamp(1 - dist / frameStartMaxDistance, 0, 1)
-  const viewport = getViewportSize()
-  const fitZoom = Math.max(
-    viewport.width / Math.max(1, hole.width),
-    viewport.height / Math.max(1, hole.height)
-  )
-  // Push beyond hole-fit so the camera appears to move through the hole.
-  const throughHoleZoom = Math.max(config.maxZoom, fitZoom * 1.25)
-  const targetZoom = lerp(1, throughHoleZoom, proximity)
-  const zoomLerpT = 1 - Math.exp(-config.speed * 60 * deltaTime)
-  zoom = lerp(zoom, targetZoom, zoomLerpT)
-}
 
 /* =========================
    RENDER
