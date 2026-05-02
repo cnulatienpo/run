@@ -526,220 +526,75 @@ copyFrontBtn.onclick = () => {
 }
 
 /* =========================
-   CORE UTILS (ZOOM LOOP)
+   ZOOM LOOP ENGINE (CLEAN)
 ========================= */
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v))
-}
+// how small a recycled frame starts
+const START_SCALE = 0.3
 
-function lerp(a, b, t) {
-  return a + (b - a) * t
-}
+function updateFrames(deltaTime) {
+  const speed = config.zoomSpeed
 
-function getViewportSize() {
-  return {
-    width: relayRoot.clientWidth,
-    height: relayRoot.clientHeight
+  // grow all frames
+  for (const f of frames) {
+    f.scale += speed * deltaTime * 60
+
+    // apply transform
+    f.layer.style.transform =
+      `translate(-50%, -50%) scale(${f.scale})`
+  }
+
+  // if the front frame is big enough → recycle it
+  if (frames[0].scale >= config.maxZoom) {
+    recycleFrontFrame()
   }
 }
 
+function recycleFrontFrame() {
+  const f = frames.shift() // take front frame
 
+  // reset size
+  f.scale = START_SCALE
 
+  // advance image
+  f.imgIndex = (f.imgIndex + 1) % frontAssets.length
 
+  // load new image
+  setLayerSource(f.layer, frontAssets[f.imgIndex], 'recycled')
 
-/* =========================
-   RENDER
-========================= */
-async function syncLayers() {
-  if (frontAssets.length === 0 || depthAssets.length === 0) {
-    return
-  }
-
-  // front keeps alpha cutout
-  const backIndex = (currentFrameIndex + 1) % depthAssets.length
-  const deepIndex = (currentFrameIndex + 2) % depthAssets.length
-
-  // Show the second frame behind the hole immediately, even while layer loads are in flight.
-  relayRoot.style.backgroundImage = USE_SECOND_FRAME_BACKGROUND
-    ? `url(${depthAssets[backIndex]})`
-    : 'none'
-
-  await Promise.all([
-    setLayerSource(frontLayer, frontAssets[currentFrameIndex], 'front-layer'),
-    setLayerSource(backLayer, depthAssets[backIndex], 'back-layer'),
-    setLayerSource(deepLayer, depthAssets[deepIndex], 'deep-layer')
-  ])
+  // send to back
+  frames.push(f)
 }
 
-async function advanceImages() {
-  if (isFrameSwapInFlight || frontAssets.length === 0) {
-    return
-  }
-
-  isFrameSwapInFlight = true
-  currentFrameIndex = (currentFrameIndex + 1) % frontAssets.length
-  if (!applyHoleFromMetadata(currentFrameIndex)) {
-    applyHoleFromAlphaCache(currentFrameIndex)
-  }
-  resetCameraToFrameStart()
-  try {
-    await syncLayers()
-  } catch (err) {
-    console.warn(err)
-  } finally {
-    isFrameSwapInFlight = false
-  }
-}
-
-function applySharedTransform() {
-  const { tx, ty } = getSharedTransform()
-  const holeCenter = getHoleCenter()
-
-  const shared = `translate(${tx}px, ${ty}px) scale(${zoom})`
-  const frontTransform = `${shared} translate(${layerConfig.front.offsetX}px, ${layerConfig.front.offsetY}px) scale(${layerConfig.front.scale})`
-  const backTransform = `${shared} translate(${layerConfig.back.offsetX}px, ${layerConfig.back.offsetY}px) scale(${layerConfig.back.scale})`
-  const deepTransform = `${shared} translate(${layerConfig.deep.offsetX}px, ${layerConfig.deep.offsetY}px) scale(${layerConfig.deep.scale})`
-
-  deepLayer.style.transformOrigin = deepLayerIsPatch ? '50% 50%' : `${holeCenter.x}px ${holeCenter.y}px`
-  backLayer.style.transformOrigin = backLayerIsPatch ? '50% 50%' : `${holeCenter.x}px ${holeCenter.y}px`
-  frontLayer.style.transformOrigin = `${holeCenter.x}px ${holeCenter.y}px`
-
-  deepLayer.style.transform = deepTransform
-  backLayer.style.transform = backTransform
-  frontLayer.style.transform = frontTransform
-}
-
-function applyFeatherMask() {
-  frontLayer.style.maskImage = 'none'
-  frontLayer.style.webkitMaskImage = 'none'
-}
-
-function resizeDebugCanvas() {
-  const dpr = window.devicePixelRatio || 1
-  const w = relayRoot.clientWidth
-  const h = relayRoot.clientHeight
-  debugCanvas.width = Math.floor(w * dpr)
-  debugCanvas.height = Math.floor(h * dpr)
-  debugCanvas.style.width = `${w}px`
-  debugCanvas.style.height = `${h}px`
-  debugCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
-}
-
-function renderDebug() {
-  if (!SHOW_DEBUG) {
-    debugCtx.clearRect(0, 0, relayRoot.clientWidth, relayRoot.clientHeight)
-    return
-  }
-
-  const w = relayRoot.clientWidth
-  const h = relayRoot.clientHeight
-  debugCtx.clearRect(0, 0, w, h)
-
-  const screenHole = getScreenHoleRect()
-  const holeCenterScreen = toScreenPoint(getHoleCenter())
-  const cameraScreen = toScreenPoint(cameraPos)
-
-  // hole rectangle
-  debugCtx.strokeStyle = '#00e5ff'
-  debugCtx.lineWidth = 1.5
-  debugCtx.strokeRect(screenHole.x, screenHole.y, screenHole.width, screenHole.height)
-
-  // hole center
-  debugCtx.fillStyle = '#00e5ff'
-  debugCtx.beginPath()
-  debugCtx.arc(holeCenterScreen.x, holeCenterScreen.y, 4, 0, Math.PI * 2)
-  debugCtx.fill()
-
-  // camera position
-  debugCtx.fillStyle = '#ff4d4d'
-  debugCtx.beginPath()
-  debugCtx.arc(cameraScreen.x, cameraScreen.y, 4, 0, Math.PI * 2)
-  debugCtx.fill()
-
-  // line from camera to hole
-  debugCtx.strokeStyle = 'rgba(255,77,77,0.7)'
-  debugCtx.beginPath()
-  debugCtx.moveTo(cameraScreen.x, cameraScreen.y)
-  debugCtx.lineTo(holeCenterScreen.x, holeCenterScreen.y)
-  debugCtx.stroke()
-}
-
-/* =========================
-   LOOP
-========================= */
-function animate(now) {
-  const deltaMs = Math.max(0, now - lastTime)
+function tick() {
+  const now = performance.now()
+  const dt = (now - lastTime) / 1000
   lastTime = now
-  const deltaTime = deltaMs / 1000
 
-  updateCamera(deltaTime)
-  applySharedTransform()
-  applyFeatherMask()
-
-  if (isPlaying && !isManualMode) {
-    frameTimerMs += deltaMs
-    const frameDurationMs = 1000 / Math.max(1, config.playbackFps)
-    if (frameTimerMs >= frameDurationMs && !isFrameSwapInFlight) {
-      void advanceImages()
-      frameTimerMs -= frameDurationMs
-      frameTimerMs = Math.min(frameTimerMs, frameDurationMs)
-    }
+  if (isPlaying) {
+    updateFrames(dt)
   }
 
-  renderDebug()
-  requestAnimationFrame(animate)
+  requestAnimationFrame(tick)
 }
 
-/* =========================
-   INIT
-========================= */
-async function loadInitialImages() {
-  if (frontAssets.length === 0) {
-    return
-  }
+function startLoop() {
+  if (frontAssets.length < 3) return
 
-  updateSourceImageSize()
-  if (!applyHoleFromMetadata(currentFrameIndex)) {
-    applyHoleFromAlphaCache(currentFrameIndex)
-  }
-  await syncLayers()
+  // assign first images
+  frames[0].imgIndex = 0
+  frames[1].imgIndex = 1
+  frames[2].imgIndex = 2
+
+  // set starting sizes (depth illusion)
+  frames[0].scale = 1
+  frames[1].scale = 0.6
+  frames[2].scale = 0.3
+
+  // load images
+  setLayerSource(frontLayer, frontAssets[0], 'front')
+  setLayerSource(backLayer, frontAssets[1], 'back')
+  setLayerSource(deepLayer, frontAssets[2], 'deep')
+
+  tick()
 }
-
-function init() {
-  mappingViewportSize = getViewportSize()
-  createControls()
-  applyLayerVisualTweaks()
-  centerHoleInViewport()
-  resizeDebugCanvas()
-  debugCanvas.style.display = SHOW_DEBUG ? 'block' : 'none'
-  updatePlaybackModeUI()
-
-  discoverFrameAssets()
-    .then(() => loadFrameMetadata())
-    .catch((err) => {
-      console.warn('Failed to load frame discovery index. Falling back to hole detection from PNG alpha.', err)
-    })
-    .finally(() => {
-      loadInitialImages()
-        .catch((err) => {
-          console.warn('Initial layer load failed.', err)
-        })
-        .finally(() => {
-          resetCameraToFrameStart()
-          requestAnimationFrame(animate)
-        })
-    })
-}
-
-window.addEventListener('resize', () => {
-  resizeDebugCanvas()
-  syncRelayRootToHoleSize()
-  updatePatchLayerLayouts()
-})
-
-init()
-</script>
-
-</body>
-</html>
