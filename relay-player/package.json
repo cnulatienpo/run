@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "build:hole-metadata": "../.venv/bin/python build_frame_hole_metadata.py",
-    "build:hole-metadata:debug": "../.venv/bin/python build_frame_hole_metadata.py --write-debug-images"
+    "start": "node server.js"
   }
 }
