@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Two-Layer Relay Player (Restored Baseline)</title>
+  <title>Three-Layer Relay Player</title>
   <style>
     html,
     body {
@@ -37,19 +37,16 @@
       background: transparent;
     }
 
-    .active {
-      z-index: 2;
-    }
-
-    .next {
-      z-index: 1;
-    }
+    .front { z-index: 3; }
+    .back { z-index: 2; }
+    .deep { z-index: 1; }
   </style>
 </head>
 <body>
   <div id="stage">
-    <img id="layer-a" class="relay-layer" alt="Relay layer A" draggable="false" />
-    <img id="layer-b" class="relay-layer" alt="Relay layer B" draggable="false" />
+    <img id="layer-front" class="relay-layer" alt="Front layer" draggable="false" />
+    <img id="layer-back" class="relay-layer" alt="Back layer" draggable="false" />
+    <img id="layer-deep" class="relay-layer" alt="Deep layer" draggable="false" />
   </div>
 
   <script>
@@ -78,14 +75,14 @@
       return `relay-player/assets/pngs/final_rgba/f_${index}.png`;
     });
 
-    const layerA = { el: document.getElementById('layer-a') };
-    const layerB = { el: document.getElementById('layer-b') };
+    const layers = [
+      { el: document.getElementById('layer-front'), scale: 1.0, role: 'front' },
+      { el: document.getElementById('layer-back'), scale: 0.68, role: 'back' },
+      { el: document.getElementById('layer-deep'), scale: 0.42, role: 'deep' }
+    ];
+    const relayRoot = document.getElementById('stage');
 
-    let activeLayer = layerA;
-    let nextLayer = layerB;
-
-    let scale = 1;
-    const maxScale = 6;
+    const PASS_SCALE = 2.35;
     const scaleSpeedPerSecond = 0.85;
 
     let assetIndex = 0;
@@ -97,7 +94,8 @@
     }
 
     function setRole(layer, role) {
-      layer.el.classList.remove('active', 'next');
+      layer.role = role;
+      layer.el.classList.remove('front', 'back', 'deep');
       layer.el.classList.add(role);
     }
 
@@ -107,18 +105,38 @@
       console.log(`[relay] ${layer.el.id} <= ${src}`);
     }
 
-    function resetAsNext(layer) {
-      layer.el.style.transform = 'scale(1)';
-      setRole(layer, 'next');
-      loadAsset(layer);
+    function applyLayerTransform(layer) {
+      layer.el.style.transformOrigin = '50% 50%';
+      const centerX = relayRoot.clientWidth / 2;
+      const centerY = relayRoot.clientHeight / 2;
+      const holeX = layer.hole?.x ?? centerX;
+      const holeY = layer.hole?.y ?? centerY;
+      const dx = centerX - holeX;
+      const dy = centerY - holeY;
+      const t = Math.max(0, Math.min(1, (layer.scale - 1) / (PASS_SCALE - 1)));
+      const offsetX = dx * t;
+      const offsetY = dy * t;
+      layer.el.style.transform = `translate(calc(-50% + ${offsetX.toFixed(2)}px), calc(-50% + ${offsetY.toFixed(2)}px)) scale(${layer.scale.toFixed(4)})`;
     }
 
-    // Initial state
-    loadAsset(activeLayer);
-    setRole(activeLayer, 'active');
-    activeLayer.el.style.transform = 'scale(1)';
+    function recycleFront() {
+      const front = layers.find((l) => l.role === 'front');
+      const back = layers.find((l) => l.role === 'back');
+      const deep = layers.find((l) => l.role === 'deep');
 
-    resetAsNext(nextLayer);
+      setRole(front, 'deep');
+      front.scale = 0.42;
+      loadAsset(front);
+
+      setRole(back, 'front');
+      setRole(deep, 'back');
+    }
+
+    layers.forEach((layer) => {
+      loadAsset(layer);
+      setRole(layer, layer.role);
+      applyLayerTransform(layer);
+    });
 
     let previousTime = performance.now();
 
@@ -126,17 +144,13 @@
       const dt = (now - previousTime) / 1000;
       previousTime = now;
 
-      scale += scaleSpeedPerSecond * dt;
-      activeLayer.el.style.transform = `scale(${scale.toFixed(4)})`;
+      layers.forEach((layer) => {
+        layer.scale += scaleSpeedPerSecond * dt;
+        applyLayerTransform(layer);
+      });
 
-      if (scale >= maxScale) {
-        [activeLayer, nextLayer] = [nextLayer, activeLayer];
-
-        setRole(activeLayer, 'active');
-        scale = 1;
-        activeLayer.el.style.transform = 'scale(1)';
-
-        resetAsNext(nextLayer);
+      if (layers.find((l) => l.role === 'front').scale >= PASS_SCALE) {
+        recycleFront();
       }
 
       requestAnimationFrame(frame);
