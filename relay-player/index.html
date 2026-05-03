@@ -29,17 +29,18 @@ body {
 ========================= */
 #relay-root {
   position: relative;
-  width: min(96vw, 1600px);
-  height: min(72vw, 1200px);
+  width: min(48vw, 800px);
+  height: min(36vw, 600px);
   aspect-ratio: 4 / 3;
   overflow: hidden;
   background-color: #0d0d0d00;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  border: 3px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }
 
 /*/* =========================
@@ -92,6 +93,11 @@ body {
   background: rgba(35, 36, 34, 0.72);
   color: #eee;
   backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+#control-panel * {
+  pointer-events: auto;
 }
 
 #control-panel h3 {
@@ -101,11 +107,15 @@ body {
 }
 
 #playBtn {
+  display: block;
   width: 100%;
   margin-bottom: 8px;
   padding: 6px 10px;
   border: 0;
   border-radius: 6px;
+  background: #25a252;
+  color: #fff;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -173,7 +183,7 @@ body {
 
 <div id="control-panel">
   <h3>Relay Controls</h3>
-  <button id="playBtn">Pause</button>
+  <button id="playBtn">Play</button>
   <button id="manualModeBtn">Mode: Auto</button>
   <button id="nextFrameBtn" disabled>Next Frame</button>
   <button id="copyFrontBtn">Copy Front -> Back + Deep</button>
@@ -202,10 +212,17 @@ const config = {
 
 const SHOW_DEBUG = false
 
+const frameMetadataCache = new Map()
+
 /* =========================
    STATE
 ========================= */
 const relayRoot = document.getElementById('relay-root')
+const controlsHost = document.getElementById('controls')
+const playBtn = document.getElementById('playBtn')
+const manualModeBtn = document.getElementById('manualModeBtn')
+const nextFrameBtn = document.getElementById('nextFrameBtn')
+const copyFrontBtn = document.getElementById('copyFrontBtn')
 
 const deepLayer = document.getElementById('deep-layer')
 const backLayer = document.getElementById('back-layer')
@@ -244,6 +261,65 @@ const layerControlUI = {
   back: {},
   deep: {}
 }
+
+function getFrameNameFromIndex(frameIndex) {
+  const src = frontAssets[frameIndex]
+  if (!src) {
+    return null
+  }
+
+  const fileName = src.split('/').pop()
+  return fileName ? fileName.replace(/\.png$/i, '') : null
+}
+
+async function loadFrameMetadata(frameIndex) {
+  const frameName = getFrameNameFromIndex(frameIndex)
+  if (!frameName) {
+    return null
+  }
+
+  if (frameMetadataCache.has(frameName)) {
+    return frameMetadataCache.get(frameName)
+  }
+
+  const metadataPath = `${FRONT_DIR}/json_final/${frameName}.json`
+
+  try {
+    const response = await fetch(metadataPath)
+    if (!response.ok) {
+      frameMetadataCache.set(frameName, null)
+      return null
+    }
+
+    const metadata = await response.json()
+    frameMetadataCache.set(frameName, metadata)
+    return metadata
+  } catch (err) {
+    console.warn(`Failed to load frame metadata for ${frameName}:`, err)
+    frameMetadataCache.set(frameName, null)
+    return null
+  }
+}
+
+async function applyLayerTransformOrigin(layer, frameIndex) {
+  const metadata = await loadFrameMetadata(frameIndex)
+  const centroid = metadata?.centroid
+
+  if (!centroid || !layer.naturalWidth || !layer.naturalHeight) {
+    layer.style.transformOrigin = 'center center'
+    return
+  }
+
+  const xPercent = (Number(centroid.x) / layer.naturalWidth) * 100
+  const yPercent = (Number(centroid.y) / layer.naturalHeight) * 100
+
+  layer.style.transformOrigin = `${xPercent}% ${yPercent}%`
+}
+
+async function syncFrameTransformOrigins() {
+  await Promise.all(frames.map((frame) => applyLayerTransformOrigin(frame.layer, frame.imgIndex)))
+}
+
 // Handle missing images gracefully
 backLayer.addEventListener('error', () => {
   if (!warnedDepthMissing) {
@@ -395,28 +471,8 @@ function createControls() {
     input.value = String(config[def.key])
 
     input.addEventListener('input', () => {
-      const prevCenter = getHoleCenter()
       config[def.key] = Number(input.value)
       value.textContent = formatValue(config[def.key])
-
-      if (def.key === 'holeWidth' || def.key === 'holeHeight') {
-        hole.width = config.holeWidth
-        hole.height = config.holeHeight
-        // keep same center while resizing before pinning to local space
-        hole.x = prevCenter.x - hole.width / 2
-        hole.y = prevCenter.y - hole.height / 2
-        syncRelayRootToHoleSize(true)
-        resizeDebugCanvas()
-        updatePatchLayerLayouts()
-        return
-      }
-
-      if (def.key.startsWith('alphaThreshold') || def.key === 'holeMinArea') {
-        frameAlphaHoleCache.clear()
-        if (!applyHoleFromMetadata(currentFrameIndex)) {
-          applyHoleFromImageAlpha(currentFrameIndex)
-        }
-      }
     })
 
     row.appendChild(label)
@@ -562,7 +618,11 @@ function recycleFrontFrame() {
   f.imgIndex = (f.imgIndex + 1) % frontAssets.length
 
   // load new image
-  setLayerSource(f.layer, frontAssets[f.imgIndex], 'recycled')
+  void setLayerSource(f.layer, frontAssets[f.imgIndex], 'recycled')
+    .then(() => applyLayerTransformOrigin(f.layer, f.imgIndex))
+    .catch((err) => {
+      console.warn('Recycled layer failed to update transform origin:', err)
+    })
 
   // send to back
   frames.push(f)
@@ -603,6 +663,7 @@ async function startLoop() {
     setLayerSource(deepLayer, frontAssets[2], 'deep')
   ])
 
+  await syncFrameTransformOrigins()
   applyFrameTransforms()
   tick()
 }
@@ -619,3 +680,4 @@ async function init() {
 init().catch((err) => {
   console.error('Relay player failed to initialize:', err)
 })
+</script>
