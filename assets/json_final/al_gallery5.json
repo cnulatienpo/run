@@ -1,0 +1,17 @@
+{
+  "frame_index": 1,
+  "frame_name": "al_gallery5",
+  "bbox": [
+    389,
+    704,
+    417,
+    758
+  ],
+  "has_mask": true,
+  "centroid": {
+    "x": 402.5,
+    "y": 730.5
+  },
+  "area": 1512,
+  "backend": "scipy"
+}

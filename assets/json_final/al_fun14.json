@@ -1,0 +1,17 @@
+{
+  "frame_index": 0,
+  "frame_name": "al_fun14",
+  "bbox": [
+    383,
+    644,
+    424,
+    685
+  ],
+  "has_mask": true,
+  "centroid": {
+    "x": 403.0,
+    "y": 664.0
+  },
+  "area": 1681,
+  "backend": "scipy"
+}

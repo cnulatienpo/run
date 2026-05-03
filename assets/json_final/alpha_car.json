@@ -1,0 +1,17 @@
+{
+  "frame_index": 4,
+  "frame_name": "alpha_car",
+  "bbox": [
+    377,
+    653,
+    411,
+    676
+  ],
+  "has_mask": true,
+  "centroid": {
+    "x": 393.46891191709847,
+    "y": 664.1424870466321
+  },
+  "area": 772,
+  "backend": "scipy"
+}
